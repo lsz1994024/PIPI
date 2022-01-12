@@ -150,7 +150,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                 }
             }
 
-            // Calculate Score for PTM free peptide
+            // Calculate Score for PTM free peptide  for PTM free score is calXcorr score, for PTM only score is PTM score
             for (Peptide peptide : search.getPTMFreeResult()) {
                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL);
                 if (score > 0) {
@@ -186,7 +186,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                     int isotopeCorrectionNum = sqlResultSet.getInt("isotopeCorrectionNum");
                     double ms1PearsonCorrelationCoefficient = sqlResultSet.getDouble("ms1PearsonCorrelationCoefficient");
 
-                    double deltaLCn = 1;
+                    double deltaLCn = 1; // L means the last?
                     if (peptideArray.length > 4) {
                         deltaLCn = (peptideArray[0].getScore() - peptideArray[4].getScore()) / peptideArray[0].getScore();
                     }
@@ -206,8 +206,13 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                         }
                         otherPtmPatterns = String.join(";", tempList);
                     }
-
-                    Entry entry = new Entry(scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore());
+                    List<PepWithScore> candidatesList = search.candidatesList;
+                    Collections.sort(candidatesList);
+                    String candidatesString = "";
+                    for (PepWithScore pS : candidatesList) {
+                        candidatesString += pS.pepSeq + "," + pS.score + "," + pS.isDecoy + "," + pS.hasPTM + "," + pS.proteins + ",";
+                    }
+                    Entry entry = new Entry(scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), candidatesString.substring(0,candidatesString.length()-1));
 
                     sqlResultSet.close();
                     sqlStatement.close();
@@ -248,8 +253,9 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         final double explainedAaFrac;
         final String otherPtmPatterns; // It has 4 decimal because it is write the the result file for checking. It is not used in scoring or other purpose.
         final String aScore;
+        final String candidates;
 
-        Entry(int scanNum, String scanId, int precursorCharge, double precursorMass, String mgfTitle, int isotopeCorrectionNum, double ms1PearsonCorrelationCoefficient, String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac, double explainedAaFrac, String otherPtmPatterns, String aScore) {
+        Entry(int scanNum, String scanId, int precursorCharge, double precursorMass, String mgfTitle, int isotopeCorrectionNum, double ms1PearsonCorrelationCoefficient, String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac, double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates) {
             this.scanNum = scanNum;
             this.scanId = scanId;
             this.precursorCharge = precursorCharge;
@@ -272,6 +278,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             this.explainedAaFrac = explainedAaFrac;
             this.otherPtmPatterns = otherPtmPatterns;
             this.aScore = aScore;
+            this.candidates = candidates;
         }
     }
 }

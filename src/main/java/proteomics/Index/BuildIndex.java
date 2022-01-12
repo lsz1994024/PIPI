@@ -258,7 +258,7 @@ public class BuildIndex {
 
     private boolean isTarget(Collection<String> proteinIds) {
         for (String protein : proteinIds) {
-            if (protein.startsWith("DECOY_")) {
+            if (protein.startsWith("DECOY_")) { //????? why one decoy means it is not target
                 return false;
             }
         }

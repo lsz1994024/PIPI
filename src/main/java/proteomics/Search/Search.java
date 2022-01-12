@@ -29,7 +29,7 @@ public class Search {
 
     private List<Peptide> ptmOnlyResult = new LinkedList<>();
     private List<Peptide> ptmFreeResult = new LinkedList<>();
-
+    public List<PepWithScore> candidatesList = new LinkedList<>();
 
     public Search(BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge) {
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
@@ -116,10 +116,29 @@ public class Search {
                 }
             }
         }
+        if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
+            mergeResult(ptmFreeQueue, ptmOnlyQueue, peptide0Map);
+        }
 
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
             ptmFreeResult = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
             ptmOnlyResult = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+        }
+    }
+
+    private void mergeResult(PriorityQueue<ResultEntry> ptmFreeQueue, PriorityQueue<ResultEntry> ptmOnlyQueue, Map<String, Peptide0> peptide0Map) {
+        if (!ptmFreeQueue.isEmpty()) {
+            for (ResultEntry temp : ptmFreeQueue){
+                Peptide0 pep0 = peptide0Map.get(temp.peptide);
+                candidatesList.add(new PepWithScore(temp.peptide, temp.score, temp.isDecoy(), false, String.join("_", pep0.proteins)));
+            }
+        }
+
+        if (!ptmOnlyQueue.isEmpty()) {
+            for (ResultEntry temp : ptmOnlyQueue){
+                Peptide0 pep0 = peptide0Map.get(temp.peptide);
+                candidatesList.add(new PepWithScore(temp.peptide, temp.score, temp.isDecoy(), true, String.join("_", pep0.proteins)));
+            }
         }
     }
 
