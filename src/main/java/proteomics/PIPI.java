@@ -144,6 +144,7 @@ public class PIPI {
         logger.info("Indexing protein database...");
         BuildIndex buildIndex = new BuildIndex(parameterMap, labelling, true, parameterMap.get("add_decoy").contentEquals("1"), parameterMap.get("add_contaminant").contentEquals("1"));
         MassTool massTool = buildIndex.returnMassTool();
+        System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
         logger.info("Reading spectra...");
@@ -180,20 +181,21 @@ public class PIPI {
         ArrayList<Future<PIPIWrap.Entry>> taskList = new ArrayList<>(preSpectra.getUsefulSpectraNum() + 10);
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanId, precursorCharge, precursorMass FROM spectraTable");
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanId, scanNum, precursorCharge, precursorMass FROM spectraTable");
         ReentrantLock lock = new ReentrantLock();
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
         while (sqlResultSet.next()) {
             String scanId = sqlResultSet.getString("scanId");
+            int scanNum = sqlResultSet.getInt("scanNum");
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
-            taskList.add(threadPool.submit(new PIPIWrap(buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
+            taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
         }
         sqlResultSet.close();
         sqlStatement.close();
 
         // check progress every minute, record results,and delete finished tasks.
-        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConnection.setAutoCommit(false);
         int lastProgress = 0;
         int resultCount = 0;
@@ -229,6 +231,7 @@ public class PIPI {
                         sqlPreparedStatement.setString(21, entry.otherPtmPatterns);
                         sqlPreparedStatement.setString(22, entry.aScore);
                         sqlPreparedStatement.setString(23, entry.candidates);
+                        sqlPreparedStatement.setString(24, entry.peptideSet);
                         sqlPreparedStatement.executeUpdate();
                         ++resultCount;
                     }
@@ -364,9 +367,32 @@ public class PIPI {
             System.exit(1);
         }
 
-        sqlResultSet.close();
-        sqlStatement.close();
-        sqlConnection.close();
+        sqlResultSet2.close();
+        sqlStatement2.close();
+        sqlConnection2.close();
+
+        Connection sqlConnection3 = DriverManager.getConnection(sqlPath);
+        Statement sqlStatement3 = sqlConnection3.createStatement();
+        ResultSet sqlResultSet3 = sqlStatement3.executeQuery("SELECT scanNum, peptideSet FROM spectraTable");
+        String candisWithPTMXcorrPath = "Chick9268Candis20WithPTMXcorr.csv";
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(candisWithPTMXcorrPath))) {
+            writer.write("scanNo,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
+            while (sqlResultSet3.next()) {
+                int scanNum = sqlResultSet3.getInt("scanNum");
+                String peptideSet = sqlResultSet3.getString("peptideSet");
+                if (!sqlResultSet3.wasNull()) {
+                    writer.write(scanNum + "," + peptideSet +"\n");
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            logger.error(ex.getMessage());
+            System.exit(1);
+        }
+
+        sqlResultSet3.close();
+        sqlStatement3.close();
+        sqlConnection3.close();
     }
     private void writePercolator(String resultPath, Map<String, Peptide0> peptide0Map, String sqlPath) throws IOException, SQLException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath));
