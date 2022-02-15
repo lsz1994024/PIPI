@@ -195,7 +195,7 @@ public class PIPI {
         sqlStatement.close();
 
         // check progress every minute, record results,and delete finished tasks.
-        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConnection.setAutoCommit(false);
         int lastProgress = 0;
         int resultCount = 0;
@@ -232,6 +232,7 @@ public class PIPI {
                         sqlPreparedStatement.setString(22, entry.aScore);
                         sqlPreparedStatement.setString(23, entry.candidates);
                         sqlPreparedStatement.setString(24, entry.peptideSet);
+                        sqlPreparedStatement.setInt(25, entry.whereIsTopCand);
                         sqlPreparedStatement.executeUpdate();
                         ++resultCount;
                     }
@@ -278,7 +279,7 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        writeTop20Candidates(sqlPath);
+        writeTop20Candidates(sqlPath, spectraPath);
         writePercolator(percolatorInputFileName, buildIndex.getPeptide0Map(), sqlPath);
         Map<Integer, PercolatorEntry> percolatorResultMap = null;
 
@@ -319,22 +320,22 @@ public class PIPI {
         System.exit(1);
     }
 
-    private void writeTop20Candidates(String sqlPath) throws IOException, SQLException {
+    private void writeTop20Candidates(String sqlPath, String spectraPath) throws IOException, SQLException {
         System.out.println("PFM starts");
-
-
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates FROM spectraTable");
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates, whereIsTopCand FROM spectraTable");
 
-        String resultPath = "Chick9268.csv";
+        String resultPath = spectraPath + "Chick9268.csv";
+//        String resultPath = spectraPath + "So70S.csv";
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath))) {
-            writer.write("scanNo,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
+            writer.write("scanNo,whereIsTopCand,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
             while (sqlResultSet.next()) {
                 int scanNum = sqlResultSet.getInt("scanNum");
+                int whereIsTopCand = sqlResultSet.getInt("whereIsTopCand");
                 String candidatesList = sqlResultSet.getString("candidates");
                 if (!sqlResultSet.wasNull()) {
-                    writer.write(scanNum + "," + candidatesList + "\n");
+                    writer.write(scanNum + "," + whereIsTopCand + "," + candidatesList + "\n");
                 }
             }
         } catch (IOException ex) {
@@ -349,7 +350,8 @@ public class PIPI {
         Connection sqlConnection2 = DriverManager.getConnection(sqlPath);
         Statement sqlStatement2 = sqlConnection2.createStatement();
         ResultSet sqlResultSet2 = sqlStatement2.executeQuery("SELECT scanNum, peptide, isDecoy, score FROM spectraTable");
-        String noPercoPath = "Chick9268TopNoPerco.csv";
+        String noPercoPath = spectraPath + "Chick9268TopNoPerco.csv";
+//        String noPercoPath = spectraPath + "So70STopNoPerco.csv";
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(noPercoPath))) {
             writer.write("scanNo,pep1,s1,b1,m1,p1\n");
             while (sqlResultSet2.next()) {
@@ -374,7 +376,8 @@ public class PIPI {
         Connection sqlConnection3 = DriverManager.getConnection(sqlPath);
         Statement sqlStatement3 = sqlConnection3.createStatement();
         ResultSet sqlResultSet3 = sqlStatement3.executeQuery("SELECT scanNum, peptideSet FROM spectraTable");
-        String candisWithPTMXcorrPath = "Chick9268Candis20WithPTMXcorr.csv";
+        String candisWithPTMXcorrPath = spectraPath + "Chick9268Candis20WithPTMXcorr.csv";
+//        String candisWithPTMXcorrPath = spectraPath + "So70SCandis20WithPTMXcorr.csv";
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(candisWithPTMXcorrPath))) {
             writer.write("scanNo,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
             while (sqlResultSet3.next()) {
