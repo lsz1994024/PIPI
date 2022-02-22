@@ -1,6 +1,5 @@
 *.class
 
-
 # Package Files #
 *.war
 *.ear
@@ -20,9 +19,7 @@ target
 *.temp.db
 *.temp.db-shm
 *.temp.db-wal
-*.fasta
 *.csv
-*.tsv
 *.xlsx
 *.temp
 *.mgf
