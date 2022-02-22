@@ -39,6 +39,7 @@ public class Peptide implements Comparable<Peptide> {
     private PositionDeltaMassMap varPTMMap = null;
     private double theoMass = -1;
     private double[][] ionMatrix = null;
+    private double[][] theoIonMatrix = null;
     private double[] chargeOneBIonArray = null;
     private String varPtmContainingSeq = null;
 
@@ -77,6 +78,16 @@ public class Peptide implements Comparable<Peptide> {
             chargeOneBIonArray = ionMatrix[0];
         }
         return ionMatrix;
+    }
+
+    public double[][] getTheoIonMatrix() {
+        if (theoIonMatrix == null) {
+            varPtmContainingSeq = getVarPtmContainingSeq();
+            theoIonMatrix = massTool.buildTheoBYIonsArray(varPtmContainingSeq, 1);
+            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
+            chargeOneBIonArray = theoIonMatrix[0];
+        }
+        return theoIonMatrix;
     }
 
     public String getNormalizedPeptideString() {

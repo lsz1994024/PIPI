@@ -129,18 +129,18 @@ public class InferSegment {
     }
 
     public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> plMap, int scanNum) throws Exception {
-        if (scanNum == 188211) {
-            TreeMap<Double, Double> tempPlMap = addVirtualPeaks(precursorMass, plMap);
-            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
-            for (Map.Entry<Double, Double> entry : tempPlMap.entrySet()) {
-                System.out.print(","+entry.getKey());
-            }
-            System.out.println("])");
-
-            System.out.print("intensities = np.array([1,1");
-            for (Map.Entry<Double, Double> entry : tempPlMap.entrySet()) {
-                System.out.print(","+entry.getValue());
-            }
+        if (scanNum == 1882) {
+//            TreeMap<Double, Double> tempPlMap = addVirtualPeaks(precursorMass, plMap);
+//            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
+//            for (Map.Entry<Double, Double> entry : tempPlMap.entrySet()) {
+//                System.out.print(","+entry.getKey());
+//            }
+//            System.out.println("])");
+//
+//            System.out.print("intensities = np.array([1,1");
+//            for (Map.Entry<Double, Double> entry : tempPlMap.entrySet()) {
+//                System.out.print(","+entry.getValue());
+//            }
             System.out.println("])");
         }
         return inferThreeAAFromSpectrum(addVirtualPeaks(precursorMass, plMap), precursorMass - massTool.H2O + MassTool.PROTON);
@@ -361,9 +361,9 @@ public class InferSegment {
                 temp = plMap.subMap(leftMz, true, rightMz, true);
             } catch (IllegalArgumentException ex) {}
 
-            if ((temp == null) || (temp.isEmpty())) {
-                finalPlMap.put(anotherMz, plMap.get(mz));
-            }
+//            if ((temp == null) || (temp.isEmpty())) {
+//                finalPlMap.put(anotherMz, plMap.get(mz));
+//            }
         }
 
         // Add two virtual peak. Because we have convert all y-ions to b-ions.
@@ -378,7 +378,10 @@ public class InferSegment {
         if ((temp == null) || (temp.isEmpty())) {
             finalPlMap.put(cTermMz, 1d);
         }
+        finalPlMap.put(19.017841109504626, 1d);
 
+
+        //shouldDoMyDeisotope
         return finalPlMap;
     }
 }

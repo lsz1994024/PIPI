@@ -173,7 +173,11 @@ public class PIPI {
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
-        if (debugScanNumArray.length > 0) {
+//        if (debugScanNumArray.length > 0) {
+//            threadNum = 1;
+//        }
+//        threadNum = 1;
+        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             threadNum = 1;
         }
         ExecutorService threadPool = Executors.newFixedThreadPool(threadNum);

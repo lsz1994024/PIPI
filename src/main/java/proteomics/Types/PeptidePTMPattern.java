@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.TreeSet;
 
 public class PeptidePTMPattern {
+    private final int maxNumOfPtmPatterns = 10;
 
     public final String ptmFreePeptide;
 
@@ -30,7 +31,7 @@ public class PeptidePTMPattern {
     }
 
     public void update(Peptide peptide) {
-        if (peptideTreeSet.size() < 5) {
+        if (peptideTreeSet.size() < maxNumOfPtmPatterns) { //max restore 5 patterns for one peptide
             peptideTreeSet.add(peptide);
         } else if (peptideTreeSet.last().compareTo(peptide) < 0) {
             peptideTreeSet.pollLast();

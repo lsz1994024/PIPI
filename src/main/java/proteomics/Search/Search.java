@@ -31,7 +31,7 @@ public class Search {
     private List<Peptide> ptmFreeResult = new LinkedList<>();
     public List<PepWithScore> candidatesList = new LinkedList<>();
 
-    public Search(BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge) {
+    public Search(int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge) {
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
         double scanNormSquare = scanCode.norm2square();
@@ -56,6 +56,9 @@ public class Search {
         if (!subMassPeptideMap.isEmpty()) {
             for (double mass : subMassPeptideMap.keySet()) {
                 for (String sequence : massPeptideMap.get(mass)) {
+                    if (scanNum == 2341 && sequence.contentEquals("nLENNDNKPVTNSRc")) {
+                        System.out.println("lsz");
+                    }
                     Peptide0 peptide0 = peptide0Map.get(sequence);
                     double score = 0;
                     double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
