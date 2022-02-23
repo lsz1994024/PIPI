@@ -56,15 +56,17 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
     private final ReentrantLock lock;
     private final String scanId;
     private final int precursorCharge;
-    private final double precursorMass;
+    private double precursorMass;
     private final InferPTM inferPTM;
     private final PrepareSpectrum preSpectrum;
     private final String sqlPath;
     private final Binomial binomial;
     private final int scanNum;
+    private final String pepTruth;
 
 
-    public PIPIWrap(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial) {
+    public PIPIWrap(int scanNum, String pepTruth, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial) {
+        this.pepTruth = pepTruth;
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
@@ -100,7 +102,8 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         } finally {
             lock.unlock();
         }
-
+        String oldPep = peptide0Map.get("n"+pepTruth+"c").proteins[0];
+        precursorMass = massTool.calResidueMass("n"+oldPep+"c") + massTool.H2O;
         // preprocess peak list
         TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, PreSpectra.topN);
 
@@ -133,27 +136,8 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
 
             // Begin search.
-            Search search = new Search(scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge);
+            Search search = new Search(scanNum, pepTruth, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge);
             // prepare the spectrum
-//            if (scanNum == 1882) {
-//                System.out.println("lsz");
-//            }
-
-            String pepHighestSimiScore = "";
-            double highestScore = -1;
-            for (Peptide peptide : search.getPTMOnlyResult()) {
-                if (peptide.getNormalizedCrossCorr() >= highestScore) {
-                    pepHighestSimiScore = peptide.getPTMFreePeptide();
-                    highestScore = peptide.getNormalizedCrossCorr();
-                }
-            }
-
-            for (Peptide peptide : search.getPTMFreeResult()) {
-                if (peptide.getNormalizedCrossCorr() >= highestScore) {
-                    pepHighestSimiScore = peptide.getPTMFreePeptide();
-                    highestScore = peptide.getNormalizedCrossCorr();
-                }
-            }
 
 
             SparseVector expProcessedPL;
@@ -187,11 +171,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
 //                PeptidePTMPattern peptidePTMPattern = inferPTM.tryPTM(expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
                 PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(env, scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR, expAaLists);
 
-                if (peptide.getPTMFreePeptide().contentEquals(pepHighestSimiScore)) {
-                    if (peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
-                        whereIsTopCand = -1;
-                    }
-                }
                 if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
                     for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {
                         if (tempPeptide.getScore() > 0) {
@@ -209,34 +188,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             }
             env.dispose();
             // Calculate Score for PTM free peptide  for PTM free score is calXcorr score, for PTM only score is PTM score
-            for (Peptide peptide : search.getPTMFreeResult()) {
-                double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL);
-                if (peptide.getPTMFreePeptide().contentEquals(pepHighestSimiScore)) {
-                    if (score <= 0) {
-                        whereIsTopCand = -2;
-                    }
-                }
-                if (score > 0) {
-                    peptide.setScore(score);
-                    peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMs2Charge, peptide.getIonMatrix(), ms2Tolerance));
-                    if (peptideSet.size() < candisNum) {
-                        peptideSet.add(peptide);
-                    } else if (peptide.getScore() > peptideSet.last().getScore()) {
-                        peptideSet.pollLast();
-                        peptideSet.add(peptide);
-                    }
-                }
-            }
-            if (whereIsTopCand == 0) {
-                int rank = 0;
-                for (Peptide peptide : peptideSet) {
-                    if (peptide.getPTMFreePeptide().contentEquals(pepHighestSimiScore)) {
-                        whereIsTopCand = rank;
-                        break;
-                    }
-                    rank ++;
-                }
-            }
 
             if (!peptideSet.isEmpty()) {
                 Peptide[] peptideArray = peptideSet.toArray(new Peptide[0]);
@@ -289,9 +240,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                     String candidatesString = "";
                     for (PepWithScore pS : candidatesList) {
                         candidatesString += pS.pepSeq + "," + pS.score + "," + pS.isDecoy + "," + pS.hasPTM + "," + pS.proteins + ",";
-                    }
-                    if (scanNum == 2327) {
-                        System.out.println("lsz");
                     }
                     Entry entry = new Entry(scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), candidatesString.substring(0,candidatesString.length()-1), pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand);
 
