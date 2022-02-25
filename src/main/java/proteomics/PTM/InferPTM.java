@@ -199,7 +199,11 @@ public class InferPTM {
 
     public PeptidePTMPattern findPTM(GRBEnv env, int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, char leftFlank, char rightFlank, int globalRank, int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR, List<ThreeExpAA> expAaLists) {
         double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
+        PeptidePTMPattern peptidePTMPattern = new PeptidePTMPattern(ptmFreePeptide);
         double totalDeltaMass = precursorMass - ptmFreeMass;
+        if (Math.abs(totalDeltaMass) < 0.01 ) {
+            return peptidePTMPattern;
+        }
 //        if (scanNum == 8900){
 //            int i = 1;
 //        }
@@ -207,7 +211,6 @@ public class InferPTM {
         double rightMassBound = totalDeltaMass + localMS1ToleranceR;
         Set<Integer> fixModIdxes = getFixModIdxes(ptmFreePeptide, fixModMap);  // record the indexes of the amino acids with fix mod, e.g. when there is no C, this is empty set.
 
-        PeptidePTMPattern peptidePTMPattern = new PeptidePTMPattern(ptmFreePeptide);
         Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         double[][] theoIonsMatrix = peptide.getTheoIonMatrix();// Note that if you set varMod on it, it returns b y ions with var mod
 
@@ -329,7 +332,9 @@ public class InferPTM {
         remainedTagIdxes.removeAll(usedTagIdxes);
         modifiedZone.removeAll(tagZone);
         modifiedZone.removeAll(cleanZone);
-
+        if (modifiedZone.size() == 0) {
+            return peptidePTMPattern; //Some scans are not valid Scans. Will be deleted soon.
+        }
 
         // find m-mod-tags as proof for multiple PTMs.
         Map<Double, Integer> extraMassMap = new HashMap<>(); // records extra small mass appearance time.
@@ -344,6 +349,11 @@ public class InferPTM {
             int headPeakId = alignPos-1;
 
             double deltaMass = tagInfo.getHeadLocation() - theoIonsMatrix[0][headPeakId];
+            try {
+                int a = Collections.min(modifiedZone);
+            } catch (Exception e) {
+                int i = 1;
+            }
             if (alignPos <= Collections.min(modifiedZone) || alignPos+3 > Collections.max(modifiedZone)){
                 continue; //skip when the tag violates the boundry of modifiedZone. Should I consider when tag has been
                           //judged as clean tags or M_mod_tags?
@@ -620,7 +630,7 @@ public class InferPTM {
         try {
             GRBModel model = new GRBModel(env);
 //            model.set(GRB.IntParam.OutputFlag, 0);
-            double t = 0.02;
+            double t = 0.01;
             //obj function
             GRBLinExpr objFunction = new GRBLinExpr();
             objFunction.addConstant(t);
@@ -660,7 +670,7 @@ public class InferPTM {
                     totalMassInConstrZoneConstr.addTerms(coeffMassAaArray, posVarsMap.get(pos));
                 }
             }
-            model.addConstr(totalPtmsOnPepConstr, GRB.LESS_EQUAL, numPtmsOnPep, "constrTotalNum");
+            model.addConstr(totalPtmsOnPepConstr, GRB.EQUAL, numPtmsOnPep, "constrTotalNum");
             model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - t, "constrM1");
             model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass + t, "constrM2"); //or put this to constraints as a model.addRange
             if (extraDeltaMass != -9999d) {
@@ -676,11 +686,16 @@ public class InferPTM {
                     model.dispose();
                     break;
                 }
+                if (scanNum == 19027) {
+                    int a = 1;
+                }
                 numOfSols++;
                 positionOneMap.clear();
                 for (int pos : modifiedZone) {
                     GRBVar[] varsResArray = posVarsMap.get(pos);
                     for (int varId = 0; varId < varsResArray.length; varId++ ) {  //should I be careful about the binary variable to be really 0/1 instead of decimal
+//                        double varValue = varsResArray[varId].get(GRB.DoubleAttr.X);
+//                        double roundVar = Math.round(varsResArray[varId].get(GRB.DoubleAttr.X));
                         if (1 == Math.round(varsResArray[varId].get(GRB.DoubleAttr.X))) {
                             positionOneMap.put(pos, varId);
                         }
@@ -692,8 +707,15 @@ public class InferPTM {
                 for (Map.Entry<Integer, Integer> entry : positionOneMap.entrySet()){
                     positionDeltaMassMap.put(new Coordinate(entry.getKey(), entry.getKey() + 1), idxVarModMap.get(entry.getKey())[entry.getValue()].mass);
                 }
+                if (positionDeltaMassMap.isEmpty()) {
+                    int a = 1;
+                }
                 peptide.setVarPTM(positionDeltaMassMap);
 
+                if (scanNum == 2307) {
+                    int a = 1;
+                }
+                double[][] temp = peptide.getIonMatrix();
                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL);
                 if (score > 0) {
                     peptide.setScore(score);

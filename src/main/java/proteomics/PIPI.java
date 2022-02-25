@@ -147,7 +147,7 @@ public class PIPI {
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
-        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/Simulation_Data/simulation_1/Truth.txt"));
+        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/Simulation_Data/simulation_2/Truth.txt"));
         Map<Integer, String> pepTruth = new HashMap<>();
         Map<Integer, Boolean> modTruth = new HashMap<>();
         String line;
@@ -203,6 +203,9 @@ public class PIPI {
         while (sqlResultSet.next()) {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
+            if (scanNum == 2307) {
+                int a = 1;
+            }
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
             if (!modTruth.get(scanNum)) continue;
@@ -347,7 +350,7 @@ public class PIPI {
 
     private void writeTop20Candidates(String sqlPath, String spectraPath, MassTool massTool) throws IOException, SQLException {
         System.out.println("PFM starts");
-        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/Simulation_Data/simulation_1/scansWithCorrectSeq.txt"));
+        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/Simulation_Data/simulation_2/scansWithCorrectSeq.txt"));
         Set<Integer> validScansSet = new HashSet<>();
         String line;
         if ((line = parameterReader.readLine()) != null) {
@@ -373,7 +376,6 @@ public class PIPI {
             List<Integer> correctScanList = new ArrayList<>();
             while (sqlResultSet.next()) {
                 int scanNum = sqlResultSet.getInt("scanNum");
-                int whereIsTopCand = sqlResultSet.getInt("whereIsTopCand");
                 String candidatesList = sqlResultSet.getString("candidates");
                 String rawPeptide = sqlResultSet.getString("peptide");
                 if (rawPeptide == null) {
@@ -401,7 +403,7 @@ public class PIPI {
                     newPep.replace(lId, rId+1, "");
                 }
                 boolean isCorrect = true;
-                if (ptmPos.size() != 1) {
+                if (ptmPos.size() != 2) {
                     wrongScanList.add(scanNum);
                     continue;
                 }
@@ -428,7 +430,7 @@ public class PIPI {
             System.out.println("correct " + correctScanList);
             Set<Integer> scanCorrectAndValidSet = new HashSet<>(correctScanList);
             scanCorrectAndValidSet.retainAll(validScansSet);
-            System.out.println("correct valid" + scanCorrectAndValidSet.size());
+            System.out.println("correct valid " + scanCorrectAndValidSet.size() + " " +validScansSet.size());
 
         } catch (IOException ex) {
             ex.printStackTrace();

@@ -114,18 +114,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
-        if (scanNum == 1882) {
-            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
-            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
-                System.out.print(","+entry.getKey());
-            }
-            System.out.println("])");
-
-            System.out.print("intensities = np.array([1,1");
-            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
-                System.out.print(","+entry.getValue());
-            }
-            System.out.println("])");
+        if (scanNum == 3078) {
 
             for (ThreeExpAA tag: expAaLists){
                 System.out.println(tag.getPtmFreeAAString());
@@ -146,7 +135,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             } else {
                 expProcessedPL = preSpectrum.digitizePL(plMap);
             }
-
+//            expProcessedPL = preSpectrum.digitizePL(plMap);
             double localMS1ToleranceL = -1 * ms1Tolerance;
             double localMS1ToleranceR = ms1Tolerance;
             if (ms1ToleranceUnit == 1) {
