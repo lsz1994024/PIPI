@@ -147,7 +147,8 @@ public class PIPI {
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
-        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/Simulation_Data/simulation_2/Truth.txt"));
+        int testId = 3;
+        BufferedReader parameterReader = new BufferedReader(new FileReader(String.format("/home/slaiad/Data/Simulation_Data/simulation_%d/Truth.txt", testId)));
         Map<Integer, String> pepTruth = new HashMap<>();
         Map<Integer, Boolean> modTruth = new HashMap<>();
         String line;
@@ -157,6 +158,18 @@ public class PIPI {
             pepTruth.put(Integer.valueOf(splitRes[0]), splitRes[1]);
             modTruth.put(Integer.valueOf(splitRes[0]), Boolean.valueOf(Integer.valueOf(splitRes[3]) == 1));
         }
+
+        BufferedReader reader = new BufferedReader(new FileReader(String.format("/home/slaiad/Data/Simulation_Data/simulation_%d/scansWithCorrectSeq.txt", testId)));
+        Set<Integer> validScansSet = new HashSet<>();
+        String line1;
+        if ((line1 = reader.readLine()) != null) {
+            line1 = line1.trim();
+            String[] splitRes = line1.split(",");
+            for (String scanStr : splitRes) {
+                validScansSet.add(Integer.valueOf(scanStr.trim()));
+            }
+        }
+
         logger.info("Truth Loaded");
 
         logger.info("Reading spectra...");
@@ -203,8 +216,12 @@ public class PIPI {
         while (sqlResultSet.next()) {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
-            if (scanNum == 2307) {
-                int a = 1;
+//            System.out.println(scanNum);
+//            if (scanNum != 2052) {
+//                 continue;
+//            }
+            if (!validScansSet.contains(scanNum)) {
+                continue;
             }
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
@@ -307,7 +324,7 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        writeTop20Candidates(sqlPath, spectraPath, massTool);
+        writeTop20Candidates(sqlPath, spectraPath, massTool, testId);
         writePercolator(percolatorInputFileName, buildIndex.getPeptide0Map(), sqlPath);
         Map<Integer, PercolatorEntry> percolatorResultMap = null;
 
@@ -348,9 +365,9 @@ public class PIPI {
         System.exit(1);
     }
 
-    private void writeTop20Candidates(String sqlPath, String spectraPath, MassTool massTool) throws IOException, SQLException {
+    private void writeTop20Candidates(String sqlPath, String spectraPath, MassTool massTool, int testId) throws IOException, SQLException {
         System.out.println("PFM starts");
-        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/Simulation_Data/simulation_2/scansWithCorrectSeq.txt"));
+        BufferedReader parameterReader = new BufferedReader(new FileReader(String.format("/home/slaiad/Data/Simulation_Data/simulation_%d/scansWithCorrectSeq.txt", testId)));
         Set<Integer> validScansSet = new HashSet<>();
         String line;
         if ((line = parameterReader.readLine()) != null) {
@@ -403,7 +420,7 @@ public class PIPI {
                     newPep.replace(lId, rId+1, "");
                 }
                 boolean isCorrect = true;
-                if (ptmPos.size() != 2) {
+                if (ptmPos.size() != testId) {
                     wrongScanList.add(scanNum);
                     continue;
                 }

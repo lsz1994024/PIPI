@@ -17,6 +17,9 @@
 package proteomics.Types;
 
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ThreeExpAA implements Comparable<ThreeExpAA> {
 
     private final ExpAA[] threeExpAa;
@@ -24,6 +27,11 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     private final double totalIntensity;
     private final String ptmFreeAAString;
     private int regionIdx;
+    public Map<Integer, Double> bAlignPosMassMap = new HashMap<>();
+    public Map<Integer, Double> yAlignPosMassMap = new HashMap<>();
+    public enum BY {NOT, B, Y;}
+    public BY alignedTo = BY.NOT; //-1 not aligned, 0 B, 1 Y
+    public boolean isGoodTag3 = false;
 
     public ThreeExpAA(ExpAA aa1, ExpAA aa2, ExpAA aa3) {
         threeExpAa = new ExpAA[]{aa1, aa2, aa3};

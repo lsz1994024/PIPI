@@ -32,7 +32,9 @@ public class PeptidePTMPattern {
 
     public void update(Peptide peptide) {
         if (peptideTreeSet.size() < maxNumOfPtmPatterns) { //max restore 5 patterns for one peptide
-            peptideTreeSet.add(peptide);
+            boolean aa = peptideTreeSet.contains(peptide);
+            boolean a = peptideTreeSet.add(peptide);
+            int i = 1;
         } else if (peptideTreeSet.last().compareTo(peptide) < 0) {
             peptideTreeSet.pollLast();
             peptideTreeSet.add(peptide);

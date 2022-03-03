@@ -32,7 +32,7 @@ public class Peptide implements Comparable<Peptide> {
     private final int maxMs2Charge;
     private final int globalRank;
     private final double normalizedCrossCorrelationCoefficient;
-
+    public double lpScore = 0d;
     private int hashCode;
 
     // these fields need to be changed every time PTM changed.
@@ -118,6 +118,7 @@ public class Peptide implements Comparable<Peptide> {
         return chargeOneBIonArray;
     }
 
+    @Override
     public boolean equals(Object other) {
         if (!(other instanceof Peptide)) {
             return false;
@@ -327,6 +328,10 @@ public class Peptide implements Comparable<Peptide> {
                     } else if (normalizedCrossCorrelationCoefficient > peptide.getNormalizedCrossCorr()) {
                         return 1;
                     } else if (normalizedCrossCorrelationCoefficient < peptide.getNormalizedCrossCorr()) {
+                        return -1;
+                    } else if (hashCode > peptide.hashCode) {
+                        return 1;
+                    } else if (hashCode < peptide.hashCode) {
                         return -1;
                     } else {
                         if (!isDecoy && peptide.isDecoy()) {
