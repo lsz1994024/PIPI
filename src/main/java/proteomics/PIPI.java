@@ -147,7 +147,7 @@ public class PIPI {
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
-        int testId = 3;
+        int testId = 1;
         BufferedReader parameterReader = new BufferedReader(new FileReader(String.format("/home/slaiad/Data/Simulation_Data/simulation_%d/Truth.txt", testId)));
         Map<Integer, String> pepTruth = new HashMap<>();
         Map<Integer, Boolean> modTruth = new HashMap<>();
