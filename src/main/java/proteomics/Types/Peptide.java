@@ -24,7 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class Peptide implements Comparable<Peptide> {
-
+    public int scanNum = 0;
     private final String ptmFreePeptide;
     private final boolean isDecoy;
     private final String normalizedPeptideString;
@@ -64,7 +64,9 @@ public class Peptide implements Comparable<Peptide> {
         this.globalRank = globalRank;
 
         hashCode = ptmFreePeptide.hashCode();
+
     }
+    public void setScanNum(int scanNum) {this.scanNum = scanNum;}
 
     public int getGlobalRank() {
         return globalRank;
@@ -194,7 +196,14 @@ public class Peptide implements Comparable<Peptide> {
         if (varPtmContainingSeq == null) {
             if (varPTMMap != null) {
                 StringBuilder sb = new StringBuilder(ptmFreePeptide.length() * 5);
-                int tempIdx = varPTMMap.firstKey().y;
+
+                int tempIdx = 0;
+                try {
+                    tempIdx = varPTMMap.firstKey().y;
+
+                } catch (Exception ex){
+                    System.out.println("error");
+                }
                 if (tempIdx > 1) {
                     sb.append(ptmFreePeptide.substring(0, tempIdx - 1));
                 }

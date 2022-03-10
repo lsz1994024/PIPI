@@ -19,6 +19,7 @@ package proteomics;
 import ProteomicsLibrary.Score;
 import gurobi.GRB;
 import gurobi.GRBEnv;
+import gurobi.GRBModel;
 import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
 import ProteomicsLibrary.Binomial;
@@ -62,6 +63,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
     private final String sqlPath;
     private final Binomial binomial;
     private final int scanNum;
+
 
 
     public PIPIWrap(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial) {
@@ -111,23 +113,23 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
-        if (scanNum == 1882) {
-            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
-            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
-                System.out.print(","+entry.getKey());
-            }
-            System.out.println("])");
-
-            System.out.print("intensities = np.array([1,1");
-            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
-                System.out.print(","+entry.getValue());
-            }
-            System.out.println("])");
-
-            for (ThreeExpAA tag: expAaLists){
-                System.out.println(tag.getPtmFreeAAString());
-            }
-        }
+//        if (scanNum == 1882) {
+//            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
+//            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
+//                System.out.print(","+entry.getKey());
+//            }
+//            System.out.println("])");
+//
+//            System.out.print("intensities = np.array([1,1");
+//            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
+//                System.out.print(","+entry.getValue());
+//            }
+//            System.out.println("])");
+//
+//            for (ThreeExpAA tag: expAaLists){
+//                System.out.println(tag.getPtmFreeAAString());
+//            }
+//        }
 
         if (!expAaLists.isEmpty()) {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
@@ -180,13 +182,13 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             GRBEnv env = new GRBEnv(true);
             env.set(GRB.IntParam.OutputFlag,0);
             env.start();
+            int indexOfPtmContainCandidates = 1;
             for (Peptide peptide : search.getPTMOnlyResult()) {
                 Peptide0 peptide0 = peptide0Map.get(peptide.getPTMFreePeptide());
 //                PeptidePTMPattern peptidePTMPattern = inferPTM.tryPTM(expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
-
-//                PeptidePTMPattern peptidePTMPattern = inferPTM.tryPTM(expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
                 PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(env, scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR, expAaLists);
-
+//                PeptidePTMPattern peptidePTMPattern = inferPTM.tryPTM(expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
+//                System.out.println("finished PTM for: "+scanNum + ", "+ indexOfPtmContainCandidates + ", "+ peptidePTMPattern.getPeptideTreeSet().size());
                 if (peptide.getPTMFreePeptide().contentEquals(pepHighestSimiScore)) {
                     if (peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
                         whereIsTopCand = -1;

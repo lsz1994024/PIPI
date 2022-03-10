@@ -180,6 +180,7 @@ public class PIPI {
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             threadNum = 1;
         }
+        System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPool = Executors.newFixedThreadPool(threadNum);
         PrepareSpectrum preSpectrum = new PrepareSpectrum(massTool);
         ArrayList<Future<PIPIWrap.Entry>> taskList = new ArrayList<>(preSpectra.getUsefulSpectraNum() + 10);
@@ -193,6 +194,10 @@ public class PIPI {
             int scanNum = sqlResultSet.getInt("scanNum");
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
+//            int[] debugScans = {1950,1960,1967,1987,2005,2024,2038};
+            if (scanNum != 1967 &&scanNum != 1987 &&scanNum != 2005 &&scanNum != 2024&&scanNum != 2038) {  //56437
+                continue;
+            }
             taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
         }
         sqlResultSet.close();
@@ -239,7 +244,9 @@ public class PIPI {
                         sqlPreparedStatement.setInt(25, entry.whereIsTopCand);
                         sqlPreparedStatement.executeUpdate();
                         ++resultCount;
+//                        logger.info("finished " + entry.scanNum);
                     }
+
                     toBeDeleteTaskList.add(task);
                 } else if (task.isCancelled()) {
                     toBeDeleteTaskList.add(task);
