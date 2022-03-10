@@ -415,24 +415,26 @@ public class InferPTM {
         }
 
         if (constraintZone.isEmpty()) {
-//            System.out.println(scanNum + " constraint Zone is empty");
+//            System.out.println(scanNum + " constraint");
         }
         constraintZone.retainAll(modifiedZone);  //only consider one extraMass now
         boolean shouldExtraConstr = true;
-        if (constraintZone.isEmpty() || top1ExtraMass == -9999d){
+        if (constraintZone.isEmpty() || top1ExtraMass >= 250 || top1ExtraMass <= -250){
             shouldExtraConstr = false;
         } else {
             modifiedZone.removeAll(extraMassTagZone);
         }
         int numTimeOut = 0;
         //find all possible ptmCombs and get the bestOne (or best several)
+        List<Map<Integer, Integer>> allSolsList = new ArrayList<>();
+//        shouldExtraConstr = false;
         if (shouldExtraConstr){
             for (int numPtmsOnPep = 2; numPtmsOnPep <= 4; numPtmsOnPep++){
-                numTimeOut += collectPtmCombs(scanNum, env, numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
+                collectPtmCombs(scanNum, env, allSolsList, numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
             }
         } else {
             for (int numPtmsOnPep = 1; numPtmsOnPep <= 4; numPtmsOnPep++){
-                numTimeOut += collectPtmCombs(scanNum, env, numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
+                collectPtmCombs(scanNum, env, allSolsList, numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
             }
         }
 
@@ -441,8 +443,12 @@ public class InferPTM {
         return peptidePTMPattern;
     }
 
-    private int collectPtmCombs(int scanNum, GRBEnv env, int numPtmsOnPep, Set<Integer> modifiedZone, Map<Integer, VarModParam[]> idxVarModMap, double totalDeltaMass, Set<Integer> constraintZone, double extraDeltaMass, boolean shouldExtraConstr, double leftMassBound, double rightMassBound, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, PeptidePTMPattern peptidePTMPattern, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge) { // Sometimes, the precursor mass error may affects the digitized spectrum.
+    private void collectPtmCombs(int scanNum, GRBEnv env, List<Map<Integer, Integer>> allSolsList, int numPtmsOnPep, Set<Integer> modifiedZone, Map<Integer, VarModParam[]> idxVarModMap, double totalDeltaMass, Set<Integer> constraintZone, double extraDeltaMass, boolean shouldExtraConstr, double leftMassBound, double rightMassBound, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, PeptidePTMPattern peptidePTMPattern, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge) { // Sometimes, the precursor mass error may affects the digitized spectrum.
         int numTimeout = 0;
+//        List<Map<Integer, Integer>> allSolsList = new ArrayList<>();
+        double averageMass = totalDeltaMass/numPtmsOnPep;
+        double massL = averageMass - 0.01;
+        double massR = averageMass + 0.01;
         try {
             GRBModel model = new GRBModel(env);
 //            model.set(GRB.IntParam.OutputFlag, 0);
@@ -457,6 +463,8 @@ public class InferPTM {
             GRBLinExpr totalPtmsOnPepConstr = new GRBLinExpr();
             GRBLinExpr totalMassOnPepConstr = new GRBLinExpr();
             GRBLinExpr totalMassInConstrZoneConstr = new GRBLinExpr();
+            GRBLinExpr massLConstr = new GRBLinExpr();
+            GRBLinExpr massRConstr = new GRBLinExpr();
             for (int pos : modifiedZone){
                 if (!idxVarModMap.containsKey(pos)) {
                     System.out.println("lsz Wrong");
@@ -479,28 +487,50 @@ public class InferPTM {
                 double[] coeffMassAaArray = new double[numPtmsOnAA];
                 for (int i = 0; i < numPtmsOnAA; i++){
                     coeffMassAaArray[i] = idxVarModMap.get(pos)[i].mass;
+                    if (coeffMassAaArray[i] < massL){
+                        massLConstr.addTerm(1, posVarsMap.get(pos)[i]);
+                    }
+                    if(coeffMassAaArray[i] > massR) {
+                        massRConstr.addTerm(1, posVarsMap.get(pos)[i]);
+                    }
                 }
                 totalMassOnPepConstr.addTerms(coeffMassAaArray, posVarsMap.get(pos));
 
-                if (constraintZone.contains(pos)) {
+                if (shouldExtraConstr && constraintZone.contains(pos)) {
                     totalMassInConstrZoneConstr.addTerms(coeffMassAaArray, posVarsMap.get(pos));
                 }
             }
+
+            //constraints
             model.addConstr(totalPtmsOnPepConstr, GRB.EQUAL, numPtmsOnPep, "constrTotalNum");
             model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - t, "constrM1");
             model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass + t, "constrM2"); //or put this to constraints as a model.addRange
-            if (extraDeltaMass != -9999d && !constraintZone.isEmpty()) {
+            if (shouldExtraConstr && extraDeltaMass != -9999d && !constraintZone.isEmpty()) {
                 model.addConstr(totalMassInConstrZoneConstr, GRB.GREATER_EQUAL, extraDeltaMass - t, "constrExtraM1");
                 model.addConstr(totalMassInConstrZoneConstr, GRB.LESS_EQUAL, extraDeltaMass + t, "constrExtraM2"); //or put this to constraints as a model.addRange
             }
+
+            model.addConstr(massLConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "massLConstr");
+            model.addConstr(massRConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "massRConstr");
+            int solId = 0;
+            for (Map<Integer, Integer> sol : allSolsList){
+                GRBLinExpr solConstr = new GRBLinExpr();
+                for (int aId : sol.keySet()){
+                    solConstr.addTerm(1, posVarsMap.get(aId)[sol.get(aId)]);
+                }
+                model.addConstr(solConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "sol_"+solId);
+                solId++;
+            }
+            allSolsList.clear();
+
+            //settings
             model.set(GRB.IntParam.MIPFocus, 1);
             model.set(GRB.DoubleParam.TimeLimit, 1.5*numPtmsOnPep);
 //            model.set(GRB.IntParam.SolutionLimit, 1);
             // solve the model
-            Map<Integer, Integer> positionOneMap = new HashMap<>();
             int numOfSols = 0;
             whileLoop:
-            while ( numOfSols < 10 - 2*numPtmsOnPep ) {
+            while ( numOfSols < 10 - 2*numPtmsOnPep ) {//10 - 2*numPtmsOnPep
                 model.optimize();
                 switch (model.get(GRB.IntAttr.Status)) {
                     case GRB.OPTIMAL:
@@ -515,36 +545,26 @@ public class InferPTM {
                         break whileLoop;
                 }
 
-                if (GRB.OPTIMAL != model.get(GRB.IntAttr.Status)){
-                    model.dispose();
-                    break;
-                }
                 numOfSols++;
-                positionOneMap.clear();
+                Map<Integer, Integer> positionOneMap = new HashMap<>();
+//                positionOneMap.clear();
                 for (int pos : modifiedZone) {
                     GRBVar[] varsResArray = posVarsMap.get(pos);
                     for (int varId = 0; varId < varsResArray.length; varId++ ) {  //should I be careful about the binary variable to be really 0/1 instead of decimal
-//                        double varValue = varsResArray[varId].get(GRB.DoubleAttr.X);
-//                        double roundVar = Math.round(varsResArray[varId].get(GRB.DoubleAttr.X));
                         if (1 == Math.round(varsResArray[varId].get(GRB.DoubleAttr.X))) {
                             positionOneMap.put(pos, varId);
                         }
                     }
                 }
+                allSolsList.add(positionOneMap);
 
                 PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
                 Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
                 for (Map.Entry<Integer, Integer> entry : positionOneMap.entrySet()){
                     positionDeltaMassMap.put(new Coordinate(entry.getKey(), entry.getKey() + 1), idxVarModMap.get(entry.getKey())[entry.getValue()].mass);
                 }
-                if (positionDeltaMassMap.isEmpty()) {
-                    int a = 1;
-                }
                 peptide.setVarPTM(positionDeltaMassMap);
 
-                if (scanNum == 2307) {
-                    int a = 1;
-                }
                 double[][] temp = peptide.getIonMatrix();
                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL) - 0.01*(numPtmsOnPep-1);
                 if (score > 0) {
@@ -552,6 +572,12 @@ public class InferPTM {
                     peptide.setScore(score);
                     peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, peptide.getIonMatrix(), ms2Tolerance));
                     peptidePTMPattern.update(peptide);
+                    List<Double> massList = new ArrayList<>();
+                    for (double mass : positionDeltaMassMap.values()){
+                        massList.add(mass);
+                    }
+                    Collections.sort(massList);
+//                    System.out.println(numOfSols + ", " + score + ", "+peptide.getMatchedPeakNum()+", "+ massList);
                 }
 
                 GRBLinExpr forMoreFeasiSolConstr = new GRBLinExpr();
@@ -564,7 +590,7 @@ public class InferPTM {
         } catch (GRBException e) {
             System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
         }
-        return numTimeout;
+//        return allSolsList;
     }
 
     public static Multimap<Character, ModEntry> readUnimodAndGenerateAAS(double minPtmMass, double maxPtmMass) throws IOException {

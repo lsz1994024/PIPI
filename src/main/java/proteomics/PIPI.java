@@ -147,7 +147,7 @@ public class PIPI {
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
-        int testId = 1;
+        int testId = 3;
         BufferedReader parameterReader = new BufferedReader(new FileReader(String.format("/home/slaiad/Data/Simulation_Data/simulation_%d/Truth.txt", testId)));
         Map<Integer, String> pepTruth = new HashMap<>();
         Map<Integer, Boolean> modTruth = new HashMap<>();
@@ -217,7 +217,7 @@ public class PIPI {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
 //            System.out.println(scanNum);
-//            if (scanNum != 2052) {
+//            if (scanNum != 2411) {
 //                 continue;
 //            }
             if (!validScansSet.contains(scanNum)) {
