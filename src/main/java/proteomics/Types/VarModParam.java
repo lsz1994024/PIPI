@@ -25,7 +25,7 @@ public class VarModParam {
     public final boolean onlyProteinTerminalIfnc;
 
     private final int hashCode;
-
+    public double getMass(){return mass;}
     public VarModParam(double mass, char aa, int priority, boolean onlyProteinTerminalIfnc) {
         this.mass = mass;
         this.aa = aa;

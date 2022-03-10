@@ -219,6 +219,7 @@ public class InferPTM {
         for (int id : idxVarModMap.keySet()){
             VarModParam[] modArray = new VarModParam[idxVarModMap.get(id).size()];
             idxVarModMap.get(id).toArray(modArray);
+            Arrays.sort(modArray, Comparator.comparingDouble(VarModParam::getMass));
             idxVarModArrayMap.put(id, modArray);
         }
         Set<Integer> modifiedZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
