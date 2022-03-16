@@ -113,6 +113,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
 
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
+        TreeMap<Double, Double> withCompPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
         if (scanNum == 3078) {
 

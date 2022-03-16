@@ -33,6 +33,8 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     public BY alignedTo = BY.NOT; //-1 not aligned, 0 B, 1 Y
     public boolean isGoodTag3 = false;
 
+    public double[] mzs = new double[4];
+
     public ThreeExpAA(ExpAA aa1, ExpAA aa2, ExpAA aa3) {
         threeExpAa = new ExpAA[]{aa1, aa2, aa3};
         String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString();
@@ -49,6 +51,10 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
             intensity += aa.getTailIntensity();
         }
         totalIntensity = intensity;
+        mzs[0] = aa1.getHeadLocation();
+        mzs[1] = aa2.getHeadLocation();
+        mzs[2] = aa3.getHeadLocation();
+        mzs[3] = aa3.getTailLocation();
     }
 
     public int hashCode() {

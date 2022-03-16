@@ -176,7 +176,7 @@ public class InferPTM {
 
         if (idxVarModMap.size() > 1) {
             // Try 2 PTMs
-            try2PTMs(idxVarModMap, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, checkedPtmPattern2, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
+            PTMs(idxVarModMap, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, checkedPtmPattern2, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
         }
 
         if (idxVarModMap.size() > 2) {
@@ -199,13 +199,15 @@ public class InferPTM {
 
     public PeptidePTMPattern findPTM(GRBEnv env, int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, char leftFlank, char rightFlank, int globalRank, int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR, List<ThreeExpAA> expAaLists) {
         double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
+
+        TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
+        double maxLMz = 0;
+        double minRMz = plMap.lastKey();
         PeptidePTMPattern peptidePTMPattern = new PeptidePTMPattern(ptmFreePeptide);
+
         double totalDeltaMass = precursorMass - ptmFreeMass;
         if (Math.abs(totalDeltaMass) < 0.01 ) {
             return peptidePTMPattern;
-        }
-        if (scanNum == 2307){
-            int i = 1;
         }
         double leftMassBound = totalDeltaMass + localMS1ToleranceL;
         double rightMassBound = totalDeltaMass + localMS1ToleranceR;
@@ -228,7 +230,9 @@ public class InferPTM {
             Arrays.sort(modArray, Comparator.comparingDouble(VarModParam::getMass));
             idxVarModArrayMap.put(id, modArray);
         }
-        Set<Integer> modifiedZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
+        for (int pos )
+//        System.out.println(idxVarModArrayMap);
+        Set<Integer> modifiedZone = IntStream.range(1, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
         expAaLists.sort(Comparator.comparing(ThreeExpAA::getTotalIntensity).reversed()); // sort tags by total intensity descending order
 
@@ -255,7 +259,6 @@ public class InferPTM {
             }
 
 
-            boolean isGoodTag3 = false;
             while (alignBPos != -1) {
                 double deltaMass = tagInfo.getHeadLocation() - theoIonsMatrix[0][alignBPos - 1];
                 if (Math.abs(deltaMass) <= 0.01 && alignBPos + 3 <= Collections.max(modifiedZone)) {
@@ -266,6 +269,10 @@ public class InferPTM {
                     cleanZoneScore += tagInfo.getTotalIntensity();
                     tagInfo.isGoodTag3 = true;
                     seqOfGoodTags.add(tagSeq);
+                    for (double mz : tagInfo.mzs) {
+                        unUsedPlMap.remove(mz);
+                    }
+                    if (tagInfo.mzs[3] > maxLMz) maxLMz = tagInfo.mzs[3];
                     break;
                 } else if (Math.abs(deltaMass - totalDeltaMass) <= 0.01 && alignBPos > Collections.min(modifiedZone)) {
                     //skip if it has ptm but it is at the n ter
@@ -275,6 +282,10 @@ public class InferPTM {
                     tagZoneScore += tagInfo.getTotalIntensity();
                     tagInfo.isGoodTag3 = true;
                     seqOfGoodTags.add(tagSeq);
+                    for (double mz : tagInfo.mzs) {
+                        unUsedPlMap.remove(mz);
+                    }
+                    if (tagInfo.mzs[0] < minRMz) minRMz = tagInfo.mzs[0];
                     break;
                 } else {
                     tagInfo.bAlignPosMassMap.put(alignBPos, deltaMass);
@@ -349,7 +360,6 @@ public class InferPTM {
                 StringBuilder sb = new StringBuilder(tagSeq);
                 sb.reverse();
                 String tagSeqReverse = sb.toString();
-                String tagSeqRevPrefix = tagSeqReverse.substring(0, 2);
                 String tagSeqPrefix = tagSeq.substring(0,2);
                 int alignPos = ptmFreePeptideOrdinary.indexOf(tagSeqPrefix);
                 if (alignPos == -1) {
@@ -364,6 +374,11 @@ public class InferPTM {
                     for (int i = 1; i < alignPos+2; i++){
                         modifiedZone.remove(i);
                     }
+                    for (double mz : tagInfo.mzs) {
+                        if (mz == tagInfo.mzs[3]) break;
+                        unUsedPlMap.remove(mz);
+                    }
+                    if (tagInfo.mzs[2] > maxLMz) maxLMz = tagInfo.mzs[2];
                 } else if(Math.abs(deltaMass - totalDeltaMass) <= 0.01){
                     if (alignPos <= Collections.min(modifiedZone)) {
                         continue;
@@ -371,6 +386,12 @@ public class InferPTM {
                     for (int i = alignPos; i < ptmFreePeptide.length()-1; i++){
                         modifiedZone.remove(i);
                     }
+                    for (double mz : tagInfo.mzs) {
+                        if (mz == tagInfo.mzs[3]) break;
+                        unUsedPlMap.remove(mz);
+                    }
+                    if (tagInfo.mzs[0] < minRMz) minRMz = tagInfo.mzs[0];
+
                 }
             }
         }
@@ -398,12 +419,14 @@ public class InferPTM {
         Set<Integer> extraMassTagZone = new HashSet<>();
         Set<Integer> constraintZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
+        List<Integer> extraTagIds = new ArrayList<>();
         mainLoop:
         if (top1ExtraMass != -9999d) {
             for (int tagId : extraMassTagIdMap.get(top1ExtraMass)){
                 ThreeExpAA tagInfo = expAaLists.get(tagId);
                 for (int alignPos : tagInfo.bAlignPosMassMap.keySet()) {
                     if( top1ExtraMass - Math.abs(tagInfo.bAlignPosMassMap.get(alignPos)) <= 0.01){
+                        extraTagIds.add(tagId);
                         constraintZone.retainAll( IntStream.range(1, alignPos).boxed().collect(Collectors.toSet()) );
                         for (int i = alignPos; i < alignPos+3; i++) {
                             extraMassTagZone.add(i);
@@ -419,22 +442,45 @@ public class InferPTM {
         }
         constraintZone.retainAll(modifiedZone);  //only consider one extraMass now
         boolean shouldExtraConstr = true;
+        shouldExtraConstr = false;
         if (constraintZone.isEmpty() || top1ExtraMass >= 250 || top1ExtraMass <= -250){
             shouldExtraConstr = false;
         } else {
-            modifiedZone.removeAll(extraMassTagZone);
+//            modifiedZone.removeAll(extraMassTagZone);
         }
         int numTimeOut = 0;
         //find all possible ptmCombs and get the bestOne (or best several)
         List<Map<Integer, Integer>> allSolsList = new ArrayList<>();
 //        shouldExtraConstr = false;
-        if (shouldExtraConstr){
+
+        if (maxLMz > minRMz){
+            int a = 1;
+        }
+
+        List<Double> mzToRemove = new ArrayList<>();
+        for (double mz : unUsedPlMap.keySet()) {
+            if (unUsedPlMap.get(mz) < 0.2 ) {
+                mzToRemove.add(mz);
+            }
+        }
+
+        for (double mz : mzToRemove){
+            unUsedPlMap.remove(mz);
+
+        }
+        int lastNPeaks = 0;
+        if (shouldExtraConstr){//shouldExtraConstr
+            for (int tagId : extraTagIds){
+                for (double mz : expAaLists.get(tagId).mzs){
+                    unUsedPlMap.remove(mz);
+                }
+            }
             for (int numPtmsOnPep = 2; numPtmsOnPep <= 4; numPtmsOnPep++){
-                collectPtmCombs(scanNum, env, allSolsList, numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
+                lastNPeaks = collectPtmCombs(lastNPeaks, scanNum, env, allSolsList, theoIonsMatrix[0],theoIonsMatrix[1],numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
             }
         } else {
             for (int numPtmsOnPep = 1; numPtmsOnPep <= 4; numPtmsOnPep++){
-                collectPtmCombs(scanNum, env, allSolsList, numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge);
+                lastNPeaks = collectPtmCombs(lastNPeaks, scanNum, env, allSolsList, theoIonsMatrix[0],theoIonsMatrix[1],numPtmsOnPep, modifiedZone, idxVarModArrayMap, totalDeltaMass, constraintZone, top1ExtraMass, shouldExtraConstr, leftMassBound, rightMassBound, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, peptidePTMPattern, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
             }
         }
 
@@ -443,20 +489,20 @@ public class InferPTM {
         return peptidePTMPattern;
     }
 
-    private void collectPtmCombs(int scanNum, GRBEnv env, List<Map<Integer, Integer>> allSolsList, int numPtmsOnPep, Set<Integer> modifiedZone, Map<Integer, VarModParam[]> idxVarModMap, double totalDeltaMass, Set<Integer> constraintZone, double extraDeltaMass, boolean shouldExtraConstr, double leftMassBound, double rightMassBound, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, PeptidePTMPattern peptidePTMPattern, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge) { // Sometimes, the precursor mass error may affects the digitized spectrum.
-        int numTimeout = 0;
+    private int collectPtmCombs(int lastPeakNum, int scanNum, GRBEnv env, List<Map<Integer, Integer>> allSolsList, double[] bIons,double[] yIons, int numPtmsOnPep, Set<Integer> modifiedZone, Map<Integer, VarModParam[]> idxVarModMap, double totalDeltaMass, Set<Integer> constraintZone, double extraDeltaMass, boolean shouldExtraConstr, double leftMassBound, double rightMassBound, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, PeptidePTMPattern peptidePTMPattern, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge, SortedMap<Double, Double> unUsedPlMap) { // Sometimes, the precursor mass error may affects the digitized spectrum.
 //        List<Map<Integer, Integer>> allSolsList = new ArrayList<>();
+        System.out.print("[");
+        for (double mz: yIons){
+            System.out.print(mz+",");
+        }
+        System.out.println("]\n");
+//        System.out.println(unUsedPlMap);
         double averageMass = totalDeltaMass/numPtmsOnPep;
         double massL = averageMass - 0.01;
         double massR = averageMass + 0.01;
         try {
             GRBModel model = new GRBModel(env);
-//            model.set(GRB.IntParam.OutputFlag, 0);
             double t = 0.01;
-            //obj function
-            GRBLinExpr objFunction = new GRBLinExpr();
-            objFunction.addConstant(t);
-            model.setObjective(objFunction, GRB.MINIMIZE);
 
             //variables
             Map<Integer, GRBVar[]> posVarsMap = new HashMap<>();
@@ -466,13 +512,11 @@ public class InferPTM {
             GRBLinExpr massLConstr = new GRBLinExpr();
             GRBLinExpr massRConstr = new GRBLinExpr();
             for (int pos : modifiedZone){
-                if (!idxVarModMap.containsKey(pos)) {
-                    System.out.println("lsz Wrong");
-                }
+                if (!idxVarModMap.containsKey(pos)) continue;
                 int numPtmsOnAA = idxVarModMap.get(pos).length;
                 GRBVar[] varsArray = new GRBVar[numPtmsOnAA];
                 for (int i = 0; i < numPtmsOnAA; i++){
-                    varsArray[i] = model.addVar(0, 1, 0, GRB.BINARY, "flag_"+pos+"_"+i);
+                    varsArray[i] = model.addVar(0, 1, 0, GRB.BINARY, "B_x_pos"+pos+ptmFreePeptide.charAt(pos)+"_ptmId"+i);
                 }
                 posVarsMap.put(pos, varsArray);
 
@@ -480,7 +524,7 @@ public class InferPTM {
                 double[] coeffOneAaArray = new double[numPtmsOnAA];
                 Arrays.fill(coeffOneAaArray, 1);
                 onePtmOnAaConstr.addTerms(coeffOneAaArray, posVarsMap.get(pos));
-                model.addConstr(onePtmOnAaConstr, GRB.LESS_EQUAL, 1, "constr_"+pos);
+                model.addConstr(onePtmOnAaConstr, GRB.LESS_EQUAL, 1, "CON_1AA_Max1Ptm_pos"+pos+ptmFreePeptide.charAt(pos));
 
                 totalPtmsOnPepConstr.addTerms(coeffOneAaArray, posVarsMap.get(pos));
 
@@ -502,16 +546,188 @@ public class InferPTM {
             }
 
             //constraints
-            model.addConstr(totalPtmsOnPepConstr, GRB.EQUAL, numPtmsOnPep, "constrTotalNum");
-            model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - t, "constrM1");
-            model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass + t, "constrM2"); //or put this to constraints as a model.addRange
+//            model.addConstr(totalPtmsOnPepConstr, GRB.GREATER_EQUAL, 1, "CON_totalNumPtmsOnPep");
+//            model.addConstr(totalPtmsOnPepConstr, GRB.LESS_EQUAL, 4, "CON_totalNumPtmsOnPep");
+            model.addConstr(totalPtmsOnPepConstr, GRB.EQUAL, numPtmsOnPep, "CON_totalNumPtmsOnPep");
+
+//            model.addRange(totalMassOnPepConstr, totalDeltaMass - t, totalDeltaMass + t, "test");
+            model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - t, "CON_totalMassOnPep_GEQ");
+            model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass + t, "CON_totalMassOnPep_LEQ"); //or put this to constraints as a model.addRange
             if (shouldExtraConstr && extraDeltaMass != -9999d && !constraintZone.isEmpty()) {
-                model.addConstr(totalMassInConstrZoneConstr, GRB.GREATER_EQUAL, extraDeltaMass - t, "constrExtraM1");
-                model.addConstr(totalMassInConstrZoneConstr, GRB.LESS_EQUAL, extraDeltaMass + t, "constrExtraM2"); //or put this to constraints as a model.addRange
+                model.addConstr(totalMassInConstrZoneConstr, GRB.GREATER_EQUAL, extraDeltaMass - t, "CON_extraMassInZone_GEQ");
+                model.addConstr(totalMassInConstrZoneConstr, GRB.LESS_EQUAL, extraDeltaMass + t, "CON_extraMassInZone_LEQ"); //or put this to constraints as a model.addRange
             }
 
-            model.addConstr(massLConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "massLConstr");
-            model.addConstr(massRConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "massRConstr");
+            model.addConstr(massLConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "CON_NumPtm_LeftHalf");
+            model.addConstr(massRConstr, GRB.LESS_EQUAL, numPtmsOnPep-1, "CON_NumPtm_RightHalf");
+
+            //matching
+            double Drec = 1/2500d;
+            double tau = 1/(1-0.01*Drec);
+            List<Map.Entry<Double, Double>> peakList = new ArrayList<>(unUsedPlMap.entrySet());
+
+            // b ions
+            Map<Integer, Map<Integer, GRBVar>> bPosVars = new HashMap<>();
+            Map<Integer, List<Integer>> bPosPeakIdMap = new HashMap<>();
+            double aaMass = massTool.calResidueMass(ptmFreePeptide.substring(0, Collections.min(modifiedZone))) + massTool.PROTON;
+            double lbMass = aaMass;
+            double rbMass = aaMass;
+            for (int pos : modifiedZone) {
+                aaMass += massTool.getMassTable().get(ptmFreePeptide.charAt(pos));
+                lbMass += massTool.getMassTable().get(ptmFreePeptide.charAt(pos));
+                rbMass += massTool.getMassTable().get(ptmFreePeptide.charAt(pos));
+                if (idxVarModMap.containsKey(pos)){
+                    if (idxVarModMap.get(pos)[0].mass < 0) lbMass += idxVarModMap.get(pos)[0].mass;
+                    if (idxVarModMap.get(pos)[idxVarModMap.get(pos).length-1].mass > 0) rbMass += idxVarModMap.get(pos)[idxVarModMap.get(pos).length-1].mass;
+                }
+                GRBLinExpr bVarSumAtPos = new GRBLinExpr();
+                Map<Integer, GRBVar> varsMap = new HashMap<>();
+
+                List<Integer> peakIdList = new ArrayList<>();
+                for (int pId = 0; pId < peakList.size(); pId++){
+                    if (peakList.get(pId).getKey() < lbMass - 0.01) continue;
+                    if (peakList.get(pId).getKey() > rbMass + 0.01) break;
+                    peakIdList.add(pId);
+                    GRBVar tempVar = model.addVar(0, 1, 0, GRB.BINARY, "B_b_pos"+pos+ptmFreePeptide.charAt(pos)+"_peak"+pId);
+                    varsMap.put(pId, tempVar);
+                    bVarSumAtPos.addTerm(1, tempVar);
+
+                    GRBLinExpr bVarMass = new GRBLinExpr();
+                    GRBLinExpr bVarMass2 = new GRBLinExpr();
+                    bVarMass.addTerm(1, tempVar);
+                    bVarMass2.addTerm(1, tempVar);
+                    for (int i : modifiedZone) {
+                        if (!idxVarModMap.containsKey(i)) continue;
+                        if (i > pos) break;
+                        for (int ptmId = 0; ptmId < idxVarModMap.get(i).length; ptmId++){
+                            bVarMass.addTerm(-Drec*idxVarModMap.get(i)[ptmId].mass, posVarsMap.get(i)[ptmId]);
+                            bVarMass2.addTerm(Drec*idxVarModMap.get(i)[ptmId].mass, posVarsMap.get(i)[ptmId]);
+                        }
+                    }
+                    model.addConstr(bVarMass, GRB.LESS_EQUAL, Drec*(bIons[pos]-peakList.get(pId).getKey())+tau, "CON_b_pos"+pos+ptmFreePeptide.charAt(pos)+"_peak"+pId+"_LEQ1");
+                    model.addConstr(bVarMass2, GRB.LESS_EQUAL, Drec*(peakList.get(pId).getKey()-bIons[pos])+tau, "CON_b_pos"+pos+ptmFreePeptide.charAt(pos)+"_peak"+pId+"_LEQ2");
+                }
+                bPosPeakIdMap.put(pos, peakIdList);
+                bPosVars.put(pos, varsMap);
+                model.addConstr(bVarSumAtPos, GRB.LESS_EQUAL, 1, "CON_b_pos"+pos+ptmFreePeptide.charAt(pos)+"_max1Peak");
+            }
+
+            for (int pos1 : modifiedZone) {   //for No cross constraints
+                if (pos1 == Collections.max(modifiedZone)) continue;
+                int pos2 = pos1 + 1;
+                for (int pId1 : bPosPeakIdMap.get(pos1)) {
+                    if (bPosPeakIdMap.get(pos2) == null) {
+                        int a = 1;
+                        System.out.println(scanNum);
+                    }
+                    if (!bPosPeakIdMap.get(pos2).contains(pId1)) continue;
+                    for (int pId2 : bPosPeakIdMap.get(pos2)) {
+                        if (peakList.get(pId2).getKey() - peakList.get(pId1).getKey() > 57.05) break;
+                        GRBLinExpr cross = new GRBLinExpr();
+                        cross.addTerm(1, bPosVars.get(pos1).get(pId1));
+                        cross.addTerm(1, bPosVars.get(pos2).get(pId2));
+                        model.addConstr(cross, GRB.LESS_EQUAL ,1, "CON_noCross_bpos1_"+pos1+ptmFreePeptide.charAt(pos1)+"toPeak"+pId1+"_bpos2_"+pos2+ptmFreePeptide.charAt(pos2)+"toPeak"+pId2);
+                    }
+                }
+            }
+            // y ions
+            Map<Integer, Map<Integer, GRBVar>> yPosVars = new HashMap<>();
+            Map<Integer, List<Integer>> yPosPeakIdMap = new HashMap<>();
+            double aaMassYion = massTool.calResidueMass(ptmFreePeptide.substring(1+Collections.max(modifiedZone)))+ massTool.H2O + massTool.PROTON;
+            double lbMassYion = aaMassYion;
+            double rbMassYion = aaMassYion;
+            for (int pos = Collections.max(modifiedZone); pos >= Collections.min(modifiedZone); pos--) {
+                aaMassYion += massTool.getMassTable().get(ptmFreePeptide.charAt(pos));
+                lbMassYion += massTool.getMassTable().get(ptmFreePeptide.charAt(pos));
+                rbMassYion += massTool.getMassTable().get(ptmFreePeptide.charAt(pos));
+                if (idxVarModMap.containsKey(pos)) {
+                    if (idxVarModMap.get(pos)[0].mass < 0) lbMassYion += idxVarModMap.get(pos)[0].mass;
+                    if (idxVarModMap.get(pos)[idxVarModMap.get(pos).length-1].mass > 0) rbMassYion += idxVarModMap.get(pos)[idxVarModMap.get(pos).length-1].mass;
+                }
+                GRBLinExpr yVarSumAtPos = new GRBLinExpr();
+                Map<Integer, GRBVar> varsMap = new HashMap<>();
+
+                List<Integer> peakIdList = new ArrayList<>();
+                for (int pId = 0; pId < peakList.size(); pId++){
+                    if (peakList.get(pId).getKey() < lbMassYion - 0.01) continue;
+                    if (peakList.get(pId).getKey() > rbMassYion + 0.01) break;
+                    peakIdList.add(pId);
+                    GRBVar tempVar = model.addVar(0, 1, 0, GRB.BINARY, "B_y_pos"+pos+ptmFreePeptide.charAt(pos)+"_peak"+pId);
+                    varsMap.put(pId, tempVar);
+                    yVarSumAtPos.addTerm(1, tempVar);
+
+                    GRBLinExpr yVarMass = new GRBLinExpr();
+                    GRBLinExpr yVarMass2 = new GRBLinExpr();
+                    yVarMass.addTerm(1, tempVar);
+                    yVarMass2.addTerm(1, tempVar);
+                    for (int i : modifiedZone) {
+                        if (i < pos) continue;
+                        if (!idxVarModMap.containsKey(i)) continue;
+                        for (int ptmId = 0; ptmId < idxVarModMap.get(i).length; ptmId++){
+                            yVarMass.addTerm(-Drec*idxVarModMap.get(i)[ptmId].mass, posVarsMap.get(i)[ptmId]);
+                            yVarMass2.addTerm(Drec*idxVarModMap.get(i)[ptmId].mass, posVarsMap.get(i)[ptmId]);
+                        }
+                    }
+                    model.addConstr(yVarMass, GRB.LESS_EQUAL, Drec*(yIons[pos-1]-peakList.get(pId).getKey())+tau, "CON_y_pos"+pos+ptmFreePeptide.charAt(pos)+"_peak"+pId+"_LEQ1");
+                    model.addConstr(yVarMass2, GRB.LESS_EQUAL, Drec*(peakList.get(pId).getKey()-yIons[pos-1])+tau, "CON_y_pos"+pos+ptmFreePeptide.charAt(pos)+"_peak"+pId+"_LEQ2");
+                }
+                yPosPeakIdMap.put(pos, peakIdList);
+                model.addConstr(yVarSumAtPos, GRB.LESS_EQUAL, 1, "CON_y_pos"+pos+ptmFreePeptide.charAt(pos)+"_max1Peak");
+                yPosVars.put(pos, varsMap);
+            }
+//            System.out.println(yPosPeakIdMap);
+
+            for (int pos1 = Collections.max(modifiedZone); pos1 >= Collections.min(modifiedZone)+1; pos1--) {
+                int pos2 = pos1 - 1;
+                for (int pId1 : yPosPeakIdMap.get(pos1)) {
+                    if (!yPosPeakIdMap.get(pos2).contains(pId1)) continue;
+                    for (int pId2 : yPosPeakIdMap.get(pos2)) {
+                        if (peakList.get(pId2).getKey() - peakList.get(pId1).getKey() > 57.05) break;
+                        GRBLinExpr cross = new GRBLinExpr();
+                        cross.addTerm(1, yPosVars.get(pos1).get(pId1));
+                        cross.addTerm(1, yPosVars.get(pos2).get(pId2));
+                        model.addConstr(cross, GRB.LESS_EQUAL ,1, "CON_noCross_ypos1_"+pos1+ptmFreePeptide.charAt(pos1)+"toPeak"+pId1+"_ypos2_"+pos2+ptmFreePeptide.charAt(pos2)+"toPeak"+pId2);
+                    }
+                }
+            }
+
+            // end of matching
+
+            GRBLinExpr numMatchedPeaks = new GRBLinExpr();
+            for (int pos : bPosPeakIdMap.keySet()) {
+                for (int pId : bPosPeakIdMap.get(pos)) {
+                    numMatchedPeaks.addTerm(1, bPosVars.get(pos).get(pId));
+                }
+            }
+            for (int pos : yPosPeakIdMap.keySet()){
+                for (int pId : yPosPeakIdMap.get(pos)){
+                    numMatchedPeaks.addTerm(1, yPosVars.get(pos).get(pId));
+                }
+            }
+            model.addConstr(numMatchedPeaks, GRB.GREATER_EQUAL, lastPeakNum+1, "test");
+
+            //obj
+//            GRBLinExpr objFunction = new GRBLinExpr();
+//            for (int pos = 1; pos <= ptmFreePeptide.length()-3; pos++) {
+//                for (int pId : bPosPeakIdMap.get(pos)) {
+//                    objFunction.addTerm(peakList.get(pId).getValue(), bPosVars.get(pos).get(pId));
+//                }
+//                for (int pId : yPosPeakIdMap.get(pos)){
+//                    objFunction.addTerm(peakList.get(pId).getValue(), yPosVars.get(pos).get(pId));
+//                }
+//            }
+//            for (int pId : yPosPeakIdMap.get(ptmFreePeptide.length()-2)){
+//                objFunction.addTerm(peakList.get(pId).getValue(), yPosVars.get(ptmFreePeptide.length()-2).get(pId));
+//            }
+////            }
+//
+//            for (int pos: posVarsMap.keySet()){
+//                for (GRBVar var : posVarsMap.get(pos)){
+//                    objFunction.addTerm(-0.1, var);
+//                }
+//            }
+            model.setObjective(numMatchedPeaks, GRB.MAXIMIZE);
+
             int solId = 0;
             for (Map<Integer, Integer> sol : allSolsList){
                 GRBLinExpr solConstr = new GRBLinExpr();
@@ -525,21 +741,24 @@ public class InferPTM {
 
             //settings
             model.set(GRB.IntParam.MIPFocus, 1);
-            model.set(GRB.DoubleParam.TimeLimit, 1.5*numPtmsOnPep);
-//            model.set(GRB.IntParam.SolutionLimit, 1);
+//            model.set(GRB.DoubleParam.TimeLimit, 1.5*numPtmsOnPep);
             // solve the model
+//            model.write("/home/slaiad/Data/Simulation_Data/test.lp");
+//            model.write("/home/slaiad/Data/Simulation_Data/test.mps");
             int numOfSols = 0;
+            int maxLastNPeaks = 0;
+
             whileLoop:
-            while ( numOfSols < 10 - 2*numPtmsOnPep ) {//10 - 2*numPtmsOnPep
+            while ( numOfSols < 1 ) {//10 - 2*numPtmsOnPep
+                long start=System.currentTimeMillis();   //获取开始时间
                 model.optimize();
+                long end=System.currentTimeMillis(); //获取结束时间
                 switch (model.get(GRB.IntAttr.Status)) {
                     case GRB.OPTIMAL:
-                        break;
-                    case GRB.TIME_LIMIT:
-//                        System.out.println(scanNum + " :TimeOut");
-                        model.dispose();
-                        numTimeout++;
-                        break whileLoop;
+//                        model.write("/home/slaiad/Data/Simulation_Data/test.sol");
+
+                        System.out.println("\nNew sol:"+numOfSols +"," + numPtmsOnPep+ ", "+(end-start)+"ms");
+                        break;//                        System.out.println(scanNum + " :TimeOut");
                     default:
                         model.dispose();
                         break whileLoop;
@@ -549,6 +768,7 @@ public class InferPTM {
                 Map<Integer, Integer> positionOneMap = new HashMap<>();
 //                positionOneMap.clear();
                 for (int pos : modifiedZone) {
+                    if (!posVarsMap.containsKey(pos)) continue;
                     GRBVar[] varsResArray = posVarsMap.get(pos);
                     for (int varId = 0; varId < varsResArray.length; varId++ ) {  //should I be careful about the binary variable to be really 0/1 instead of decimal
                         if (1 == Math.round(varsResArray[varId].get(GRB.DoubleAttr.X))) {
@@ -557,6 +777,13 @@ public class InferPTM {
                     }
                 }
                 allSolsList.add(positionOneMap);
+
+                //stub test true other
+//                positionOneMap.clear();
+//                positionOneMap.put(1,5);
+//                positionOneMap.put(10,13);
+//                positionOneMap.put(12,1);
+                //stub end
 
                 PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
                 Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
@@ -567,11 +794,34 @@ public class InferPTM {
 
                 double[][] temp = peptide.getIonMatrix();
                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL) - 0.01*(numPtmsOnPep-1);
+                double lastLpScore = 0;
+                int currentNPeaks = 0;
                 if (score > 0) {
                     peptide.lpScore = model.get(GRB.DoubleAttr.ObjVal);
+                    System.out.println("numPtmsOnPep "+numPtmsOnPep+" lpScore "+peptide.lpScore + " XCorr " + score);
                     peptide.setScore(score);
                     peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, peptide.getIonMatrix(), ms2Tolerance));
                     peptidePTMPattern.update(peptide);
+                    for (int pos : bPosVars.keySet()) {
+                        for (int peakId : bPosVars.get(pos).keySet()){
+                            if (1 == Math.round(bPosVars.get(pos).get(peakId).get(GRB.DoubleAttr.X))){
+                                lastLpScore += peakList.get(peakId).getValue();
+                                currentNPeaks++;
+                                System.out.println("bMatch "+bPosVars.get(pos).get(peakId).get(GRB.StringAttr.VarName) + ", "+ peakList.get(peakId).getKey()+","+peakList.get(peakId).getValue());
+                            }
+                        }
+                    }
+                    for (int pos : yPosVars.keySet()) {
+                        for (int peakId : yPosVars.get(pos).keySet()){
+                            if (1 == Math.round(yPosVars.get(pos).get(peakId).get(GRB.DoubleAttr.X))){
+                                lastLpScore += peakList.get(peakId).getValue();
+                                currentNPeaks++;
+                                System.out.println("yMatch "+yPosVars.get(pos).get(peakId).get(GRB.StringAttr.VarName) + ", "+ peakList.get(peakId).getKey()+","+peakList.get(peakId).getValue());
+                            }
+                        }
+                    }
+                    System.out.println("this  "+ lastLpScore + "," + currentNPeaks + "," +peptide);
+
                     List<Double> massList = new ArrayList<>();
                     for (double mass : positionDeltaMassMap.values()){
                         massList.add(mass);
@@ -584,13 +834,28 @@ public class InferPTM {
                 for (Map.Entry<Integer, Integer> entry : positionOneMap.entrySet()){
                     forMoreFeasiSolConstr.addTerm(1, posVarsMap.get(entry.getKey())[entry.getValue()]);
                 }
-                model.addConstr(forMoreFeasiSolConstr, GRB.LESS_EQUAL, numPtmsOnPep - 0.5, "forFeasiSol"); //or put this to constraints as a model.addRange
+//                model.addConstr(forMoreFeasiSolConstr, GRB.LESS_EQUAL, numPtmsOnPep - 0.8, "forFeasiSol"); //or put this to constraints as a model.addRange
+
+                GRBLinExpr numMatchedPeaks1 = new GRBLinExpr();
+                for (int pos : bPosPeakIdMap.keySet()) {
+                    for (int pId : bPosPeakIdMap.get(pos)) {
+                        numMatchedPeaks1.addTerm(1, bPosVars.get(pos).get(pId));
+                    }
+                }
+                for (int pos : yPosPeakIdMap.keySet()){
+                    for (int pId : yPosPeakIdMap.get(pos)){
+                        numMatchedPeaks1.addTerm(1, yPosVars.get(pos).get(pId));
+                    }
+                }
+                model.addConstr(numMatchedPeaks1, GRB.GREATER_EQUAL, currentNPeaks + 1, "test");
+                maxLastNPeaks = currentNPeaks;
             }
             model.dispose();
+            return maxLastNPeaks;
         } catch (GRBException e) {
             System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
         }
-//        return allSolsList;
+        return 0;
     }
 
     public static Multimap<Character, ModEntry> readUnimodAndGenerateAAS(double minPtmMass, double maxPtmMass) throws IOException {
@@ -829,19 +1094,19 @@ public class InferPTM {
 
 
 
-    private void try2PTMs(Map<Integer, Set<VarModParam>> idxVarModMap, double leftMassBound, double rightMassBound, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, Set<String> checkedPtmPattern, PeptidePTMPattern peptidePTMPattern, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge) {
+    private void PTMs(Map<Integer, Set<VarModParam>> idxVarModMap, double leftMassBound, double rightMassBound, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, Set<String> checkedPtmPattern, PeptidePTMPattern peptidePTMPattern, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge) {
         Integer[] idxArray = idxVarModMap.keySet().toArray(new Integer[0]);
         Arrays.sort(idxArray);
         for (int i = 0; i < idxArray.length - 1; ++i) {
             for (VarModParam modEntry1 : idxVarModMap.get(idxArray[i])) {
                 for (int j = i + 1; j < idxArray.length; ++j) {
-                    for (VarModParam modEntry2 : idxVarModMap.get(idxArray[j])) {
-                        if (modEntry1.mass + modEntry2.mass <= rightMassBound && modEntry1.mass + modEntry2.mass >= leftMassBound) {
-                            if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000))) {
-                                checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000));
+                    for (VarModParam modEn : idxVarModMap.get(idxArray[j])) {
+                        if (modEntry1.mass + modEn.mass <= rightMassBound && modEntry1.mass + modEn.mass >= leftMassBound) {
+                            if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000))) {
+                                checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000));
                                 PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
                                 positionDeltaMassMap.put(new Coordinate(idxArray[i], idxArray[i] + 1), modEntry1.mass);
-                                positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEntry2.mass);
+                                positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEn.mass);
                                 Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
                                 peptide.setVarPTM(positionDeltaMassMap);
                                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL);
@@ -864,19 +1129,19 @@ public class InferPTM {
         for (int i = 0; i < idxArray.length - 2; ++i) {
             for (VarModParam modEntry1 : idxVarModMap.get(idxArray[i])) {
                 for (int j = i + 1; j < idxArray.length - 1; ++j) {
-                    for (VarModParam modEntry2 : idxVarModMap.get(idxArray[j])) {
-                        if (modEntry1.priority + modEntry2.priority > 0) {
-                            if (Math.abs(modEntry1.mass + modEntry2.mass) >= ptmMassTolerance) { // two self cancelled PTM masses are not allowed.
+                    for (VarModParam modEn : idxVarModMap.get(idxArray[j])) {
+                        if (modEntry1.priority + modEn.priority > 0) {
+                            if (Math.abs(modEntry1.mass + modEn.mass) >= ptmMassTolerance) { // two self cancelled PTM masses are not allowed.
                                 for (int k = j + 1; k < idxArray.length; ++k) {
                                     for (VarModParam modEntry3 : idxVarModMap.get(idxArray[k])) {
-                                        if (modEntry1.priority + modEntry2.priority + modEntry3.priority > 1) {
-                                            if (Math.abs(modEntry1.mass + modEntry3.mass) >= ptmMassTolerance && Math.abs(modEntry2.mass + modEntry3.mass) >= ptmMassTolerance) {
-                                                if (modEntry1.mass + modEntry2.mass + modEntry3.mass <= rightMassBound && modEntry1.mass + modEntry2.mass + modEntry3.mass >= leftMassBound) {
-                                                    if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000))) {
-                                                        checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000));
+                                        if (modEntry1.priority + modEn.priority + modEntry3.priority > 1) {
+                                            if (Math.abs(modEntry1.mass + modEntry3.mass) >= ptmMassTolerance && Math.abs(modEn.mass + modEntry3.mass) >= ptmMassTolerance) {
+                                                if (modEntry1.mass + modEn.mass + modEntry3.mass <= rightMassBound && modEntry1.mass + modEn.mass + modEntry3.mass >= leftMassBound) {
+                                                    if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000))) {
+                                                        checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000));
                                                         PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
                                                         positionDeltaMassMap.put(new Coordinate(idxArray[i], idxArray[i] + 1), modEntry1.mass);
-                                                        positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEntry2.mass);
+                                                        positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEn.mass);
                                                         positionDeltaMassMap.put(new Coordinate(idxArray[k], idxArray[k] + 1), modEntry3.mass);
                                                         Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
                                                         peptide.setVarPTM(positionDeltaMassMap);
@@ -906,23 +1171,23 @@ public class InferPTM {
         for (int i = 0; i < idxArray.length - 3; ++i) {
             for (VarModParam modEntry1 : idxVarModMap.get(idxArray[i])) {
                 for (int j = i + 1; j < idxArray.length - 2; ++j) {
-                    for (VarModParam modEntry2 : idxVarModMap.get(idxArray[j])) {
-                        if (modEntry1.priority + modEntry2.priority > 0) {
-                            if (Math.abs(modEntry1.mass + modEntry2.mass) >= ptmMassTolerance) {
+                    for (VarModParam modEn : idxVarModMap.get(idxArray[j])) {
+                        if (modEntry1.priority + modEn.priority > 0) {
+                            if (Math.abs(modEntry1.mass + modEn.mass) >= ptmMassTolerance) {
                                 for (int k = j + 1; k < idxArray.length - 1; ++k) {
                                     for (VarModParam modEntry3 : idxVarModMap.get(idxArray[k])) {
-                                        if (modEntry1.priority + modEntry2.priority + modEntry3.priority > 1) {
-                                            if (Math.abs(modEntry1.mass + modEntry3.mass) >= ptmMassTolerance && Math.abs(modEntry2.mass + modEntry3.mass) >= ptmMassTolerance) {
+                                        if (modEntry1.priority + modEn.priority + modEntry3.priority > 1) {
+                                            if (Math.abs(modEntry1.mass + modEntry3.mass) >= ptmMassTolerance && Math.abs(modEn.mass + modEntry3.mass) >= ptmMassTolerance) {
                                                 for (int l = k + 1; l < idxArray.length; ++l) {
                                                     for (VarModParam modEntry4 : idxVarModMap.get(idxArray[l])) {
-                                                        if (modEntry1.priority + modEntry2.priority + modEntry3.priority + modEntry4.priority > 2) {
-                                                            if (Math.abs(modEntry1.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEntry2.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEntry3.mass + modEntry4.mass) >= ptmMassTolerance) {
-                                                                if (modEntry1.mass + modEntry2.mass + modEntry3.mass + modEntry4.mass <= rightMassBound && modEntry1.mass + modEntry2.mass + modEntry3.mass + modEntry4.mass >= leftMassBound) {
-                                                                    if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000))) {
-                                                                        checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000));
+                                                        if (modEntry1.priority + modEn.priority + modEntry3.priority + modEntry4.priority > 2) {
+                                                            if (Math.abs(modEntry1.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEn.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEntry3.mass + modEntry4.mass) >= ptmMassTolerance) {
+                                                                if (modEntry1.mass + modEn.mass + modEntry3.mass + modEntry4.mass <= rightMassBound && modEntry1.mass + modEn.mass + modEntry3.mass + modEntry4.mass >= leftMassBound) {
+                                                                    if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000))) {
+                                                                        checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000));
                                                                         PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[i], idxArray[i] + 1), modEntry1.mass);
-                                                                        positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEntry2.mass);
+                                                                        positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEn.mass);
                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[k], idxArray[k] + 1), modEntry3.mass);
                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[l], idxArray[l] + 1), modEntry4.mass);
                                                                         Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
@@ -957,27 +1222,27 @@ public class InferPTM {
         for (int i = 0; i < idxArray.length - 4; ++i) {
             for (VarModParam modEntry1 : idxVarModMap.get(idxArray[i])) {
                 for (int j = i + 1; j < idxArray.length - 3; ++j) {
-                    for (VarModParam modEntry2 : idxVarModMap.get(idxArray[j])) {
-                        if (modEntry1.priority + modEntry2.priority > 0) {
-                            if (Math.abs(modEntry1.mass + modEntry2.mass) >= ptmMassTolerance) {
+                    for (VarModParam modEn : idxVarModMap.get(idxArray[j])) {
+                        if (modEntry1.priority + modEn.priority > 0) {
+                            if (Math.abs(modEntry1.mass + modEn.mass) >= ptmMassTolerance) {
                                 for (int k = j + 1; k < idxArray.length - 2; ++k) {
                                     for (VarModParam modEntry3 : idxVarModMap.get(idxArray[k])) {
-                                        if (modEntry1.priority + modEntry2.priority + modEntry3.priority > 1) {
-                                            if (Math.abs(modEntry1.mass + modEntry3.mass) >= ptmMassTolerance && Math.abs(modEntry2.mass + modEntry3.mass) >= ptmMassTolerance) {
+                                        if (modEntry1.priority + modEn.priority + modEntry3.priority > 1) {
+                                            if (Math.abs(modEntry1.mass + modEntry3.mass) >= ptmMassTolerance && Math.abs(modEn.mass + modEntry3.mass) >= ptmMassTolerance) {
                                                 for (int l = k + 1; l < idxArray.length - 1; ++l) {
                                                     for (VarModParam modEntry4 : idxVarModMap.get(idxArray[l])) {
-                                                        if (modEntry1.priority + modEntry2.priority + modEntry3.priority + modEntry4.priority > 2) {
-                                                            if (Math.abs(modEntry1.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEntry2.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEntry3.mass + modEntry4.mass) >= ptmMassTolerance) {
+                                                        if (modEntry1.priority + modEn.priority + modEntry3.priority + modEntry4.priority > 2) {
+                                                            if (Math.abs(modEntry1.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEn.mass + modEntry4.mass) >= ptmMassTolerance && Math.abs(modEntry3.mass + modEntry4.mass) >= ptmMassTolerance) {
                                                                 for (int m = l + 1; m < idxArray.length; ++m) {
                                                                     for (VarModParam modEntry5 : idxVarModMap.get(idxArray[m])) {
-                                                                        if (modEntry1.priority + modEntry2.priority + modEntry3.priority + modEntry4.priority + modEntry5.priority > 3) {
-                                                                            if (Math.abs(modEntry1.mass + modEntry5.mass) >= ptmMassTolerance && Math.abs(modEntry2.mass + modEntry5.mass) >= ptmMassTolerance && Math.abs(modEntry3.mass + modEntry5.mass) >= ptmMassTolerance && Math.abs(modEntry4.mass + modEntry5.mass) >= ptmMassTolerance) {
-                                                                                if (modEntry1.mass + modEntry2.mass + modEntry3.mass + modEntry4.mass + modEntry5.mass <= rightMassBound && modEntry1.mass + modEntry2.mass + modEntry3.mass + modEntry4.mass + modEntry5.mass >= leftMassBound) {
-                                                                                    if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000) + "-" + idxArray[m] + "-" + Math.round(modEntry5.mass * 1000))) {
-                                                                                        checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEntry2.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000) + "-" + idxArray[m] + "-" + Math.round(modEntry5.mass * 1000));
+                                                                        if (modEntry1.priority + modEn.priority + modEntry3.priority + modEntry4.priority + modEntry5.priority > 3) {
+                                                                            if (Math.abs(modEntry1.mass + modEntry5.mass) >= ptmMassTolerance && Math.abs(modEn.mass + modEntry5.mass) >= ptmMassTolerance && Math.abs(modEntry3.mass + modEntry5.mass) >= ptmMassTolerance && Math.abs(modEntry4.mass + modEntry5.mass) >= ptmMassTolerance) {
+                                                                                if (modEntry1.mass + modEn.mass + modEntry3.mass + modEntry4.mass + modEntry5.mass <= rightMassBound && modEntry1.mass + modEn.mass + modEntry3.mass + modEntry4.mass + modEntry5.mass >= leftMassBound) {
+                                                                                    if (!checkedPtmPattern.contains(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000) + "-" + idxArray[m] + "-" + Math.round(modEntry5.mass * 1000))) {
+                                                                                        checkedPtmPattern.add(idxArray[i] + "-" + Math.round(modEntry1.mass * 1000) + "-" + idxArray[j] + "-" + Math.round(modEn.mass * 1000) + "-" + idxArray[k] + "-" + Math.round(modEntry3.mass * 1000) + "-" + idxArray[l] + "-" + Math.round(modEntry4.mass * 1000) + "-" + idxArray[m] + "-" + Math.round(modEntry5.mass * 1000));
                                                                                         PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
                                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[i], idxArray[i] + 1), modEntry1.mass);
-                                                                                        positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEntry2.mass);
+                                                                                        positionDeltaMassMap.put(new Coordinate(idxArray[j], idxArray[j] + 1), modEn.mass);
                                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[k], idxArray[k] + 1), modEntry3.mass);
                                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[l], idxArray[l] + 1), modEntry4.mass);
                                                                                         positionDeltaMassMap.put(new Coordinate(idxArray[m], idxArray[m] + 1), modEntry5.mass);

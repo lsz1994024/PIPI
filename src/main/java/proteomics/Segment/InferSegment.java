@@ -346,7 +346,7 @@ public class InferSegment {
         return null;
     }
 
-    private TreeMap<Double, Double> addVirtualPeaks(double precursorMass, TreeMap<Double, Double> plMap) {
+    public TreeMap<Double, Double> addVirtualPeaks(double precursorMass, TreeMap<Double, Double> plMap) {
         double totalMass = precursorMass + 2 * MassTool.PROTON;
         TreeMap<Double, Double> finalPlMap = new TreeMap<>();
         for (double mz : plMap.keySet()) {
@@ -361,9 +361,9 @@ public class InferSegment {
                 temp = plMap.subMap(leftMz, true, rightMz, true);
             } catch (IllegalArgumentException ex) {}
 
-            if ((temp == null) || (temp.isEmpty())) {
-                finalPlMap.put(anotherMz, plMap.get(mz));
-            }
+//            if ((temp == null) || (temp.isEmpty())) {
+//                finalPlMap.put(anotherMz, plMap.get(mz));
+//            }
         }
 
         // Add two virtual peak. Because we have convert all y-ions to b-ions.
