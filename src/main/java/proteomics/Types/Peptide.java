@@ -20,6 +20,7 @@ import ProteomicsLibrary.Types.Coordinate;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.MassTool;
 
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -34,6 +35,9 @@ public class Peptide implements Comparable<Peptide> {
     private final double normalizedCrossCorrelationCoefficient;
     public double lpScore = 0d;
     private int hashCode;
+
+    public Map<Integer, Double> matchedBions = new HashMap<>();
+    public Map<Integer, Double> matchedYions = new HashMap<>();
 
     // these fields need to be changed every time PTM changed.
     private PositionDeltaMassMap varPTMMap = null;
@@ -71,6 +75,24 @@ public class Peptide implements Comparable<Peptide> {
     }
 
     public double[][] getIonMatrix() {
+        if (ionMatrix == null) {
+            varPtmContainingSeq = getVarPtmContainingSeq();
+            ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
+            chargeOneBIonArray = ionMatrix[0];
+        }
+        return ionMatrix;
+    }
+
+    public double[][] getIonMatrixNow() {
+        varPtmContainingSeq = getVarPtmContainingSeqNow();
+        ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+        theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
+        chargeOneBIonArray = ionMatrix[0];
+        return ionMatrix;
+    }
+
+    public double[][] getIonMatrix(double lMass, double rMass) {
         if (ionMatrix == null) {
             varPtmContainingSeq = getVarPtmContainingSeq();
             ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
@@ -151,7 +173,9 @@ public class Peptide implements Comparable<Peptide> {
     public int length() {
         return ptmFreePeptide.length();
     }
-
+    public void addVarPTM(PositionDeltaMassMap ptmMap) {
+        this.varPTMMap.putAll(ptmMap);
+    }
     public void setVarPTM(PositionDeltaMassMap ptmMap) {
         this.varPTMMap = ptmMap;
         if (ptmMap != null) {
@@ -229,6 +253,44 @@ public class Peptide implements Comparable<Peptide> {
             }
         }
 
+        return varPtmContainingSeq;
+    }
+
+    private String getVarPtmContainingSeqNow() {
+        if (varPTMMap != null) {
+            StringBuilder sb = new StringBuilder(ptmFreePeptide.length() * 5);
+            int tempIdx = varPTMMap.firstKey().y;
+            if (tempIdx > 1) {
+                sb.append(ptmFreePeptide.substring(0, tempIdx - 1));
+            }
+            int i = tempIdx - 1;
+            tempIdx = varPTMMap.lastKey().y;
+            while (i < ptmFreePeptide.length()) {
+                boolean hasMod = false;
+                if (tempIdx > i) {
+                    for (Coordinate co : varPTMMap.keySet()) {
+                        if (co.y - 1 == i) {
+                            sb.append(String.format(Locale.US, "%c(%.3f)", ptmFreePeptide.charAt(i), varPTMMap.get(co)));
+                            hasMod = true;
+                            ++i;
+                            break;
+                        }
+                    }
+                    if (!hasMod) {
+                        sb.append(ptmFreePeptide.charAt(i));
+                        ++i;
+                    }
+                } else {
+                    break;
+                }
+            }
+            if (tempIdx < ptmFreePeptide.length()) {
+                sb.append(ptmFreePeptide.substring(tempIdx));
+            }
+            varPtmContainingSeq = sb.toString();
+        } else {
+            varPtmContainingSeq = ptmFreePeptide;
+        }
         return varPtmContainingSeq;
     }
 

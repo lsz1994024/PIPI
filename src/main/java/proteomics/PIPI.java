@@ -217,7 +217,7 @@ public class PIPI {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
 //            System.out.println(scanNum);
-            if (scanNum != 3489) {
+            if (scanNum != 2411) {
                  continue;
             }
             if (!validScansSet.contains(scanNum)) {
@@ -399,9 +399,6 @@ public class PIPI {
                     continue;
                 }
                 totalNum++;
-                if(scanNum == 3578) {
-                    int a  = 1;
-                }
                 rawPeptide = rawPeptide.replace("C(57.021)", "C");
                 StringBuilder newPep = new StringBuilder(rawPeptide.substring(1, rawPeptide.length()-1));
                 if (!sqlResultSet.wasNull()) {
