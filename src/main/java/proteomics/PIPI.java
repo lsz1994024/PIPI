@@ -217,7 +217,7 @@ public class PIPI {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
 //            System.out.println(scanNum);
-//            if (scanNum != 8818) { //bad 3043 9636,8818       good 2411, 3489,
+//            if (scanNum != 5436) { //bad 3043 9636,8818       good 2411, 3489,
 //                 continue;
 //            }
             if (!validScansSet.contains(scanNum)) {

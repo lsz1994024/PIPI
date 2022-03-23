@@ -204,6 +204,7 @@ public class InferPTM {
         double maxLMz = 0;
         double minRMz = plMap.lastKey();
         PeptidePTMPattern allPtmPattern = new PeptidePTMPattern(ptmFreePeptide);
+        PeptidePTMPattern allPtmPatternBad = new PeptidePTMPattern(ptmFreePeptide,1);
 
         double totalDeltaMass = precursorMass - ptmFreeMass;
         if (Math.abs(totalDeltaMass) < 0.01 ) {
@@ -398,43 +399,6 @@ public class InferPTM {
             return allPtmPattern; //Some scans are not valid Scans. Will be deleted soon.
         }
 
-        // find the most frequently appearing extra mass as proof for multiple PTMs.
-        double top1ExtraMass = -9999d;
-        if (extraMassTagIdMap.size() != 0) {
-            Map<Double, Integer> extraMassSizeMap = new HashMap<>(extraMassTagIdMap.entrySet().size());
-            for (Map.Entry<Double, Set<Integer>> entry : extraMassTagIdMap.entrySet()) {
-                extraMassSizeMap.put(entry.getKey(), entry.getValue().size());
-            }
-            List<Map.Entry<Double, Integer>> tempList = new ArrayList<>(extraMassSizeMap.entrySet());
-            Collections.sort(tempList, Comparator.comparingInt(Map.Entry<Double, Integer>::getValue)); //get the key of the largest value in extraMassMap
-            if (tempList.get(tempList.size()-1).getValue() > 1){
-                top1ExtraMass = tempList.get(tempList.size()-1).getKey();
-            }
-        }
-
-        Set<Integer> extraMassTagZone = new HashSet<>();
-        Set<Integer> constraintZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
-
-        List<Integer> extraTagIds = new ArrayList<>();
-        mainLoop:
-        if (top1ExtraMass != -9999d) {
-            for (int tagId : extraMassTagIdMap.get(top1ExtraMass)){
-                ThreeExpAA tagInfo = expAaLists.get(tagId);
-                for (int alignPos : tagInfo.bAlignPosMassMap.keySet()) {
-                    if( top1ExtraMass - Math.abs(tagInfo.bAlignPosMassMap.get(alignPos)) <= 0.01){
-                        extraTagIds.add(tagId);
-                        constraintZone.retainAll( IntStream.range(1, alignPos).boxed().collect(Collectors.toSet()) );
-                        for (int i = alignPos; i < alignPos+3; i++) {
-                            extraMassTagZone.add(i);
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        constraintZone.retainAll(modifiedZone);  //only consider one extraMass now
-
         if (maxLMz > minRMz){
             int a = 1;
         }
@@ -465,6 +429,7 @@ public class InferPTM {
 //        double[][] temp = p1p.getIonMatrix();
 //        double ss = massTool.buildVectorAndCalXCorr(p1p.getIonMatrix(), precursorCharge, expProcessedPL) ;
         //stub end
+        modifiedZone = IntStream.range(1, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
         Peptide cleanPep = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
 
@@ -490,65 +455,116 @@ public class InferPTM {
         }
         modifiedZone = IntStream.range(lb, rb).boxed().collect(Collectors.toSet());
 
-        PeptidePTMPattern ptmZ1Good = new PeptidePTMPattern(ptmFreePeptide, 1);
-        PeptidePTMPattern ptmZ1Bad = new PeptidePTMPattern(ptmFreePeptide, 1);
+        if (modifiedZone.isEmpty()) {
+            return allPtmPattern;
+        }
         PeptidePTMPattern ptmInitialTemp = new PeptidePTMPattern(ptmFreePeptide, 1);
         Peptide cleanPeptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         cleanPeptide.setVarPTM(new PositionDeltaMassMap(ptmFreePeptide.length()));
         ptmInitialTemp.push(cleanPeptide);
 //        long t1 = System.currentTimeMillis();
-        if (modifiedZone.isEmpty()) {
-            return allPtmPattern;
-        }
-        DividedZone z1Z2Res = dividePep(scanNum, modifiedZone, ptmZ1Good, ptmZ1Bad, ptmInitialTemp, idxVarModArrayMap, totalDeltaMass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
-//        long t2 = System.currentTimeMillis();
-//        System.out.println("End dividePep, "+ (t2-t1));
 
+        // 1st
+        PeptidePTMPattern ptmZ1Good = new PeptidePTMPattern(ptmFreePeptide, 1);
+        PeptidePTMPattern ptmZ1Bad = new PeptidePTMPattern(ptmFreePeptide, 1);
+
+        DividedZone z1Z2Res = dividePep(scanNum, modifiedZone, ptmZ1Good, ptmZ1Bad, ptmInitialTemp, idxVarModArrayMap, totalDeltaMass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmZ1Good.getPeptideTreeSet().isEmpty()) {
+            ptmZ1Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ1Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+            ptmZ1Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ1Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             allPtmPattern.push(ptmZ1Good.getTopPepPtn());
         }
         Set<Integer> zone1 = z1Z2Res.keptZone;
         Set<Integer> zone2 = z1Z2Res.freeZone;
+        if (ptmZ1Bad.peptideTreeSet.isEmpty() || zone2.isEmpty()) {
+            if (allPtmPattern.peptideTreeSet.isEmpty()) {
+                return allPtmPatternBad;
+            }
+            return allPtmPattern;
+        }
+        ptmZ1Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ1Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+        ptmZ1Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ1Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+        allPtmPatternBad.push(ptmZ1Bad.getTopPepPtn());
+
         double zone1Mass = ptmZ1Bad.getTopPepPtn().getVarPTMs().values().iterator().next();
         double zone2Mass = totalDeltaMass - zone1Mass;
 
-        //for zone2 if numPtmZone1 == 2
-
+        // 2nd
         PeptidePTMPattern ptmZ3Good = new PeptidePTMPattern(ptmFreePeptide, 1);
         PeptidePTMPattern ptmZ3Bad = new PeptidePTMPattern(ptmFreePeptide, 1);
 
-        if (zone2.isEmpty()) {
-            return allPtmPattern;
-        }
         DividedZone z3Z4Res = dividePep(scanNum, zone2, ptmZ3Good, ptmZ3Bad ,ptmZ1Bad, idxVarModArrayMap, zone2Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmZ3Good.getPeptideTreeSet().isEmpty()) {
+            ptmZ3Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ3Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+            ptmZ3Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ3Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             allPtmPattern.push(ptmZ3Good.getTopPepPtn());
         }
         Set<Integer> zone3 = z3Z4Res.keptZone;
         Set<Integer> zone4 = z3Z4Res.freeZone;
+        if (ptmZ3Bad.peptideTreeSet.isEmpty() || zone4.isEmpty()) {
+            if (allPtmPattern.peptideTreeSet.isEmpty()) {
+                return allPtmPatternBad;
+            }
+            return allPtmPattern;
+        }
+        ptmZ3Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ3Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+        ptmZ3Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ3Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+        allPtmPatternBad.push(ptmZ3Bad.getTopPepPtn());
+
         double zone3Mass = z3Z4Res.ptmMass;
         double zone4Mass = zone2Mass - zone3Mass;
 
-        //solve zone 4
+        // 3rd
         PeptidePTMPattern ptmZ5Good = new PeptidePTMPattern(ptmFreePeptide, 1);
         PeptidePTMPattern ptmZ5Bad = new PeptidePTMPattern(ptmFreePeptide, 1);
 
-        if (!zone4.isEmpty()) {
-            DividedZone z5Z6Res = dividePep(scanNum, zone4, ptmZ5Good, ptmZ5Bad, ptmZ3Bad, idxVarModArrayMap, zone4Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
-        }
+        DividedZone z5Z6Res = dividePep(scanNum, zone4, ptmZ5Good, ptmZ5Bad, ptmZ3Bad, idxVarModArrayMap, zone4Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmZ5Good.peptideTreeSet.isEmpty()) {
+            ptmZ5Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ5Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+            ptmZ5Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ5Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             allPtmPattern.push(ptmZ5Good.getTopPepPtn());
         }
+        Set<Integer> zone5 = z5Z6Res.keptZone;
+        Set<Integer> zone6 = z5Z6Res.freeZone;
+        if (ptmZ5Bad.peptideTreeSet.isEmpty() || zone6.isEmpty()) {
+            if (allPtmPattern.peptideTreeSet.isEmpty()) {
+                return allPtmPatternBad;
+            }
+            return allPtmPattern;
+        }
+        ptmZ5Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ5Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+        ptmZ5Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ5Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+        allPtmPatternBad.push(ptmZ5Bad.getTopPepPtn());
+
+        double zone5Mass = z5Z6Res.ptmMass;
+        double zone6Mass = zone4Mass - zone5Mass;
+
+        PeptidePTMPattern ptmZ7Good = new PeptidePTMPattern(ptmFreePeptide, 1);
+        PeptidePTMPattern ptmZ7Bad = new PeptidePTMPattern(ptmFreePeptide, 1);
+        DividedZone z7Z8Res = dividePep(scanNum, zone6, ptmZ7Good, ptmZ7Bad ,ptmZ5Bad, idxVarModArrayMap, zone6Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
+        if (!ptmZ7Good.getPeptideTreeSet().isEmpty()) {
+            ptmZ7Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ7Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+            ptmZ7Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ7Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            allPtmPattern.push(ptmZ7Good.getTopPepPtn());
+        }
+        if (!ptmZ7Bad.getPeptideTreeSet().isEmpty()) {
+            ptmZ7Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmZ7Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
+            ptmZ7Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmZ7Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            allPtmPatternBad.push(ptmZ7Bad.getTopPepPtn());
+        }
+
+
 
         long end = System.currentTimeMillis();
 
 //        System.out.println("N1 time, "+ (end - start));
-        for (Peptide pep : allPtmPattern.peptideTreeSet) {
-            double score = massTool.buildVectorAndCalXCorr(pep.getIonMatrixNow(), 1, expProcessedPL);
-            pep.setScore(score);
-            peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, peptide.getIonMatrixNow(), ms2Tolerance));
-
+        if (allPtmPattern.peptideTreeSet.isEmpty()) {
+            return allPtmPatternBad;
         }
+//        for (Peptide pep : allPtmPattern.peptideTreeSet) {
+//            pep.setScore(massTool.buildVectorAndCalXCorr(pep.getIonMatrixNow(), 1, expProcessedPL));
+//            peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, peptide.getIonMatrixNow(), ms2Tolerance));
+//        }
         return allPtmPattern;
     }
 
@@ -577,7 +593,11 @@ public class InferPTM {
                     jRange.add(i-1);
                 }
                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, matchedBions, matchedYions, jRange) ;
-                if (score > -1) {
+                double scoreLb = 0;
+                if (Math.abs(totalDeltaMass - idxVarModMap.get(pos)[ptmId].mass) <= 0.01){
+                    scoreLb = -1;
+                }
+                if (score > scoreLb) {
 //                    System.out.println("numPtmsOnPep " + numPtmsOnPep  + " XCorr " + score);
                     peptide.setScore(score);
                     peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, peptide.getIonMatrix(), ms2Tolerance));
@@ -601,8 +621,6 @@ public class InferPTM {
         Peptide inFeasiTopPep = ptmBadRes.getTopPepPtn();
         Set<Integer> keptZone = new HashSet<>();
         Set<Integer> freeZone = new HashSet<>();
-//        double bMassNew = 0;
-//        double yMassNew = 0;
         int n1Pos = -1;
         for (Coordinate coor : inFeasiTopPep.getVarPTMs().keySet()) {
             if (modifiedZone.contains(coor.x)) {
@@ -610,7 +628,6 @@ public class InferPTM {
                 ptmMass = inFeasiTopPep.getVarPTMs().get(coor);
             }
         }
-//        int n1Pos = inFeasiTopPep.getVarPTMs().keySet().iterator().next().x-offset;
         if (inFeasiTopPep.matchedYions.size() > inFeasiTopPep.matchedBions.size()) { // Y >>> B
             int farestPos = Collections.max(modifiedZone);
             int n1LB = Collections.min(modifiedZone);
@@ -656,7 +673,17 @@ public class InferPTM {
             keptZone = IntStream.rangeClosed(n1LB, n1RB).boxed().collect(Collectors.toSet());
             freeZone = IntStream.rangeClosed(closest+1, Collections.max(modifiedZone)).boxed().collect(Collectors.toSet());
         }
-
+//        int n1LB = Collections.min(modifiedZone);
+//        if ( !inFeasiTopPep.matchedYions.isEmpty()) {
+//            n1LB = Math.max(Collections.min(modifiedZone), Collections.max(inFeasiTopPep.matchedYions.keySet()));
+//        }
+//        int n1RB = Collections.max(modifiedZone);
+//        if (!inFeasiTopPep.matchedBions.isEmpty()){
+//            Math.min(Collections.max(modifiedZone), Collections.min(inFeasiTopPep.matchedBions.keySet()));
+//        }
+//        keptZone = IntStream.rangeClosed(n1LB, n1RB).boxed().collect(Collectors.toSet());
+//        freeZone = IntStream.rangeClosed(Collections.min(modifiedZone), Collections.max(modifiedZone)).boxed().collect(Collectors.toSet());
+//        freeZone.removeAll(keptZone);
         return new DividedZone(keptZone, freeZone, ptmMass);
     }
 
