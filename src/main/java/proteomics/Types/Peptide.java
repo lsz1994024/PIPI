@@ -20,6 +20,7 @@ import ProteomicsLibrary.Types.Coordinate;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.MassTool;
 
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -53,6 +54,8 @@ public class Peptide implements Comparable<Peptide> {
     private double explainedAaFrac = -1;
     private double qValue = -1;
     private String aScore = "-";
+    public Map<Integer, Double> matchedBions = new HashMap<>();
+    public Map<Integer, Double> matchedYions = new HashMap<>();
 
     public Peptide(String ptmFreePeptide, boolean isDecoy, MassTool massTool, int maxMs2Charge, double normalizedCrossCorrelationCoefficient, int globalRank) {
         this.ptmFreePeptide = ptmFreePeptide;
@@ -80,6 +83,52 @@ public class Peptide implements Comparable<Peptide> {
             chargeOneBIonArray = ionMatrix[0];
         }
         return ionMatrix;
+    }
+
+    public double[][] getIonMatrixNow() {
+        varPtmContainingSeq = getVarPtmContainingSeqNow();
+        ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+        theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
+        chargeOneBIonArray = ionMatrix[0];
+        return ionMatrix;
+    }
+
+    private String getVarPtmContainingSeqNow() {
+        if (varPTMMap != null) {
+            StringBuilder sb = new StringBuilder(ptmFreePeptide.length() * 5);
+            int tempIdx = varPTMMap.firstKey().y;
+            if (tempIdx > 1) {
+                sb.append(ptmFreePeptide.substring(0, tempIdx - 1));
+            }
+            int i = tempIdx - 1;
+            tempIdx = varPTMMap.lastKey().y;
+            while (i < ptmFreePeptide.length()) {
+                boolean hasMod = false;
+                if (tempIdx > i) {
+                    for (Coordinate co : varPTMMap.keySet()) {
+                        if (co.y - 1 == i) {
+                            sb.append(String.format(Locale.US, "%c(%.3f)", ptmFreePeptide.charAt(i), varPTMMap.get(co)));
+                            hasMod = true;
+                            ++i;
+                            break;
+                        }
+                    }
+                    if (!hasMod) {
+                        sb.append(ptmFreePeptide.charAt(i));
+                        ++i;
+                    }
+                } else {
+                    break;
+                }
+            }
+            if (tempIdx < ptmFreePeptide.length()) {
+                sb.append(ptmFreePeptide.substring(tempIdx));
+            }
+            varPtmContainingSeq = sb.toString();
+        } else {
+            varPtmContainingSeq = ptmFreePeptide;
+        }
+        return varPtmContainingSeq;
     }
 
     public double[][] getTheoIonMatrix() {

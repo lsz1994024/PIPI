@@ -129,20 +129,6 @@ public class InferSegment {
     }
 
     public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> plMap, int scanNum) throws Exception {
-        if (scanNum == 1882) {
-//            TreeMap<Double, Double> tempPlMap = addVirtualPeaks(precursorMass, plMap);
-//            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
-//            for (Map.Entry<Double, Double> entry : tempPlMap.entrySet()) {
-//                System.out.print(","+entry.getKey());
-//            }
-//            System.out.println("])");
-//
-//            System.out.print("intensities = np.array([1,1");
-//            for (Map.Entry<Double, Double> entry : tempPlMap.entrySet()) {
-//                System.out.print(","+entry.getValue());
-//            }
-            System.out.println("])");
-        }
         return inferThreeAAFromSpectrum(addVirtualPeaks(precursorMass, plMap), precursorMass - massTool.H2O + MassTool.PROTON);
     }
 

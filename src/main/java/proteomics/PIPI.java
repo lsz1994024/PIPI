@@ -195,9 +195,9 @@ public class PIPI {
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
 //            int[] debugScans = {1950,1960,1967,1987,2005,2024,2038};
-            if (scanNum != 1967 &&scanNum != 1987 &&scanNum != 2005 &&scanNum != 2024&&scanNum != 2038) {  //56437
-                continue;
-            }
+//            if (scanNum != 47391) {  //2229
+//                continue;
+//            }
             taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
         }
         sqlResultSet.close();

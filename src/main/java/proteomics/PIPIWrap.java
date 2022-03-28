@@ -113,23 +113,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
-//        if (scanNum == 1882) {
-//            System.out.print("peaks= np.array([1.007276409504627,19.017841109504626");
-//            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
-//                System.out.print(","+entry.getKey());
-//            }
-//            System.out.println("])");
-//
-//            System.out.print("intensities = np.array([1,1");
-//            for (Map.Entry<Double, Double> entry : plMap.entrySet()) {
-//                System.out.print(","+entry.getValue());
-//            }
-//            System.out.println("])");
-//
-//            for (ThreeExpAA tag: expAaLists){
-//                System.out.println(tag.getPtmFreeAAString());
-//            }
-//        }
 
         if (!expAaLists.isEmpty()) {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
@@ -137,9 +120,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             // Begin search.
             Search search = new Search(scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge);
             // prepare the spectrum
-//            if (scanNum == 1882) {
-//                System.out.println("lsz");
-//            }
 
             String pepHighestSimiScore = "";
             double highestScore = -1;
@@ -175,9 +155,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             // infer PTM using the new approach// my first modification
             TreeSet<Peptide> peptideSet = new TreeSet<>(Collections.reverseOrder());
             Map<String, TreeSet<Peptide>> modSequences = new TreeMap<>();
-            if (scanNum == 11561) {
-                System.out.println("lsz");
-            }
             int whereIsTopCand = 0; // 0 for still top, -1 for no PTM pattern, -2 for PTM free but score < 0, other number is the final ranking
             GRBEnv env = new GRBEnv(true);
             env.set(GRB.IntParam.OutputFlag,0);

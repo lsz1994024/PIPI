@@ -20,17 +20,25 @@ import java.util.Comparator;
 import java.util.TreeSet;
 
 public class PeptidePTMPattern {
-    private final int maxNumOfPtmPatterns = 10;
+    private int maxNumOfPtmPatterns = 10;
 
     public final String ptmFreePeptide;
 
-    private TreeSet<Peptide> peptideTreeSet = new TreeSet<>(Comparator.reverseOrder());
+    public TreeSet<Peptide> peptideTreeSet = new TreeSet<>(Comparator.reverseOrder());
 
     public PeptidePTMPattern(String ptmFreePeptide) {
         this.ptmFreePeptide = ptmFreePeptide;
     }
 
-    public void update(Peptide peptide) {
+    public PeptidePTMPattern(String ptmFreePeptide, int maxNumOfPtmPatterns) {
+        this.ptmFreePeptide = ptmFreePeptide;
+        this.maxNumOfPtmPatterns = maxNumOfPtmPatterns;
+    }
+    public Peptide getTopPepPtn() {
+        return peptideTreeSet.first();
+    }
+
+    public void push(Peptide peptide) {
         if (peptideTreeSet.size() < maxNumOfPtmPatterns) { //max restore 5 patterns for one peptide
             peptideTreeSet.add(peptide);
         } else if (peptideTreeSet.last().compareTo(peptide) < 0) {
