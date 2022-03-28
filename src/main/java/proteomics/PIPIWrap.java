@@ -63,10 +63,12 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
     private final Binomial binomial;
     private final int scanNum;
     private final String pepTruth;
+    private final String oldTruth;
 
 
-    public PIPIWrap(int scanNum, String pepTruth, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial) {
+    public PIPIWrap(int scanNum, String pepTruth, String oldTruth,BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial) {
         this.pepTruth = pepTruth;
+        this.oldTruth = oldTruth;
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
@@ -128,7 +130,16 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             // Begin search.
             Search search = new Search(scanNum, pepTruth, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge);
             // prepare the spectrum
+            List<Double> mzToRemove = new ArrayList<>();
+            for (double mz : plMap.keySet()) {
+                if (plMap.get(mz) < 0.1 ) {
+                    mzToRemove.add(mz);
+                }
+            }
 
+            for (double mz : mzToRemove){
+                plMap.remove(mz);
+            }
 
             SparseVector expProcessedPL;
             if (PIPI.useXcorr) {
@@ -136,7 +147,8 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             } else {
                 expProcessedPL = preSpectrum.digitizePL(plMap);
             }
-//            expProcessedPL = preSpectrum.digitizePL(plMap);
+//            SparseVector expProcessedPL2;
+//            expProcessedPL2 = preSpectrum.digitizePL(plMap);
             double localMS1ToleranceL = -1 * ms1Tolerance;
             double localMS1ToleranceR = ms1Tolerance;
             if (ms1ToleranceUnit == 1) {
@@ -159,7 +171,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
 //                PeptidePTMPattern peptidePTMPattern = inferPTM.tryPTM(expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
 
 //                PeptidePTMPattern peptidePTMPattern = inferPTM.tryPTM(expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
-                PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(env, scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR, expAaLists);
+                PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(env, scanNum,oldTruth, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR, expAaLists);
 
                 if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
                     for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {

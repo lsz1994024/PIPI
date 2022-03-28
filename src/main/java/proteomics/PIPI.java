@@ -44,7 +44,7 @@ public class PIPI {
 
     private static final Logger logger = LoggerFactory.getLogger(PIPI.class);
     public static final String versionStr = "1.4.7";
-    static final boolean useXcorr = true;
+    static final boolean useXcorr = false;
 
     public static final int[] debugScanNumArray = new int[]{};
 
@@ -150,12 +150,14 @@ public class PIPI {
         int testId = 3;
         BufferedReader parameterReader = new BufferedReader(new FileReader(String.format("/home/slaiad/Data/Simulation_Data/simulation_%d/Truth.txt", testId)));
         Map<Integer, String> pepTruth = new HashMap<>();
+        Map<Integer, String> oldTruth = new HashMap<>();
         Map<Integer, Boolean> modTruth = new HashMap<>();
         String line;
         while ((line = parameterReader.readLine()) != null) {
             line = line.trim();
             String[] splitRes = line.split(",");
             pepTruth.put(Integer.valueOf(splitRes[0]), splitRes[1]);
+            oldTruth.put(Integer.valueOf(splitRes[0]), splitRes[2]);
             modTruth.put(Integer.valueOf(splitRes[0]), Boolean.valueOf(Integer.valueOf(splitRes[3]) == 1));
         }
 
@@ -217,9 +219,9 @@ public class PIPI {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
 //            System.out.println(scanNum);
-//            if (scanNum != 5436) { //bad 3043 9636,8818       good 2411, 3489,
-//                 continue;
-//            }
+            if (scanNum != 67752) {
+                 continue;
+            }
             if (!validScansSet.contains(scanNum)) {
                 continue;
             }
@@ -227,7 +229,7 @@ public class PIPI {
             double precursorMass = sqlResultSet.getDouble("precursorMass");
             if (!modTruth.get(scanNum)) continue;
 
-            taskList.add(threadPool.submit(new PIPIWrap(scanNum, pepTruth.get(scanNum), buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
+            taskList.add(threadPool.submit(new PIPIWrap(scanNum, pepTruth.get(scanNum), oldTruth.get(scanNum),buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
 //            System.out.println("Start "+ scanNum);
         }
         sqlResultSet.close();
