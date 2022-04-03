@@ -82,7 +82,7 @@ public class PreSpectra {
                 if (ext.toLowerCase().contentEquals("mgf")) {
                     mgfTitle = ((Ms2Query) spectrum).getTitle();
                     scanNum = getScanNum(mgfTitle);
-
+                    if (scanNum != 53661) continue;
                     if (PIPI.debugScanNumArray.length > 0) {
                         if (Arrays.binarySearch(PIPI.debugScanNumArray, scanNum) < 0) {
                             continue;

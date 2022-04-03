@@ -33,6 +33,7 @@ public class Peptide implements Comparable<Peptide> {
     private final int maxMs2Charge;
     private final int globalRank;
     private final double normalizedCrossCorrelationCoefficient;
+    public double absDeltaMass = 0d;
 
     private int hashCode;
 
@@ -218,6 +219,9 @@ public class Peptide implements Comparable<Peptide> {
     }
 
     public String toString() {
+        if (varPTMMap == null) {
+            return ptmFreePeptide;
+        }
         return ptmFreePeptide + "." + varPTMMap.toString();
     }
 
@@ -392,7 +396,13 @@ public class Peptide implements Comparable<Peptide> {
                         } else if (isDecoy && !peptide.isDecoy()) {
                             return -1;
                         } else{
-                            return 0;
+                            if (absDeltaMass < peptide.absDeltaMass){
+                                return 1;
+                            } else if (absDeltaMass > peptide.absDeltaMass){
+                                return -1;
+                            } else {
+                                return 0;
+                            }
                         }
                     }
                 }

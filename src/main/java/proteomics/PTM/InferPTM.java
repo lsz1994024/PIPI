@@ -394,8 +394,20 @@ public class InferPTM {
         if (!matchedYions.isEmpty()) {
             rb = Collections.min(matchedYions.keySet());
         }
+//        if (rb - lb < 1) {
+//            double bSumIntens = 0;
+//            for (double intes : matchedBions.values()) bSumIntens += intes;
+//            double ySumIntens = 0;
+//            for (double intes : matchedYions.values()) ySumIntens += intes;
+//            if (bSumIntens > ySumIntens) {
+//                rb = ptmFreePeptide.length() - 2;
+//            } else {
+//                lb = 1;
+//            }
+//        }
         modifiedZone = IntStream.range(lb, rb).boxed().collect(Collectors.toSet());
 
+        allPtmPattern.push(cleanPep);
         if (modifiedZone.isEmpty()) {
             return allPtmPattern;
         }
