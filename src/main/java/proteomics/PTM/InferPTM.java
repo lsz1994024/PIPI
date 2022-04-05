@@ -197,15 +197,16 @@ public class InferPTM {
     }
 
     public PeptidePTMPattern findPTM(GRBEnv env, int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, char leftFlank, char rightFlank, int globalRank, int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR, List<ThreeExpAA> expAaLists) {
-        double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
+//        double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
         PeptidePTMPattern peptidePTMPattern = new PeptidePTMPattern(ptmFreePeptide);
-        double totalDeltaMass = precursorMass - ptmFreeMass;
+        Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
+        double totalDeltaMass = precursorMass - peptide.getTheoMass();
         if (Math.abs(totalDeltaMass) < 0.01 ) {
             return peptidePTMPattern;
         }
         Set<Integer> fixModIdxes = getFixModIdxes(ptmFreePeptide, fixModMap);  // record the indexes of the amino acids with fix mod, e.g. when there is no C, this is empty set.
 
-        Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
+//        double a = peptide.getTheoMass();
         double[][] theoIonsMatrix = peptide.getTheoIonMatrix();// Note that if you set varMod on it, it returns b y ions with var mod
         String ptmFreePeptideOrdinary = ptmFreePeptide.replaceAll("I","#").replaceAll("L","#");
 
@@ -361,6 +362,22 @@ public class InferPTM {
             }
         }
 
+//        String truthPep = "nSQHSGNAQVTQTKc";
+//        Peptide p1p = new Peptide(truthPep, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
+//        PositionDeltaMassMap fakePatten = new PositionDeltaMassMap(ptmFreePeptide.length());
+//        fakePatten.put(new Coordinate(1, 2), 57.021);
+//        fakePatten.put(new Coordinate(2, 3), -14.016);
+//        p1p.setVarPTM(fakePatten);
+//        Map<Integer, Double> matchedBions1 = new HashMap<>();
+//        Map<Integer, Double> matchedYions1 = new HashMap<>();
+//        double[][] temp11 = p1p.getIonMatrixNow();
+//        Set<Integer> jRange1 = new HashSet<>();
+//        for (int i : modifiedZone) {
+//            jRange1.add(i-1);
+//        }
+//        double ss = massTool.buildVectorAndCalXCorr(p1p.getIonMatrixNow(), 1, expProcessedPL, matchedBions1, matchedYions1, jRange1) ;
+        //stub end
+
         if (modifiedZone.size() == 0) {
 //            System.out.println(scanNum + " is empty modifiedZone after tag 2");
             return peptidePTMPattern; //Some scans are not valid Scans. Will be deleted soon.
@@ -394,17 +411,17 @@ public class InferPTM {
         if (!matchedYions.isEmpty()) {
             rb = Collections.min(matchedYions.keySet());
         }
-//        if (rb - lb < 1) {
-//            double bSumIntens = 0;
-//            for (double intes : matchedBions.values()) bSumIntens += intes;
-//            double ySumIntens = 0;
-//            for (double intes : matchedYions.values()) ySumIntens += intes;
-//            if (bSumIntens > ySumIntens) {
-//                rb = ptmFreePeptide.length() - 2;
-//            } else {
-//                lb = 1;
-//            }
-//        }
+        if (rb - lb < 1) {
+            double bSumIntens = 0;
+            for (double intes : matchedBions.values()) bSumIntens += intes;
+            double ySumIntens = 0;
+            for (double intes : matchedYions.values()) ySumIntens += intes;
+            if (bSumIntens > ySumIntens) {
+                rb = ptmFreePeptide.length() - 2;
+            } else {
+                lb = 1;
+            }
+        }
         modifiedZone = IntStream.range(lb, rb).boxed().collect(Collectors.toSet());
 
         allPtmPattern.push(cleanPep);

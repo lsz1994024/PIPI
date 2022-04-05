@@ -272,7 +272,20 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                     if (scanNum == 2327) {
                         System.out.println("lsz");
                     }
-                    Entry entry = new Entry(scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), candidatesString.substring(0,candidatesString.length()-1), pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand);
+                    boolean shouldPtm = Math.abs(precursorMass-massTool.calResidueMass(topPeptide.getPTMFreePeptide()) - massTool.H2O) > 0.01;
+                    boolean hasPTM = topPeptide.hasVarPTM();
+                    int ptmNum = 0;
+                    boolean isSettled = true;
+                    double totalPtmMass = 0;
+                    if (hasPTM) {
+                        ptmNum = topPeptide.getVarPTMs().size();
+                        for (double mass : topPeptide.getVarPTMs().values()){
+                            totalPtmMass += mass;
+                        }
+                    }
+                    isSettled = Math.abs(totalPtmMass-(precursorMass-massTool.calResidueMass(topPeptide.getPTMFreePeptide()) - massTool.H2O)) <= 0.01;
+
+                    Entry entry = new Entry(scanNum, scanId, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), candidatesString.substring(0,candidatesString.length()-1), pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand);
 
                     sqlResultSet.close();
                     sqlStatement.close();
@@ -316,10 +329,18 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         final String candidates;
         final String peptideSet;
         final int whereIsTopCand;
+        final int hasPTM;
+        final int ptmNum;
+        final int isSettled;
+        final int shouldPtm;
 
-        Entry(int scanNum, String scanId, int precursorCharge, double precursorMass, String mgfTitle, int isotopeCorrectionNum, double ms1PearsonCorrelationCoefficient, String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac, double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet, int whereIsTopCand) {
+        Entry(int scanNum, String scanId, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass, String mgfTitle, int isotopeCorrectionNum, double ms1PearsonCorrelationCoefficient, String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac, double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet, int whereIsTopCand) {
             this.scanNum = scanNum;
             this.scanId = scanId;
+            this.shouldPtm = shouldPtm;
+            this.hasPTM = hasPTM;
+            this.ptmNum = ptmNum;
+            this.isSettled = isSetteld;
             this.precursorCharge = precursorCharge;
             this.precursorMass = precursorMass;
             this.mgfTitle = mgfTitle;
