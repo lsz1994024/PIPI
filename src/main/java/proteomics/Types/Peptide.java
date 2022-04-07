@@ -34,7 +34,7 @@ public class Peptide implements Comparable<Peptide> {
     private final int globalRank;
     private final double normalizedCrossCorrelationCoefficient;
     public double absDeltaMass = 0d;
-
+    public Peptide bestPep = null;
     private int hashCode;
 
     // these fields need to be changed every time PTM changed.
