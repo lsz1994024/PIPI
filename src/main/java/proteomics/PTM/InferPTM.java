@@ -384,7 +384,7 @@ public class InferPTM {
 
         TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
 
-        PeptidePTMPattern allPtmPattern = new PeptidePTMPattern(ptmFreePeptide);
+        PeptidePTMPattern allPtmPattern = new PeptidePTMPattern(ptmFreePeptide,1);
         PeptidePTMPattern allPtmPatternBad = new PeptidePTMPattern(ptmFreePeptide,1);
         modifiedZone = IntStream.range(1, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
@@ -405,12 +405,32 @@ public class InferPTM {
         cleanPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, cleanPep.getIonMatrix(), ms2Tolerance));
         cleanPep.matchedBions.putAll(matchedBions);
         cleanPep.matchedYions.putAll(matchedYions);
+
+        List<Integer> matchedBIndex = new ArrayList<>(matchedBions.keySet());
+        List<Integer> matchedYIndex = new ArrayList<>(matchedYions.keySet());
+        Collections.sort(matchedBIndex);
+        Collections.sort(matchedYIndex);
+        if (matchedBIndex.size() >= 2) {
+            if (matchedBIndex.get(matchedBIndex.size()-1) + (1-matchedBions.get(matchedBIndex.get(matchedBIndex.size()-1))) > matchedBIndex.get(matchedBIndex.size()-2)+4) {
+                matchedBions.remove(matchedBIndex.get(matchedBIndex.size()-1));
+            }
+        }
+        if (matchedYIndex.size() >= 2) {
+            if (matchedYIndex.get(0) - (1-matchedYions.get(matchedYIndex.get(0))) < matchedYIndex.get(1)-4) {
+                matchedYions.remove(matchedYIndex.get(0));
+            }
+        }
+
+
         if (!matchedBions.isEmpty()) {
             lb = Collections.max(matchedBions.keySet()) + 1;
         }
         if (!matchedYions.isEmpty()) {
             rb = Collections.min(matchedYions.keySet());
         }
+
+
+//        matchedBIndex.addAll(matchedBions.keySet());
         if (rb - lb < 1) {
             double bSumIntens = 0;
             for (double intes : matchedBions.values()) bSumIntens += intes;
@@ -423,7 +443,7 @@ public class InferPTM {
             }
         }
         modifiedZone = IntStream.range(lb, rb).boxed().collect(Collectors.toSet());
-        modifiedZone = IntStream.range(1, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
+//        modifiedZone = IntStream.range(1, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
         allPtmPatternBad.push(cleanPep);
         allPtmPattern.push(cleanPep);
