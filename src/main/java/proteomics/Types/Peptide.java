@@ -35,6 +35,8 @@ public class Peptide implements Comparable<Peptide> {
     private final double normalizedCrossCorrelationCoefficient;
     public double lpScore = 0d;
     private int hashCode;
+    public Peptide bestPep = null;
+
 
     public Map<Integer, Double> matchedBions = new HashMap<>();
     public Map<Integer, Double> matchedYions = new HashMap<>();

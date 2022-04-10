@@ -203,7 +203,7 @@ public class InferPTM {
         TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
         double maxLMz = 0;
         double minRMz = plMap.lastKey();
-        PeptidePTMPattern allPtmPattern = new PeptidePTMPattern(ptmFreePeptide);
+        PeptidePTMPattern allPtmPattern = new PeptidePTMPattern(ptmFreePeptide, 1);
         PeptidePTMPattern allPtmPatternBad = new PeptidePTMPattern(ptmFreePeptide,1);
 
         double totalDeltaMass = precursorMass - ptmFreeMass;
@@ -433,16 +433,58 @@ public class InferPTM {
         cleanPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, cleanPep.getIonMatrix(), ms2Tolerance));
         cleanPep.matchedBions.putAll(matchedBions);
         cleanPep.matchedYions.putAll(matchedYions);
+
+        List<Integer> matchedBIndex = new ArrayList<>(matchedBions.keySet());
+        List<Integer> matchedYIndex = new ArrayList<>(matchedYions.keySet());
+        Collections.sort(matchedBIndex);
+        Collections.sort(matchedYIndex);
+        if (matchedBIndex.size() >= 2) {
+            if (matchedBIndex.get(matchedBIndex.size()-1) + (1-matchedBions.get(matchedBIndex.get(matchedBIndex.size()-1))) > matchedBIndex.get(matchedBIndex.size()-2)+4) {
+                matchedBions.remove(matchedBIndex.get(matchedBIndex.size()-1));
+            }
+        }
+        if (matchedYIndex.size() >= 2) {
+            if (matchedYIndex.get(0) - (1-matchedYions.get(matchedYIndex.get(0))) < matchedYIndex.get(1)-4) {
+                matchedYions.remove(matchedYIndex.get(0));
+            }
+        }
+
+//        Set<Integer> intersectBY = new HashSet<>(matchedBions.keySet());
+//        intersectBY.retainAll(matchedYions.keySet());
+//        if (!intersectBY.isEmpty()) {
+//            for (int i : intersectBY) {
+//                matchedBions.remove(i);
+//                matchedYions.remove(i);
+//            }
+//        }
+
         if (!matchedBions.isEmpty()) {
             lb = Collections.max(matchedBions.keySet()) + 1;
         }
         if (!matchedYions.isEmpty()) {
             rb = Collections.min(matchedYions.keySet());
         }
+
+
+        if (rb - lb < 1) {
+            double bSumIntens = 0;
+            for (double intes : matchedBions.values()) bSumIntens += intes;
+            double ySumIntens = 0;
+            for (double intes : matchedYions.values()) ySumIntens += intes;
+            if (bSumIntens > ySumIntens) {
+                rb = ptmFreePeptide.length() - 2;
+            } else {
+                lb = 1;
+            }
+        }
+
         modifiedZone = IntStream.range(lb, rb).boxed().collect(Collectors.toSet());
 
+        allPtmPatternBad.push(cleanPep);
+        allPtmPattern.push(cleanPep);
+        allPtmPatternBad.bestPep = allPtmPatternBad.getTopPepPtn();
         if (modifiedZone.isEmpty()) {
-            return allPtmPattern;
+            return allPtmPatternBad;
         }
         PeptidePTMPattern ptmInitialTemp = new PeptidePTMPattern(ptmFreePeptide, 1);
         Peptide cleanPeptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
@@ -466,6 +508,7 @@ public class InferPTM {
             if (allPtmPattern.peptideTreeSet.isEmpty()) {
                 return allPtmPatternBad;
             }
+            //allPtmPattern.bestPep = allPtmPatternBad.getTopPepPtn();
             return allPtmPattern;
         }
         ptmN1Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN1Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
@@ -491,6 +534,7 @@ public class InferPTM {
             if (allPtmPattern.peptideTreeSet.isEmpty()) {
                 return allPtmPatternBad;
             }
+            //allPtmPattern.bestPep = allPtmPatternBad.getTopPepPtn();
             return allPtmPattern;
         }
         ptmN2Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN2Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
@@ -516,6 +560,7 @@ public class InferPTM {
             if (allPtmPattern.peptideTreeSet.isEmpty()) {
                 return allPtmPatternBad;
             }
+            //allPtmPattern.bestPep = allPtmPatternBad.getTopPepPtn();
             return allPtmPattern;
         }
         ptmN3Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN3Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL));
@@ -547,6 +592,7 @@ public class InferPTM {
         if (allPtmPattern.peptideTreeSet.isEmpty()) {
             return allPtmPatternBad;
         }
+        //allPtmPattern.bestPep = allPtmPatternBad.getTopPepPtn();
         return allPtmPattern;
     }
 

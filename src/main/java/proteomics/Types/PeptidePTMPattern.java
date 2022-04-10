@@ -23,6 +23,7 @@ public class PeptidePTMPattern {
     private int maxNumOfPtmPatterns = 10;
 
     public final String ptmFreePeptide;
+    public Peptide bestPep = null;
 
     public TreeSet<Peptide> peptideTreeSet = new TreeSet<>(Comparator.reverseOrder());
 
