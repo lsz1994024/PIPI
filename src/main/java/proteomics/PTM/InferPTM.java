@@ -421,7 +421,14 @@ public class InferPTM {
             }
         }
 
-
+//        Set<Integer> intersectBY = new HashSet<>(matchedBions.keySet());
+//        intersectBY.retainAll(matchedYions.keySet());
+//        if (!intersectBY.isEmpty()) {
+//            for (int i : intersectBY) {
+//                matchedBions.remove(i);
+//                matchedYions.remove(i);
+//            }
+//        }
         if (!matchedBions.isEmpty()) {
             lb = Collections.max(matchedBions.keySet()) + 1;
         }
@@ -452,23 +459,6 @@ public class InferPTM {
             return allPtmPatternBad;
         }
 //
-//        for (int j = rb - 2; j < cleanPepIonMatrix[0].length; j++) {
-//            cleanPepIonMatrix[0][j] += totalDeltaMass;
-//        }
-//        for (int j = 0; j < lb; j++) {
-//            if (j >= cleanPepIonMatrix[1].length){
-//                int a = 1;
-//            }
-//            cleanPepIonMatrix[1][j] += totalDeltaMass;
-//        }
-//
-//        Map<Integer, Double> matchedBionsNew = new HashMap<>();
-//        Map<Integer, Double> matchedYionsNew = new HashMap<>();
-//        double cleanScoreNew = massTool.buildVectorAndCalXCorr(cleanPepIonMatrix, 1, expProcessedPL, matchedBionsNew, matchedYionsNew, jRange) ;
-//        if (cleanScoreNew > cleanScore) {
-//            cleanPep.setScore(cleanScoreNew - cleanP);
-//            cleanPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, cleanPepIonMatrix, ms2Tolerance));
-//        }
 
 
 
