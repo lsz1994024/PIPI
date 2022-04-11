@@ -465,6 +465,7 @@ public class InferPTM {
         PeptidePTMPattern ptmInitialTemp = new PeptidePTMPattern(ptmFreePeptide, 1);
         Peptide cleanPeptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         cleanPeptide.setVarPTM(new PositionDeltaMassMap(ptmFreePeptide.length()));
+        cleanPeptide.shouldPTM = true;
         ptmInitialTemp.push(cleanPeptide);
 //        long t1 = System.currentTimeMillis();
 
@@ -476,11 +477,14 @@ public class InferPTM {
         if (!ptmN1Good.getPeptideTreeSet().isEmpty()) {
             ptmN1Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN1Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 1*0.1);
             ptmN1Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN1Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN1Good.getTopPepPtn().shouldPTM = true;
+
             allPtmPattern.push(ptmN1Good.getTopPepPtn());
         }
         if (!ptmN1Bad.getPeptideTreeSet().isEmpty()) {
             ptmN1Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN1Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 1*0.1);
             ptmN1Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN1Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN1Bad.getTopPepPtn().shouldPTM = true;
             allPtmPatternBad.push(ptmN1Bad.getTopPepPtn());
         }
         Set<Integer> zone1 = z1Z2Res.keptZone;
@@ -511,11 +515,14 @@ public class InferPTM {
         if (!ptmN2Good.getPeptideTreeSet().isEmpty()) {
             ptmN2Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN2Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 2*0.1);
             ptmN2Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN2Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN2Good.getTopPepPtn().shouldPTM = true;
+
             allPtmPattern.push(ptmN2Good.getTopPepPtn());
         }
         if (!ptmN2Bad.getPeptideTreeSet().isEmpty()) {
             ptmN2Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN2Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 2*0.1);
             ptmN2Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN2Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN2Bad.getTopPepPtn().shouldPTM = true;
             allPtmPatternBad.push(ptmN2Bad.getTopPepPtn());
         }
         Set<Integer> zone3 = z3Z4Res.keptZone;
@@ -542,11 +549,14 @@ public class InferPTM {
         if (!ptmN3Good.peptideTreeSet.isEmpty()) {
             ptmN3Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN3Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 3*0.1);
             ptmN3Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN3Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN3Good.getTopPepPtn().shouldPTM = true;
+
             allPtmPattern.push(ptmN3Good.getTopPepPtn());
         }
         if (!ptmN3Bad.getPeptideTreeSet().isEmpty()) {
             ptmN3Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN3Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 3*0.1);
             ptmN3Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN3Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN3Bad.getTopPepPtn().shouldPTM = true;
             allPtmPatternBad.push(ptmN3Bad.getTopPepPtn());
         }
         Set<Integer> zone5 = z5Z6Res.keptZone;
@@ -571,11 +581,14 @@ public class InferPTM {
         if (!ptmN4Good.getPeptideTreeSet().isEmpty()) {
             ptmN4Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN4Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 4*0.1);
             ptmN4Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN4Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN4Good.getTopPepPtn().shouldPTM = true;
             allPtmPattern.push(ptmN4Good.getTopPepPtn());
         }
         if (!ptmN4Bad.getPeptideTreeSet().isEmpty()) {
             ptmN4Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN4Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 4*0.1);
             ptmN4Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN4Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN4Bad.getTopPepPtn().shouldPTM = true;
+
             allPtmPatternBad.push(ptmN4Bad.getTopPepPtn());
         }
 

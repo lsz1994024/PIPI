@@ -36,6 +36,7 @@ public class Peptide implements Comparable<Peptide> {
     public double absDeltaMass = 0d;
     public Peptide bestPep = null;
     private int hashCode;
+    public boolean shouldPTM = false;
 
     // these fields need to be changed every time PTM changed.
     private PositionDeltaMassMap varPTMMap = null;

@@ -221,13 +221,13 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             if (!peptideSet.isEmpty()) {
                 Peptide[] peptideArray = peptideSet.toArray(new Peptide[0]);
                 Peptide topPeptide = peptideArray[0];
-                if (topPeptide.bestPep != null && topPeptide.bestPep.getScore() > topPeptide.getScore()) {
-                    topPeptide = topPeptide.bestPep;
-                }
-                TreeSet<Peptide> ptmPatterns = null;
-//                if (topPeptide == null) {
-//                    int a = 1;
+//                if (topPeptide.shouldPTM && !topPeptide.hasVarPTM()){
+//
+//                    if (topPeptide.bestPep != null && topPeptide.bestPep.getScore() > topPeptide.getScore()) {
+//                        topPeptide = topPeptide.bestPep;
+//                    }
 //                }
+                TreeSet<Peptide> ptmPatterns = null;
                 if (topPeptide.hasVarPTM()) {
                     ptmPatterns = modSequences.get(topPeptide.getPTMFreePeptide());
                 }
