@@ -113,7 +113,9 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
-
+//        for(ThreeExpAA tag : expAaLists) {
+//            System.out.println(tag.getPtmFreeAAString());
+//        }
         if (!expAaLists.isEmpty()) {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
 

@@ -56,6 +56,9 @@ public class Search {
         if (!subMassPeptideMap.isEmpty()) {
             for (double mass : subMassPeptideMap.keySet()) {
                 for (String sequence : massPeptideMap.get(mass)) {
+                    if(sequence.contentEquals("nHGGYKPSDEHKc")) {
+                        int a = 1;
+                    }
                     Peptide0 peptide0 = peptide0Map.get(sequence);
                     double score = 0;
                     double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
@@ -65,8 +68,10 @@ public class Search {
                     double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 
                     if (peptide0.isTarget) {
-                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
-                            // PTM-free
+//                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
+                        if ((Math.abs(deltaMass) <= 0.01)) {
+
+                                // PTM-free
                             if (ptmFreeQueue.size() < rankNum) {
                                 ptmFreeQueue.add(new ResultEntry(score, sequence, false));
                             } else {
@@ -77,8 +82,10 @@ public class Search {
                             }
                         }
 
-                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
-                            // PTM-only
+//                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+                        if ((Math.abs(deltaMass) > 0.01)) {
+
+                                // PTM-only
                             if (ptmOnlyQueue.size() < rankNum) {
                                 ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
                             } else {
@@ -89,7 +96,9 @@ public class Search {
                             }
                         }
                     } else {
-                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
+//                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
+                        if ((Math.abs(deltaMass) <= 0.01)) {
+
                             // PTM-free
                             if (ptmFreeQueue.size() < rankNum) {
                                 ptmFreeQueue.add(new ResultEntry(score, sequence, true));
@@ -101,7 +110,9 @@ public class Search {
                             }
                         }
 
-                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+//                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+                        if ((Math.abs(deltaMass) > 0.01)) {
+
                             // PTM-only
                             if (ptmOnlyQueue.size() < rankNum) {
                                 ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
