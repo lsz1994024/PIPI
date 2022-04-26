@@ -557,6 +557,7 @@ public class PIPI {
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
         ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, shouldPtm, hasPTM, ptmNum, isSettled, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, score, otherPtmPatterns, aScore, deltaCn FROM spectraTable");
+        int numScansQ001 = 0;
         while (sqlResultSet.next()) {
             int isDecoy = sqlResultSet.getInt("isDecoy");
             if (!sqlResultSet.wasNull()) {
@@ -588,6 +589,7 @@ public class PIPI {
                         }
                     } else {
                         PercolatorEntry percolatorEntry = percolatorResultMap.get(scanNum);
+                        if (Double.valueOf(percolatorEntry.qValue) <= 0.01) numScansQ001++;
                         String str = String.format(Locale.US, "%d,%s,%d,%d,%d,%d,%d,%f,%f,%f,%s,%s,%f,%f,%f,%s,%s,%s,\"%s\",%s,%d,%f\n", scanNum, peptide,sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled"), sqlResultSet.getInt("precursorCharge"), theoMass, expMass, ppm, aScore, String.join(";", proteinIdSet).replaceAll(",", "~"), sqlResultSet.getDouble("score"), sqlResultSet.getDouble("deltaCn"), percolatorEntry.percolatorScore, percolatorEntry.PEP, percolatorEntry.qValue, sqlResultSet.getString("otherPtmPatterns"), sqlResultSet.getString("mgfTitle"), sqlResultSet.getString("labelling"), sqlResultSet.getInt("isotopeCorrectionNum"), sqlResultSet.getDouble("ms1PearsonCorrelationCoefficient"));
                         if (tempMap.containsKey(percolatorResultMap.get(scanNum).percolatorScore)) {
                             tempMap.get(percolatorResultMap.get(scanNum).percolatorScore).add(str);
@@ -613,6 +615,9 @@ public class PIPI {
             }
         }
         writer.close();
+        logger.info("Number of PSMs with q < 0.01: ", numScansQ001);
+
+
     }
 
     public static double getMassDiff(double expMass, double theoMass, double C13Diff) {
