@@ -615,7 +615,7 @@ public class PIPI {
             }
         }
         writer.close();
-        logger.info("Number of PSMs with q < 0.01: ", numScansQ001);
+        logger.info("Number of PSMs with q < 0.01: {}", numScansQ001);
 
 
     }
