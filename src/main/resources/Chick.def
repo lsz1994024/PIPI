@@ -7,8 +7,8 @@ percolator_path = /usr/bin/percolator # Please input absolute path of Percolator
 db = /home/slaiad/Data/Simulation_Data/uniprot_homo_sapiens.fasta # Protein database.
 database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1 # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
-add_contaminant = 0 # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
-missed_cleavage = 1 # Maximum number of allowed missed cleavage.
+add_contaminant = 1 # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
+missed_cleavage = 2 # Maximum number of allowed missed cleavage.
 min_peptide_length = 6 # Minimum length of a peptide chain.
 max_peptide_length = 50 # Maximum length of a peptide chain.
 
@@ -81,8 +81,8 @@ c = 0 # cterm mod
 
 # Enzyme digestion specifications. Support up to two enzymes simultaneously.
 # enzyme name  	 is cut from C-term 	 cleavage site 	 protection site
-Trypsin        	 1                  	 KR            	 P
-# Trypsin/P      1                  	 KR            	 -
+# Trypsin        	 1                  	 KR            	 P
+Trypsin/P      1                  	 KR            	 -
 # TrypsinR     	 1                  	 R             	 P
 # LysC         	 1                  	 K             	 P
 # ArgC         	 1                  	 R             	 P
