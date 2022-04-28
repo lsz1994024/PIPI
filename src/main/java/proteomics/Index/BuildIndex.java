@@ -106,7 +106,7 @@ public class BuildIndex {
             if (proId.contentEquals("sp|Q06945|SOX4_HUMAN")){
                 int a = 1;
             }
-            Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
+            Set<String> peptideSet = massTool.buildPeptideSet(proSeq);
 //            Set<String> oriPeptideSet = massTool.buildPeptideSet(proSeq);
 //            if (peptideSet.size() <= oriPeptideSet.size()) {
 //                int a = 1;
@@ -154,7 +154,7 @@ public class BuildIndex {
             if (addDecoy) {
                 // decoy sequence
                 String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-                peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
+                peptideSet = massTool.buildPeptideSet(decoyProSeq);
 
                 for (String peptide : peptideSet) {
                     if (MassTool.containsNonAAAndNC(peptide)) {
@@ -210,6 +210,9 @@ public class BuildIndex {
             }
 
             Character[] leftRightFlank = DbTool.getLeftRightFlank(peptide, peptideProteinMap, targetDecoyProteinSequenceMap, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), parameterMap.get("is_from_C_term_1").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+            if (leftRightFlank == null) {
+                leftRightFlank = DbTool.getLeftRightFlank(peptide, peptideProteinMap, targetDecoyProteinSequenceMap, parameterMap.get("cleavage_site_2"), parameterMap.get("protection_site_2"), parameterMap.get("is_from_C_term_2").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+            }
             if (leftRightFlank != null) {
                 tempMap.put(peptide, new Peptide0(code, isTarget(peptideProteinMap.get(peptide)), peptideProteinMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
 
