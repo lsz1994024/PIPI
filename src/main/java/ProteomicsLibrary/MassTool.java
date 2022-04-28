@@ -579,6 +579,47 @@ public class MassTool {
         return peptideSeqSet;
     }
 
+    public Set<String> buildPeptideSetPnP(String proteinSequence) {
+        Set<String> peptideSeqSet = new HashSet<>();
+
+        Map<Integer, List<int[]>> digestRangeMap1 = digest(proteinSequence, digestSitePattern1, cleavageFromCTerm1, missedCleavage);
+        for (int i : digestRangeMap1.keySet()) {
+            for (int[] digestRange : digestRangeMap1.get(i)) {
+                String subString = proteinSequence.substring(digestRange[0], digestRange[1]);
+                peptideSeqSet.add("n" + subString + "c");
+            }
+        }
+        if (digestSitePattern2 != null) {
+            Map<Integer, List<int[]>> digestRangeMap2 = digest(proteinSequence, digestSitePattern2, cleavageFromCTerm2, missedCleavage);
+            for (int i : digestRangeMap2.keySet()) {
+                for (int[] digestRange : digestRangeMap2.get(i)) {
+                    String subString = proteinSequence.substring(digestRange[0], digestRange[1]);
+                    peptideSeqSet.add("n" + subString + "c");
+                }
+            }
+        }
+
+        // consider first "M" situation
+        if (proteinSequence.startsWith("M")) {
+            String newSequence = proteinSequence.substring(1);
+            digestRangeMap1 = digest(newSequence, digestSitePattern1, cleavageFromCTerm1, missedCleavage);
+            for (int i : digestRangeMap1.keySet()) {
+                int[] digestRange = digestRangeMap1.get(i).get(0);
+                String subString = newSequence.substring(digestRange[0], digestRange[1]);
+                peptideSeqSet.add("n" + subString + "c");
+            }
+            if (digestSitePattern2 != null) {
+                Map<Integer, List<int[]>> digestRangeMap2 = digest(newSequence, digestSitePattern2, cleavageFromCTerm2, missedCleavage);
+                for (int i : digestRangeMap2.keySet()) {
+                    int[] digestRange = digestRangeMap2.get(i).get(0);
+                    String subString = newSequence.substring(digestRange[0], digestRange[1]);
+                    peptideSeqSet.add("n" + subString + "c");
+                }
+            }
+        }
+        return peptideSeqSet;
+    }
+
     public double[][] buildIonArray(String sequence, int maxCharge) { // there are n and c in the sequence
         AA[] aaArray = seqToAAList(sequence);
 

@@ -81,7 +81,7 @@ c = 0 # cterm mod
 
 # Enzyme digestion specifications. Support up to two enzymes simultaneously.
 # enzyme name  	 is cut from C-term 	 cleavage site 	 protection site
-# Trypsin        	 1                  	 KR            	 P
+ Trypsin        	 1                  	 KR            	 P
 Trypsin/P      1                  	 KR            	 -
 # TrypsinR     	 1                  	 R             	 P
 # LysC         	 1                  	 K             	 P

@@ -103,11 +103,20 @@ public class BuildIndex {
         Map<String, String> targetDecoyProteinSequenceMap = new HashMap<>();
         for (String proId : proteinPeptideMap.keySet()) {
             String proSeq = proteinPeptideMap.get(proId);
-            Set<String> peptideSet = massTool.buildPeptideSet(proSeq);
-
+            if (proId.contentEquals("sp|Q06945|SOX4_HUMAN")){
+                int a = 1;
+            }
+            Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
+//            Set<String> oriPeptideSet = massTool.buildPeptideSet(proSeq);
+//            if (peptideSet.size() <= oriPeptideSet.size()) {
+//                int a = 1;
+//            }
             for (String peptide : peptideSet) {
                 if (MassTool.containsNonAAAndNC(peptide)) {
                     continue;
+                }
+                if (peptide.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
+                    int a = 1;
                 }
 
                 if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
@@ -145,7 +154,7 @@ public class BuildIndex {
             if (addDecoy) {
                 // decoy sequence
                 String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-                peptideSet = massTool.buildPeptideSet(decoyProSeq);
+                peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
 
                 for (String peptide : peptideSet) {
                     if (MassTool.containsNonAAAndNC(peptide)) {
@@ -214,6 +223,15 @@ public class BuildIndex {
             }
         }
         peptide0Map = new HashMap<>(tempMap); // Since this map won't be changed any more, using this step to create a HashMap with the capacity exactly equals the actual size.
+        int numTargetPep = 0, numDecoyPep = 0;
+        for (Peptide0 pep : peptide0Map.values()){
+            if (pep.isTarget) {
+                numTargetPep++;
+            }else {
+                numDecoyPep++;
+            }
+        }
+        int a = 1;
     }
 
     public DbTool getDbTool() {

@@ -56,7 +56,7 @@ public class Search {
         if (!subMassPeptideMap.isEmpty()) {
             for (double mass : subMassPeptideMap.keySet()) {
                 for (String sequence : massPeptideMap.get(mass)) {
-                    if(sequence.contentEquals("nHGGYKPSDEHKc")) {
+                    if(sequence.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
                         int a = 1;
                     }
                     Peptide0 peptide0 = peptide0Map.get(sequence);
