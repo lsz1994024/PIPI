@@ -20,19 +20,34 @@ package proteomics.Types;
 public class VarModParam {
 
     public final double mass;
-    public final char aa;
+    public final char site;
     public final int priority; // 1 = high; 0 = low.
     public final boolean onlyProteinTerminalIfnc;
+    public  String name = null;
+    public  String position = null;
+    public  String classification = null;
+
 
     private final int hashCode;
     public double getMass(){return mass;}
-    public VarModParam(double mass, char aa, int priority, boolean onlyProteinTerminalIfnc) {
+    public VarModParam(double mass, char site, int priority, boolean onlyProteinTerminalIfnc) {
         this.mass = mass;
-        this.aa = aa;
+        this.site = site;
         this.priority = priority;
         this.onlyProteinTerminalIfnc = onlyProteinTerminalIfnc;
 
-        String toString = Math.round(mass * 1000) + "@" + aa;
+        String toString = Math.round(mass * 1000) + "@" + site;
+        hashCode = toString.hashCode();
+    }
+    public VarModParam(double mass, char site, String position, boolean onlyProteinTerminalIfnc, String classification, String name) {
+        this.mass = mass;
+        this.site = site;
+        this.priority = 0;
+        this.position = position;
+        this.classification = classification;
+        this.onlyProteinTerminalIfnc = onlyProteinTerminalIfnc;
+        this.name = name;
+        String toString = Math.round(mass * 1000) + "@" + site; //var mod only differ by mass and site
         hashCode = toString.hashCode();
     }
 
