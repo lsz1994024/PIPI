@@ -84,7 +84,7 @@ public class BuildIndex {
         if (addContaminant) {
             contaminantsDb = new DbTool(null, "contaminants");
             proteinPeptideMap = contaminantsDb.getProteinSequenceMap();
-        proteinPeptideMap.putAll(dbTool.getProteinSequenceMap()); // using the target sequence to replace contaminant sequence if there is conflict.
+            proteinPeptideMap.putAll(dbTool.getProteinSequenceMap()); // using the target sequence to replace contaminant sequence if there is conflict.
         } else {
             proteinPeptideMap = dbTool.getProteinSequenceMap();
         }
@@ -106,7 +106,7 @@ public class BuildIndex {
             if (proId.contentEquals("sp|Q06945|SOX4_HUMAN")){
                 int a = 1;
             }
-            Set<String> peptideSet = massTool.buildPeptideSet(proSeq);
+            Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
 //            Set<String> oriPeptideSet = massTool.buildPeptideSet(proSeq);
 //            if (peptideSet.size() <= oriPeptideSet.size()) {
 //                int a = 1;
@@ -153,8 +153,8 @@ public class BuildIndex {
 
             if (addDecoy) {
                 // decoy sequence
-                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-                peptideSet = massTool.buildPeptideSet(decoyProSeq);
+                String decoyProSeq = DbTool.shuffleSeqFY(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+                peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
 
                 for (String peptide : peptideSet) {
                     if (MassTool.containsNonAAAndNC(peptide)) {

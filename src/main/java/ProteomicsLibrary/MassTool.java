@@ -543,16 +543,14 @@ public class MassTool {
             for (int[] digestRange : digestRangeMap.get(i)) {
                 String subString = proteinSequence.substring(digestRange[0], digestRange[1]);
                 peptideSeqSet.add("n" + subString + "c");
-//                if (digestSitePattern2 == null) {
-//                } else {
-                    // it needs to be further digested.
-                Map<Integer, List<int[]>> digestRangeMap2 = digest(subString, digestSitePattern2, cleavageFromCTerm2, missedCleavage - i);
-                for (int j : digestRangeMap2.keySet()) {
-                    for (int[] digestRange2 : digestRangeMap2.get(j)) {
-                        peptideSeqSet.add("n" + subString.substring(digestRange2[0], digestRange2[1]) + "c");
+                if (digestSitePattern2 != null) {
+                    Map<Integer, List<int[]>> digestRangeMap2 = digest(subString, digestSitePattern2, cleavageFromCTerm2, missedCleavage - i);
+                    for (int j : digestRangeMap2.keySet()) {
+                        for (int[] digestRange2 : digestRangeMap2.get(j)) {
+                            peptideSeqSet.add("n" + subString.substring(digestRange2[0], digestRange2[1]) + "c");
+                        }
                     }
                 }
-//                }
             }
         }
 
@@ -564,16 +562,14 @@ public class MassTool {
                 int[] digestRange = digestRangeMap.get(i).get(0);
                 String subString = newSequence.substring(digestRange[0], digestRange[1]);
                 peptideSeqSet.add("n" + subString + "c");
-//                if (digestSitePattern2 == null) {
-//                } else {
-                    // it needs to be further digested.
-                Map<Integer, List<int[]>> digestRangeMap2 = digest(subString, digestSitePattern2, cleavageFromCTerm2, missedCleavage - i);
-                for (int j : digestRangeMap2.keySet()) {
-                    for (int[] digestRange2 : digestRangeMap2.get(j)) {
-                        peptideSeqSet.add("n" + subString.substring(digestRange2[0], digestRange2[1]) + "c");
+                if (digestSitePattern2 != null) {
+                    Map<Integer, List<int[]>> digestRangeMap2 = digest(subString, digestSitePattern2, cleavageFromCTerm2, missedCleavage - i);
+                    for (int j : digestRangeMap2.keySet()) {
+                        for (int[] digestRange2 : digestRangeMap2.get(j)) {
+                            peptideSeqSet.add("n" + subString.substring(digestRange2[0], digestRange2[1]) + "c");
+                        }
                     }
                 }
-//                }
             }
         }
         return peptideSeqSet;
