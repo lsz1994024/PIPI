@@ -676,7 +676,7 @@ public class PIPI {
                     continue;
                 }
 
-                String myPep = peptide.substring(1, peptide.length()-1);
+                String myPep = peptide.substring(1, peptide.length()-1).replace('L','I');
                 String myBackbone = myPep.replaceAll("\\(-", "-");
                 myBackbone = myBackbone.replaceAll("[\\(]", "+");
                 myBackbone = myBackbone.replaceAll("[\\)]", "");
