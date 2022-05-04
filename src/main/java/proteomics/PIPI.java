@@ -194,7 +194,10 @@ public class PIPI {
             int scanNum = sqlResultSet.getInt("scanNum");
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
-//            if (scanNum != 10762) {  //22459
+//            if (scanNum != 33701) {  //22459
+//                continue;
+//            }
+//            if (scanNum > 5500) {  //22459
 //                continue;
 //            }
             taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
@@ -292,7 +295,6 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        writeTop20Candidates(sqlPath, spectraPath);
         writePercolator(percolatorInputFileName, buildIndex.getPeptide0Map(), sqlPath);
         Map<Integer, PercolatorEntry> percolatorResultMap = null;
 
@@ -316,6 +318,8 @@ public class PIPI {
         }
 
         logger.info("Saving results...");
+        writeTop20Candidates(sqlPath, spectraPath);
+
         writeFinalResult(percolatorResultMap, spectraPath + "." + labelling + ".pipi.csv", buildIndex.getPeptide0Map(), sqlPath);
         new WritePepXml(spectraPath + "." + labelling + ".pipi.pep.xml", spectraPath, parameterMap, massTool.getMassTable(), percolatorResultMap, buildIndex.getPeptide0Map(), buildIndex.returnFixModMap(), sqlPath);
     }
@@ -331,84 +335,6 @@ public class PIPI {
                 + "\texample: java -Xmx32g -jar PIPI.jar parameter.def data.mzxml\r\n";
         System.out.print(helpStr);
         System.exit(1);
-    }
-
-    private void writeTop20Candidates(String sqlPath, String spectraPath) throws IOException, SQLException {
-        System.out.println("PFM starts");
-        Connection sqlConnection = DriverManager.getConnection(sqlPath);
-        Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates, whereIsTopCand FROM spectraTable");
-
-        String resultPath = spectraPath + "Chick9268.csv";
-//        String resultPath = spectraPath + "So70S.csv";
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath))) {
-            writer.write("scanNo,whereIsTopCand,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
-            while (sqlResultSet.next()) {
-                int scanNum = sqlResultSet.getInt("scanNum");
-                int whereIsTopCand = sqlResultSet.getInt("whereIsTopCand");
-                String candidatesList = sqlResultSet.getString("candidates");
-                if (!sqlResultSet.wasNull()) {
-                    writer.write(scanNum + "," + whereIsTopCand + "," + candidatesList + "\n");
-                }
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            logger.error(ex.getMessage());
-            System.exit(1);
-        }
-        sqlResultSet.close();
-        sqlStatement.close();
-        sqlConnection.close();
-
-        Connection sqlConnection2 = DriverManager.getConnection(sqlPath);
-        Statement sqlStatement2 = sqlConnection2.createStatement();
-        ResultSet sqlResultSet2 = sqlStatement2.executeQuery("SELECT scanNum, peptide, isDecoy, score FROM spectraTable");
-        String noPercoPath = spectraPath + "Chick9268TopNoPerco.csv";
-//        String noPercoPath = spectraPath + "So70STopNoPerco.csv";
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(noPercoPath))) {
-            writer.write("scanNo,pep1,s1,b1,m1,p1\n");
-            while (sqlResultSet2.next()) {
-                int scanNum = sqlResultSet2.getInt("scanNum");
-                String peptide = sqlResultSet2.getString("peptide");
-                double score = sqlResultSet2.getDouble("score");
-                int isDecoy = sqlResultSet2.getInt("isDecoy");
-                if (!sqlResultSet2.wasNull()) {
-                    writer.write(scanNum + "," + peptide + "," + score +"," + isDecoy +"\n");
-                }
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            logger.error(ex.getMessage());
-            System.exit(1);
-        }
-
-        sqlResultSet2.close();
-        sqlStatement2.close();
-        sqlConnection2.close();
-
-        Connection sqlConnection3 = DriverManager.getConnection(sqlPath);
-        Statement sqlStatement3 = sqlConnection3.createStatement();
-        ResultSet sqlResultSet3 = sqlStatement3.executeQuery("SELECT scanNum, peptideSet FROM spectraTable");
-        String candisWithPTMXcorrPath = spectraPath + "Chick9268Candis20WithPTMXcorr.csv";
-//        String candisWithPTMXcorrPath = spectraPath + "So70SCandis20WithPTMXcorr.csv";
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(candisWithPTMXcorrPath))) {
-            writer.write("scanNo,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
-            while (sqlResultSet3.next()) {
-                int scanNum = sqlResultSet3.getInt("scanNum");
-                String peptideSet = sqlResultSet3.getString("peptideSet");
-                if (!sqlResultSet3.wasNull()) {
-                    writer.write(scanNum + "," + peptideSet +"\n");
-                }
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            logger.error(ex.getMessage());
-            System.exit(1);
-        }
-
-        sqlResultSet3.close();
-        sqlStatement3.close();
-        sqlConnection3.close();
     }
     private void writePercolator(String resultPath, Map<String, Peptide0> peptide0Map, String sqlPath) throws IOException, SQLException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath));
@@ -543,7 +469,87 @@ public class PIPI {
         return percolatorResultMap;
     }
 
+    private void writeTop20Candidates(String sqlPath, String spectraPath) throws IOException, SQLException {
+        System.out.println("PFM starts");
+        Connection sqlConnection = DriverManager.getConnection(sqlPath);
+        Statement sqlStatement = sqlConnection.createStatement();
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates, whereIsTopCand FROM spectraTable");
+
+        String resultPath = spectraPath + "Chick9268.csv";
+//        String resultPath = spectraPath + "So70S.csv";
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath))) {
+            writer.write("scanNo,whereIsTopCand,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
+            while (sqlResultSet.next()) {
+                int scanNum = sqlResultSet.getInt("scanNum");
+                int whereIsTopCand = sqlResultSet.getInt("whereIsTopCand");
+                String candidatesList = sqlResultSet.getString("candidates");
+                if (!sqlResultSet.wasNull()) {
+                    writer.write(scanNum + "," + whereIsTopCand + "," + candidatesList + "\n");
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            logger.error(ex.getMessage());
+            System.exit(1);
+        }
+        sqlResultSet.close();
+        sqlStatement.close();
+        sqlConnection.close();
+
+        Connection sqlConnection2 = DriverManager.getConnection(sqlPath);
+        Statement sqlStatement2 = sqlConnection2.createStatement();
+        ResultSet sqlResultSet2 = sqlStatement2.executeQuery("SELECT scanNum, peptide, isDecoy, score FROM spectraTable");
+        String noPercoPath = spectraPath + "Chick9268TopNoPerco.csv";
+//        String noPercoPath = spectraPath + "So70STopNoPerco.csv";
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(noPercoPath))) {
+            writer.write("scanNo,pep1,s1,b1,m1,p1\n");
+            while (sqlResultSet2.next()) {
+                int scanNum = sqlResultSet2.getInt("scanNum");
+                String peptide = sqlResultSet2.getString("peptide");
+                double score = sqlResultSet2.getDouble("score");
+                int isDecoy = sqlResultSet2.getInt("isDecoy");
+                if (!sqlResultSet2.wasNull()) {
+                    writer.write(scanNum + "," + peptide + "," + score +"," + isDecoy +"\n");
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            logger.error(ex.getMessage());
+            System.exit(1);
+        }
+
+        sqlResultSet2.close();
+        sqlStatement2.close();
+        sqlConnection2.close();
+
+        Connection sqlConnection3 = DriverManager.getConnection(sqlPath);
+        Statement sqlStatement3 = sqlConnection3.createStatement();
+        ResultSet sqlResultSet3 = sqlStatement3.executeQuery("SELECT scanNum, peptideSet FROM spectraTable");
+        String candisWithPTMXcorrPath = spectraPath + "Chick9268Candis20WithPTMXcorr.csv";
+//        String candisWithPTMXcorrPath = spectraPath + "So70SCandis20WithPTMXcorr.csv";
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(candisWithPTMXcorrPath))) {
+            writer.write("scanNo,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
+            while (sqlResultSet3.next()) {
+                int scanNum = sqlResultSet3.getInt("scanNum");
+                String peptideSet = sqlResultSet3.getString("peptideSet");
+                if (!sqlResultSet3.wasNull()) {
+                    writer.write(scanNum + "," + peptideSet +"\n");
+                }
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            logger.error(ex.getMessage());
+            System.exit(1);
+        }
+
+        sqlResultSet3.close();
+        sqlStatement3.close();
+        sqlConnection3.close();
+    }
     private void writeFinalResult(Map<Integer, PercolatorEntry> percolatorResultMap, String outputPath, Map<String, Peptide0> peptide0Map, String sqlPath) throws IOException, SQLException {
+
+
+
         TreeMap<Double, List<String>> tempMap = new TreeMap<>();
 
         BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath));
@@ -556,7 +562,9 @@ public class PIPI {
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
         ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, shouldPtm, hasPTM, ptmNum, isSettled, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, score, otherPtmPatterns, aScore, deltaCn FROM spectraTable");
+
         int numScansQ001 = 0;
+
         while (sqlResultSet.next()) {
             int isDecoy = sqlResultSet.getInt("isDecoy");
             if (!sqlResultSet.wasNull()) {
@@ -598,6 +606,9 @@ public class PIPI {
                             tempMap.put(percolatorResultMap.get(scanNum).percolatorScore, tempList);
                         }
                     }
+
+
+
                 }
             }
         }
@@ -616,6 +627,93 @@ public class PIPI {
         writer.close();
         logger.info("Number of PSMs with q < 0.01: {}", numScansQ001);
 
+// ======== down is for comparison ======
+        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/modPlusRes.txt"));
+        Map<Integer, String> pepTruth = new HashMap<>();
+        Map<Integer, String> backboneTruth = new HashMap<>();
+        String line;
+        while ((line = parameterReader.readLine()) != null) {
+            line = line.trim();
+            String[] splitRes = line.split(",");
+            String pepWithMod = splitRes[1].substring(2, splitRes[1].length()-2).replace('L','I');
+            String backbone = pepWithMod.replaceAll("[^a-zA-Z]", "");
+            pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
+            backboneTruth.put(Integer.valueOf(splitRes[0]), backbone);
+        }
+
+        Set<Integer> numNoSuchScan = new HashSet<>(pepTruth.keySet());
+        Set<Integer>  numNotContainsTruth = new HashSet<>();
+        Set<Integer>  numContains_WrongPep = new HashSet<>();
+        Set<Integer>  numContains_CorrectPep_badQ = new HashSet<>();
+        Set<Integer>  numContains_CorrectPep_goodQ_wrongPtm = new HashSet<>();
+        Set<Integer>  numContains_CorrectPep_goodQ_goodPtm = new HashSet<>();
+//        Set<Integer> scanInPipiAndModp = new HashSet<>();
+        Connection sqlConnection3 = DriverManager.getConnection(sqlPath);
+        Statement sqlStatement3 = sqlConnection3.createStatement();
+        ResultSet sqlResultSet3 = sqlStatement3.executeQuery("SELECT scanNum, peptideSet, peptide , candidates FROM spectraTable");
+        while (sqlResultSet3.next()) {
+            int scanNum = sqlResultSet3.getInt("scanNum");
+            if (!pepTruth.containsKey(scanNum)) continue;
+            numNoSuchScan.remove(scanNum);
+            String modpPep = pepTruth.get(scanNum).replace('L','I');
+            String modpBackbone = backboneTruth.get(scanNum).replace('L','I');
+            String peptide = sqlResultSet3.getString("peptide");
+//            String peptideSetString = sqlResultSet3.getString("peptideSet");
+//            if (scanNum == 2050 ){
+//                System.out.println(peptideSetString);
+//            }
+            String peptideSetString = sqlResultSet3.getString("candidates");
+            if (!sqlResultSet3.wasNull()) {
+                String[] tempPeptideSet = peptideSetString.split(",");
+                Set<String> peptideSet = new HashSet<>();
+                for (String str : tempPeptideSet) {
+                    if (str.startsWith("n") && str.endsWith("c")){
+                        peptideSet.add(str.substring(1, str.length()-1));
+                    }
+                }
+                if (!peptideSet.contains(modpBackbone)) {
+                    numNotContainsTruth.add(scanNum);
+                    continue;
+                }
+
+                String myPep = peptide.substring(1, peptide.length()-1);
+                String myBackbone = myPep.replaceAll("\\(-", "-");
+                myBackbone = myBackbone.replaceAll("[\\(]", "+");
+                myBackbone = myBackbone.replaceAll("[\\)]", "");
+
+                if (!myBackbone.contentEquals(modpBackbone)) {
+                    numContains_WrongPep.add(scanNum);
+                    continue;
+                }
+                if (Double.valueOf(percolatorResultMap.get(scanNum).qValue) > 0.01 ){
+                    numContains_CorrectPep_badQ.add(scanNum);
+                    continue;
+                }
+                if (!myPep.contentEquals(modpPep)) {
+                    numContains_CorrectPep_goodQ_wrongPtm.add(scanNum);
+                    continue;
+                }
+                numContains_CorrectPep_goodQ_goodPtm.add(scanNum);
+            }
+        }
+        System.out.println("numNoSuchScan, "+numNoSuchScan.size());
+        System.out.println("numNotContainsTruth, "+numNotContainsTruth.size());
+        System.out.println("numContains_WrongPep, "+numContains_WrongPep.size());
+        System.out.println("numContains_CorrectPep_badQ, "+numContains_CorrectPep_badQ.size());
+        System.out.println("numContains_CorrectPep_goodQ_wrongPtm, "+numContains_CorrectPep_goodQ_wrongPtm.size());
+        System.out.println("numContains_CorrectPep_goodQ_goodPtm, "+numContains_CorrectPep_goodQ_goodPtm.size());
+        System.out.println("=======");
+        System.out.println("numNoSuchScan, "+numNoSuchScan);
+        System.out.println("numNotContainsTruth, "+numNotContainsTruth);
+        System.out.println("numContains_WrongPep, "+numContains_WrongPep);
+        System.out.println("numContains_CorrectPep_badQ, "+numContains_CorrectPep_badQ);
+        System.out.println("numContains_CorrectPep_goodQ_wrongPtm, "+numContains_CorrectPep_goodQ_wrongPtm);
+        System.out.println("numContains_CorrectPep_goodQ_goodPtm, "+numContains_CorrectPep_goodQ_goodPtm);
+
+
+        sqlResultSet3.close();
+        sqlStatement3.close();
+        sqlConnection3.close();
 
     }
 
