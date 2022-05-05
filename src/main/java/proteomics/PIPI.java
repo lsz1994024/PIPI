@@ -169,6 +169,10 @@ public class PIPI {
         PreSpectra preSpectra = new PreSpectra(spectraParser, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
 
         logger.info("Start searching...");
+
+
+
+        logger.info("Start searching...");
         int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
@@ -186,21 +190,20 @@ public class PIPI {
         ArrayList<Future<PIPIWrap.Entry>> taskList = new ArrayList<>(preSpectra.getUsefulSpectraNum() + 10);
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanId, scanNum, precursorCharge, precursorMass FROM spectraTable");
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanId, scanNum, precursorCharge, precursorMass, precursorScanNo FROM spectraTable");
         ReentrantLock lock = new ReentrantLock();
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
+//        Map<Double, >
         while (sqlResultSet.next()) {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
+            int precursorScanNo = sqlResultSet.getInt("precursorScanNo");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
 //            if (scanNum != 33701) {  //22459
 //                continue;
 //            }
-//            if (scanNum > 5500) {  //22459
-//                continue;
-//            }
-            taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial)));
+            taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial, precursorScanNo)));
         }
         sqlResultSet.close();
         sqlStatement.close();

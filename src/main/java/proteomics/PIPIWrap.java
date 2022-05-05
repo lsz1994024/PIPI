@@ -63,10 +63,11 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
     private final String sqlPath;
     private final Binomial binomial;
     private final int scanNum;
+    private final int precursorScanNo;
 
 
 
-    public PIPIWrap(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial) {
+    public PIPIWrap(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo) {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
@@ -90,6 +91,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         this.binomial = binomial;
         peptide0Map = buildIndex.getPeptide0Map();
         this.scanNum = scanNum;
+        this.precursorScanNo = precursorScanNo;
     }
 
     @Override

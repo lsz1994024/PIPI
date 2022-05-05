@@ -49,18 +49,20 @@ public class PreSpectra {
         Statement sqlStatement = sqlConnection.createStatement();
         sqlStatement.executeUpdate("PRAGMA journal_mode=WAL");
         sqlStatement.executeUpdate("DROP TABLE IF EXISTS spectraTable");
-        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanId TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, globalRank INTEGER, normalizedCorrelationCoefficient REAL, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, candidates TEXT, peptideSet TEXT, whereIsTopCand INTEGER, shouldPtm INTEGER, hasPTM INTEGER, ptmNum INTEGER, isSettled INTEGER)");
+        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanId TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, globalRank INTEGER, normalizedCorrelationCoefficient REAL, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, candidates TEXT, peptideSet TEXT, whereIsTopCand INTEGER, shouldPtm INTEGER, hasPTM INTEGER, ptmNum INTEGER, isSettled INTEGER, precursorScanNo INTEGER)");
         sqlStatement.close();
 
-        PreparedStatement sqlPrepareStatement = sqlConnection.prepareStatement("INSERT INTO spectraTable (scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPrepareStatement = sqlConnection.prepareStatement("INSERT INTO spectraTable (scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, precursorScanNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConnection.setAutoCommit(false);
 
         Iterator<Spectrum> spectrumIterator = spectraParser.getSpectrumIterator();
         String parentId = null;
+        int lastMs1ScanNo = 1;
+        int lastScanNo = 1;
         while (spectrumIterator.hasNext()) {
             try {
                 Spectrum spectrum = spectrumIterator.next();
-
+                int a = spectrum.getMsLevel();
                 if (ext.toLowerCase().contentEquals("mzxml")) {
                     if (!msLevelSet.contains(spectrum.getMsLevel())) {
                         parentId = spectrum.getId();
@@ -68,9 +70,12 @@ public class PreSpectra {
                     }
                 }
 
-                if (spectrum.getPeakList().size() < 5) {
-                    continue;
-                }
+//                if (!msLevelSet.contains(spectrum.getMsLevel())) {
+//                    parentId = spectrum.getId();
+//                    continue;
+//                }
+
+
 
                 int scanNum;
                 double precursorMz = spectrum.getPrecursorMZ();
@@ -79,9 +84,19 @@ public class PreSpectra {
                 int isotopeCorrectionNum = 0;
                 double pearsonCorrelationCoefficient = -1;
                 String mgfTitle = "";
+                int precursorScanNo = -1;
                 if (ext.toLowerCase().contentEquals("mgf")) {
                     mgfTitle = ((Ms2Query) spectrum).getTitle();
                     scanNum = getScanNum(mgfTitle);
+
+                    if (scanNum - 1 != lastScanNo) {
+                        lastMs1ScanNo = scanNum - 1;
+                    }
+                    precursorScanNo = lastMs1ScanNo;
+                    lastScanNo = scanNum;
+                    if (spectrum.getPeakList().size() < 5) {
+                        continue;
+                    }
 //                    if (scanNum != 53661) continue;
                     if (PIPI.debugScanNumArray.length > 0) {
                         if (Arrays.binarySearch(PIPI.debugScanNumArray, scanNum) < 0) {
@@ -141,6 +156,7 @@ public class PreSpectra {
                 sqlPrepareStatement.setString(5, mgfTitle);
                 sqlPrepareStatement.setInt(6, isotopeCorrectionNum);
                 sqlPrepareStatement.setDouble(7, pearsonCorrelationCoefficient);
+                sqlPrepareStatement.setInt(8, precursorScanNo);
                 sqlPrepareStatement.executeUpdate();
                 ++usefulSpectraNum;
             } catch (RuntimeException ex) {
