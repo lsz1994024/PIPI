@@ -168,57 +168,174 @@ public class PIPI {
 
         PreSpectra preSpectra = new PreSpectra(spectraParser, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
 
-        logger.info("Start searching...");
-
-
-
-        logger.info("Start searching...");
+        logger.info("Pre searching...");
         int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
-//        if (debugScanNumArray.length > 0) {
-//            threadNum = 1;
-//        }
-//        threadNum = 1;
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPool = Executors.newFixedThreadPool(threadNum);
         PrepareSpectrum preSpectrum = new PrepareSpectrum(massTool);
-        ArrayList<Future<PIPIWrap.Entry>> taskList = new ArrayList<>(preSpectra.getUsefulSpectraNum() + 10);
+        ArrayList<Future<PreSearch.Entry>> taskList = new ArrayList<>(preSpectra.getUsefulSpectraNum() + 10);
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
         ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanId, scanNum, precursorCharge, precursorMass, precursorScanNo FROM spectraTable");
         ReentrantLock lock = new ReentrantLock();
-        Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
-//        Map<Double, >
+        Map<Integer, String> scanIdMap = new HashMap<>();
+        Map<Integer, Integer> precursorChargeMap = new HashMap<>();
+        Map<Integer, Double> precursorMassMap = new HashMap<>();
+
+//        Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
         while (sqlResultSet.next()) {
             String scanId = sqlResultSet.getString("scanId");
             int scanNum = sqlResultSet.getInt("scanNum");
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             int precursorScanNo = sqlResultSet.getInt("precursorScanNo");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
-//            if (scanNum != 33701) {  //22459
+//            if (scanNum != 1905) {  //22459
 //                continue;
 //            }
-            taskList.add(threadPool.submit(new PIPIWrap(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath, binomial, precursorScanNo)));
+//            if (scanNum > 2000) {  //22459
+//                continue;
+//            }
+            scanIdMap.put(scanNum, scanId);
+            precursorChargeMap.put(scanNum, precursorCharge);
+            precursorMassMap.put(scanNum, precursorMass);
+
+            taskList.add(threadPool.submit(new PreSearch(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+                    , ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
+                    , spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo)));
         }
         sqlResultSet.close();
         sqlStatement.close();
+        Map<Integer, List<Peptide>> ptmOnlyCandiMap = new HashMap<>();
+        Map<Integer, List<Peptide>> ptmFreeCandiMap = new HashMap<>();
 
+        TreeMap<Double, Set<Integer>> pcMassScanNoMap = new TreeMap<>();
         // check progress every minute, record results,and delete finished tasks.
-        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanId,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        sqlConnection.setAutoCommit(false);
         int lastProgress = 0;
         int resultCount = 0;
         int totalCount = taskList.size();
         int count = 0;
         while (count < totalCount) {
             // record search results and delete finished ones.
-            List<Future<PIPIWrap.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count);
-            for (Future<PIPIWrap.Entry> task : taskList) {
+            List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count);
+            for (Future<PreSearch.Entry> task : taskList) {
+                if (task.isDone()) {
+                    if (task.get() != null) {
+                        PreSearch.Entry entry = task.get();
+                        ptmOnlyCandiMap.put(entry.scanNum, entry.ptmOnlyList);
+                        ptmFreeCandiMap.put(entry.scanNum, entry.ptmFreeList);
+                        if (pcMassScanNoMap.containsKey(entry.precursorMass)) {
+                            pcMassScanNoMap.get(entry.precursorMass).add(entry.scanNum);
+                        }else {
+                            Set<Integer> scanNumSet = new HashSet<>();
+                            scanNumSet.add(entry.scanNum);
+                            pcMassScanNoMap.put(entry.precursorMass, scanNumSet);
+                        }
+
+                        ++resultCount;
+                    }
+
+                    toBeDeleteTaskList.add(task);
+                } else if (task.isCancelled()) {
+                    toBeDeleteTaskList.add(task);
+                }
+            }
+            count += toBeDeleteTaskList.size();
+            taskList.removeAll(toBeDeleteTaskList);
+            taskList.trimToSize();
+
+            int progress = count * 20 / totalCount;
+            if (progress != lastProgress) {
+                logger.info("PreSearching {}%...", progress * 5);
+                lastProgress = progress;
+            }
+
+            if (count == totalCount) {
+                break;
+            }
+            Thread.sleep(6000);
+        }
+
+        // shutdown threads.
+        threadPool.shutdown();
+        if (!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPool.shutdownNow();
+            if (!threadPool.awaitTermination(60, TimeUnit.SECONDS))
+                throw new Exception("Pool did not terminate");
+        }
+
+        if (lock.isLocked()) {
+            lock.unlock();
+        }
+
+        System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNoMap.size() + "," + ptmOnlyCandiMap.keySet().size());
+        logger.info("Start searching...");
+//        int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
+        if (threadNum == 0) {
+            threadNum = 3 + Runtime.getRuntime().availableProcessors();
+        }
+        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
+            threadNum = 1;
+        }
+        ExecutorService threadPool2 = Executors.newFixedThreadPool(threadNum);
+        ArrayList<Future<PIPIWrap.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
+        ReentrantLock lock2 = new ReentrantLock();
+        Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
+//        Statement sqlStatementNew = sqlConnection.createStatement();
+//        ResultSet sqlResultSetNew = null;
+        int submitTimes = 0;
+        for (double mass : pcMassScanNoMap.keySet()) {
+            for (int thisScanNum : pcMassScanNoMap.get(mass)){
+//                if (ptmOnlyCandiMap.get(thisScanNum) == null) {
+//                    System.out.println("null lsz :" + thisScanNum );
+//                }
+                Set<Peptide> realPtmOnlyList = new HashSet<> (ptmOnlyCandiMap.get(thisScanNum));
+                Set<Peptide> realPtmFreeList = new HashSet<>(ptmFreeCandiMap.get(thisScanNum));
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass - 0.02, true, mass + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
+//                sqlResultSetNew = sqlStatementNew.executeQuery(String.format(Locale.US, "SELECT scanNum, scanId, precursorCharge, precursorMass, precursorScanNo FROM spectraTable WHERE scanNum='%s'", thisScanNum));
+//                if (sqlResultSetNew.next()) {
+                String scanId = scanIdMap.get(thisScanNum);
+                int precursorCharge = precursorChargeMap.get(thisScanNum);
+                int precursorScanNo = 0;
+                double precursorMass = precursorMassMap.get(thisScanNum);
+//                if (thisScanNum == 1905) {
+//                    System.out.println("lsz runing 1905");
+//                }
+                submitTimes++;
+                taskListPTM.add(threadPool2.submit(new PIPIWrap(thisScanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass()
+                        , inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock2, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum
+                        , sqlPath, binomial, precursorScanNo, realPtmOnlyList, realPtmFreeList)));
+//                }
+            }
+        }
+//        sqlResultSetNew.close();
+//        sqlStatementNew.close();
+//        System.out.println("lsz submit times " + submitTimes);
+        // check progress every minute, record results,and delete finished tasks.
+        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanId,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        sqlConnection.setAutoCommit(false);
+        lastProgress = 0;
+        resultCount = 0;
+        totalCount = taskListPTM.size();
+        int count2 = 0;
+//        System.out.println("lsz totalCount, " + totalCount);
+        while (count2 < totalCount) {
+            // record search results and delete finished ones.
+            List<Future<PIPIWrap.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count2);
+            for (Future<PIPIWrap.Entry> task : taskListPTM) {
                 if (task.isDone()) {
                     if (task.get() != null) {
                         PIPIWrap.Entry entry = task.get();
@@ -260,15 +377,16 @@ public class PIPI {
                     toBeDeleteTaskList.add(task);
                 }
             }
-            count += toBeDeleteTaskList.size();
-            taskList.removeAll(toBeDeleteTaskList);
-            taskList.trimToSize();
+            count2 += toBeDeleteTaskList.size();
+            taskListPTM.removeAll(toBeDeleteTaskList);
+            taskListPTM.trimToSize();
 
             sqlConnection.commit();
 
-            int progress = count * 20 / totalCount;
+            int progress = count2 * 20 / totalCount;
             if (progress != lastProgress) {
                 logger.info("Searching {}%...", progress * 5);
+//                System.out.println(toBeDeleteTaskList.size()+ ","+ taskListPTM.size() +"," + count2 + ", " + totalCount + "," + lastProgress);
                 lastProgress = progress;
             }
 
@@ -279,10 +397,10 @@ public class PIPI {
         }
 
         // shutdown threads.
-        threadPool.shutdown();
-        if (!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPool.shutdownNow();
-            if (!threadPool.awaitTermination(60, TimeUnit.SECONDS))
+        threadPool2.shutdown();
+        if (!threadPool2.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPool2.shutdownNow();
+            if (!threadPool2.awaitTermination(60, TimeUnit.SECONDS))
                 throw new Exception("Pool did not terminate");
         }
 
@@ -399,25 +517,25 @@ public class PIPI {
             String percolatorEnzyme;
             switch (enzymeName) {
                 case "Trypsin": percolatorEnzyme = "trypsin";
-                break;
+                    break;
                 case "Trypsin/P": percolatorEnzyme = "trypsinp";
-                break;
+                    break;
                 case "TrypsinR": percolatorEnzyme = "trypsin";
-                break;
+                    break;
                 case "LysC": percolatorEnzyme = "lys-c";
-                break;
+                    break;
                 case "ArgC": percolatorEnzyme = "arg-c";
-                break;
+                    break;
                 case "Chymotrypsin": percolatorEnzyme = "chymotrypsin";
-                break;
+                    break;
                 case "GluC": percolatorEnzyme = "glu-c";
-                break;
+                    break;
                 case "LysN": percolatorEnzyme = "lys-n";
-                break;
+                    break;
                 case "AspN": percolatorEnzyme = "asp-n";
-                break;
+                    break;
                 default: percolatorEnzyme = "trypsin";
-                break;
+                    break;
             }
 
             String[] commands = new String[]{percolatorPath, "--only-psms", "--verbose", "0", "--no-terminate", "--search-input", "concatenated", "--protein-decoy-pattern", "DECOY_", "--picked-protein", tdFastaPath, "--protein-enzyme", percolatorEnzyme, "--protein-report-fragments", "--protein-report-duplicates", "--results-proteins", percolatorProteinOutputFileName, "--results-psms", percolatorOutputFileName, percolatorInputFileName};

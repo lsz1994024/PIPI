@@ -20,7 +20,7 @@ import proteomics.Index.BuildIndex;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.*;
-
+import proteomics.PreSearch.Entry;
 import java.util.*;
 
 public class Search {
@@ -31,7 +31,7 @@ public class Search {
     private List<Peptide> ptmFreeResult = new LinkedList<>();
     public List<PepWithScore> candidatesList = new LinkedList<>();
 
-    public Search(int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge) {
+    public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge) {
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
         double scanNormSquare = scanCode.norm2square();
@@ -71,7 +71,7 @@ public class Search {
 //                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
                         if ((Math.abs(deltaMass) <= 0.01)) {
 
-                                // PTM-free
+                            // PTM-free
                             if (ptmFreeQueue.size() < rankNum) {
                                 ptmFreeQueue.add(new ResultEntry(score, sequence, false));
                             } else {
@@ -85,7 +85,7 @@ public class Search {
 //                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
                         if ((Math.abs(deltaMass) > 0.01)) {
 
-                                // PTM-only
+                            // PTM-only
                             if (ptmOnlyQueue.size() < rankNum) {
                                 ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
                             } else {
@@ -132,8 +132,8 @@ public class Search {
         }
 
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
-            ptmFreeResult = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
-            ptmOnlyResult = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+            entry.ptmOnlyList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+            entry.ptmFreeList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
     }
 
