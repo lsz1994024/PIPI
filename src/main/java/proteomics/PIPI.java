@@ -305,6 +305,42 @@ public class PIPI {
                         }
                     }
                 }
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass -MassTool.PROTON- 0.02, true, mass -MassTool.PROTON + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass +MassTool.PROTON- 0.02, true, mass +MassTool.PROTON + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass -2*MassTool.PROTON- 0.02, true, mass -2*MassTool.PROTON + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass +2*MassTool.PROTON- 0.02, true, mass +2*MassTool.PROTON + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
 //                sqlResultSetNew = sqlStatementNew.executeQuery(String.format(Locale.US, "SELECT scanNum, scanId, precursorCharge, precursorMass, precursorScanNo FROM spectraTable WHERE scanNum='%s'", thisScanNum));
 //                if (sqlResultSetNew.next()) {
                 String scanId = scanIdMap.get(thisScanNum);
