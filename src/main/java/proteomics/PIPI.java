@@ -299,7 +299,7 @@ public class PIPI {
                 for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass - 0.02, true, mass + 0.02, true).values()) {
                     for (int otherScanNum : otherScanNumSet) {
 
-                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                             realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
                             realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
                         }
@@ -308,7 +308,7 @@ public class PIPI {
                 for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass -MassTool.PROTON- 0.02, true, mass -MassTool.PROTON + 0.02, true).values()) {
                     for (int otherScanNum : otherScanNumSet) {
 
-                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                             realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
                             realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
                         }
@@ -317,7 +317,7 @@ public class PIPI {
                 for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass +MassTool.PROTON- 0.02, true, mass +MassTool.PROTON + 0.02, true).values()) {
                     for (int otherScanNum : otherScanNumSet) {
 
-                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                             realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
                             realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
                         }
@@ -326,7 +326,7 @@ public class PIPI {
                 for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass -2*MassTool.PROTON- 0.02, true, mass -2*MassTool.PROTON + 0.02, true).values()) {
                     for (int otherScanNum : otherScanNumSet) {
 
-                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                             realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
                             realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
                         }
@@ -335,7 +335,25 @@ public class PIPI {
                 for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass +2*MassTool.PROTON- 0.02, true, mass +2*MassTool.PROTON + 0.02, true).values()) {
                     for (int otherScanNum : otherScanNumSet) {
 
-                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass -3*MassTool.PROTON- 0.02, true, mass -3*MassTool.PROTON + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
+                            realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
+                            realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
+                        }
+                    }
+                }
+                for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass +3*MassTool.PROTON- 0.02, true, mass +3*MassTool.PROTON + 0.02, true).values()) {
+                    for (int otherScanNum : otherScanNumSet) {
+
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                             realPtmOnlyList.addAll(ptmOnlyCandiMap.get(otherScanNum));
                             realPtmFreeList.addAll(ptmFreeCandiMap.get(otherScanNum));
                         }
@@ -351,6 +369,7 @@ public class PIPI {
 //                    System.out.println("lsz runing 1905");
 //                }
                 submitTimes++;
+//                System.out.println("candi more, " + (realPtmOnlyList.size()-ptmOnlyCandiMap.get(thisScanNum).size())  + ", "+ (realPtmFreeList.size()-ptmFreeCandiMap.get(thisScanNum).size()));
                 taskListPTM.add(threadPool2.submit(new PIPIWrap(thisScanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass()
                         , inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock2, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum
                         , sqlPath, binomial, precursorScanNo, realPtmOnlyList, realPtmFreeList)));
