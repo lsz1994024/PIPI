@@ -128,8 +128,8 @@ public class InferSegment {
         deltaMassArray = modifiedAAMap.keySet().toArray(new Double[0]);
     }
 
-    public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> plMap, int scanNum) throws Exception {
-        return inferThreeAAFromSpectrum(addVirtualPeaks(precursorMass, plMap), precursorMass - massTool.H2O + MassTool.PROTON);
+    public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
+        return inferThreeAAFromSpectrum(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON);
     }
 
     public SparseVector generateSegmentIntensityVector(List<ThreeExpAA> inputList) {
@@ -332,7 +332,7 @@ public class InferSegment {
         return null;
     }
 
-    private TreeMap<Double, Double> addVirtualPeaks(double precursorMass, TreeMap<Double, Double> plMap) {
+    public TreeMap<Double, Double> addVirtualPeaks(double precursorMass, TreeMap<Double, Double> plMap) {
         double totalMass = precursorMass + 2 * MassTool.PROTON;
         TreeMap<Double, Double> finalPlMap = new TreeMap<>();
         for (double mz : plMap.keySet()) {
@@ -364,7 +364,7 @@ public class InferSegment {
         if ((temp == null) || (temp.isEmpty())) {
             finalPlMap.put(cTermMz, 1d);
         }
-        finalPlMap.put(19.017841109504626, 1d);
+        finalPlMap.put(MassTool.PROTON + massTool.H2O, 1d);
 
 
         //shouldDoMyDeisotope

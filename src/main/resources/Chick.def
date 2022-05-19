@@ -4,8 +4,8 @@ thread_num = 80 # Thread number. Set to 0 to using all the CPU resources in the 
 percolator_path = /usr/bin/percolator # Please input absolute path of Percolator binary file.
 
 # Database
-# db = /home/slaiad/Data/Simulation_Data/uniprot_homo_sapiens.fasta # Protein database.
 db = /home/slaiad/Data/Simulation_Data/uniprot_homo_sapiens.fasta # Protein database.
+# db = /home/slaiad/Data/Simulation_Data/fake.fasta # Protein database.
 
 database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1 # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences

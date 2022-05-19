@@ -19,6 +19,7 @@ package proteomics;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.PrepareSpectrum;
 import ProteomicsLibrary.Types.SparseVector;
+import org.apache.commons.math3.analysis.function.Exp;
 import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
 import proteomics.Search.Search;
@@ -30,6 +31,7 @@ import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
+import com.google.common.graph.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final int candisNum = 20;
@@ -56,13 +58,13 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private final String sqlPath;
     private final int scanNum;
     private final int precursorScanNo;
-
+    private String truth;
 
 
     public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
             , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass
-            , InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, int precursorScanNo) {
+            , InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, int precursorScanNo, String truth) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -87,6 +89,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         peptide0Map = buildIndex.getPeptide0Map();
         this.scanNum = scanNum;
         this.precursorScanNo = precursorScanNo;
+        this.truth = truth;
     }
 
     @Override
@@ -108,13 +111,173 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
-        List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
+        TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
+        List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, finalPlMap, scanNum);
 
-        if (!expAaLists.isEmpty()) {
-            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
+
+        //check for NC tag
+        List<ThreeExpAA> ncTags = new ArrayList<>();
+        for (ThreeExpAA tag : expAaLists) {
+            if ( tag.getHeadLocation() == MassTool.PROTON ) {
+                tag.ncTag = ThreeExpAA.NC.N;
+                ncTags.add(tag);
+            }
+            if ( tag.getHeadLocation() == MassTool.PROTON + massTool.H2O ) {
+                tag.ncTag = ThreeExpAA.NC.C;
+                ncTags.add(tag);
+
+            }
+        }
+
+        Map<Double, Integer> mzIdMap = new HashMap<>();
+        int i = 0;
+        for (double mz : finalPlMap.keySet()) {
+            mzIdMap.put(mz, i);
+            i++;
+        }
+//        for (ThreeExpAA tag : expAaLists) {
+//            System.out.println(tag.getPtmFreeAAString() + ","
+//                    +mzIdMap.get(tag.getExpAAs()[0].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[1].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[2].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[2].getTailLocation())
+//                    + "," + tag.getExpAAs()[0].getHeadLocation()+ ","+tag.getExpAAs()[1].getHeadLocation()+ ","+tag.getExpAAs()[2].getHeadLocation()+ ","+tag.getExpAAs()[2].getTailLocation());
+//
+//        }
+        TreeMap<Integer, Double> nodeMap = new TreeMap<>();
+        Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
+        for (ThreeExpAA tag : expAaLists) {
+            for(ExpAA aa : tag.getExpAAs()) {
+                if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
+                    continue;
+                }
+                int n1 = mzIdMap.get(aa.getHeadLocation());
+                int n2 = mzIdMap.get(aa.getTailLocation());
+                double inte1 = aa.getHeadIntensity();
+                double inte2 = aa.getTailIntensity();
+                nodeMap.put(n1, inte1);
+                nodeMap.put(n2, inte2);
+                if (outEdgeMap.containsKey(n1)) {
+                    outEdgeMap.get(n1).put(n2, 0.5*(inte1+inte2));
+                } else {
+                    Map<Integer, Double> temp = new HashMap<>();
+                    temp.put(n2, 0.5*(inte1+inte2));
+                    outEdgeMap.put(n1, temp);
+                }
+
+                if (inEdgeMap.containsKey(n2)) {
+                    inEdgeMap.get(n2).put(n1, 0.5*(inte1+inte2));
+                } else {
+                    Map<Integer, Double> temp = new HashMap<>();
+                    temp.put(n1, 0.5*(inte1+inte2));
+                    inEdgeMap.put(n2, temp);
+                }
+
+            }
+        }
+        for (int node : nodeMap.keySet()) {
+            if (!inEdgeMap.containsKey(node) ){
+                for (int n2 : outEdgeMap.get(node).keySet()) {
+                    outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2)+nodeMap.get(node)/2);
+                    inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node)+nodeMap.get(node)/2);
+                }
+            }
+            if (!outEdgeMap.containsKey(node) ){
+                for (int n1 : inEdgeMap.get(node).keySet()) {
+                    outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node)+nodeMap.get(node)/2);
+                    inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1)+nodeMap.get(node)/2);
+                }
+            }
+        }
+        // finish prepare graph
+
+        Set<Edge> edgeToDel = new HashSet<>();
+        for (int node : nodeMap.keySet()){
+            if (inEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
+                double maxIn = 0d;
+                int maxInPeak = -1;
+                for (int n1 : tempInMap.keySet()) {
+                    if (tempInMap.get(n1) > maxIn) {
+                        maxIn = tempInMap.get(n1);
+                        maxInPeak = n1;
+                    }
+                }
+                for (int n1 : tempInMap.keySet()) {
+                    if (n1 != maxInPeak) {
+                        edgeToDel.add(new Edge(n1,node));
+                    }
+                }
+                if (outEdgeMap.containsKey(node)) {
+
+                    for (int n2 : outEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
+                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
+
+                    }
+                }
+            }
+        }
+        for (int node : nodeMap.descendingKeySet()){
+            if (outEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
+                double maxOut = 0d;
+                int maxOutPeak = -1;
+                for (int n2 : tempOutMap.keySet()) {
+                    if (tempOutMap.get(n2) > maxOut) {
+                        maxOut = tempOutMap.get(n2);
+                        maxOutPeak = n2;
+                    }
+                }
+                for (int n2 : tempOutMap.keySet()) {
+                    if (n2 != maxOutPeak) {
+                        edgeToDel.add(new Edge(node,n2));
+                    }
+                }
+                if (inEdgeMap.containsKey(node)) {
+
+                    for (int n1 : inEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOut);
+                        inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOut);
+
+                    }
+                }
+            }
+        }
+//        truth = "#RFPAEDEFPD#SAHNNHMAK";
+        int numCorrectTagsBefore = 0;
+        int numTotalTagsAfter = 0;
+        int numCorrectTagsAfter = 0;
+        List<ThreeExpAA> denoisedTags = new ArrayList<>();
+        for(ThreeExpAA tag: expAaLists) {
+            String tagSeq = tag.getPtmFreeAAString();
+            String revTagSeq = new StringBuilder(tagSeq).reverse().toString();
+
+            if (truth.contains(tagSeq) || truth.contains(revTagSeq)) {
+                numCorrectTagsBefore++;
+            }
+
+            boolean containsBadEdge = false;
+            for (ExpAA aa : tag.getExpAAs()) {
+                Edge tempEdge = new Edge(mzIdMap.get(aa.getHeadLocation()), mzIdMap.get(aa.getTailLocation()));
+                if (edgeToDel.contains(tempEdge)) {
+                    containsBadEdge = true;
+                }
+            }
+            if (!containsBadEdge) {
+                denoisedTags.add(tag);
+                numTotalTagsAfter++;
+                if (truth.contains(tagSeq) || truth.contains(revTagSeq)) {
+                    numCorrectTagsAfter++;
+                }
+            }
+        }
+//        System.out.println("scan, "+scanNum+","+expAaLists.size() + "," + numCorrectTagsBefore +","+numTotalTagsAfter+","+numCorrectTagsAfter);
+
+
+        if (!denoisedTags.isEmpty()) {
+            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(denoisedTags);
 
             Entry entry = new Entry();
-            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge);
+            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
 //            entry.candidateList = search.candidatesList;
             //move search to here as presearch.
 
@@ -124,7 +287,28 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
     }
 
+    public class Edge {
+        public int n1;
+        public int n2;
+        public double weight = 0d;
+        Edge(int n1, int n2){
+            this.n1 = n1;
+            this.n2 = n2;
+        };
 
+        @Override
+        public int hashCode(){
+            return n1*n2;
+        }
+        @Override
+        public boolean equals(Object other) {
+            if (this.n1 == 31 && this.n2 == 36) {
+                int a = 1;
+            }
+            Edge temp = (Edge) other;
+            return (this.n1 == temp.n1) && (this.n2 == temp.n2);
+        }
+    }
     public class Entry {
 
         public int scanNum = PreSearch.this.scanNum;

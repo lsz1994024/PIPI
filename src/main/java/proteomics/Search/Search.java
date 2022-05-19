@@ -31,7 +31,9 @@ public class Search {
     private List<Peptide> ptmFreeResult = new LinkedList<>();
     public List<PepWithScore> candidatesList = new LinkedList<>();
 
-    public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge) {
+    public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
+            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
+
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
         double scanNormSquare = scanCode.norm2square();
@@ -65,6 +67,22 @@ public class Search {
                     if (temp1 > 1e-6) {
                         score = peptide0.code.dot(scanCode) / temp1;
                     }
+//                    double extraScore = 0.0;
+//                    for (ThreeExpAA tag : ncTags) {
+//                        if (tag.getPtmFreeAAString().contentEquals(sequence.substring(1, 4))) {
+//                            if (tag.ncTag == ThreeExpAA.NC.N) {
+//                                score += 0.1;
+//                            }
+//                        }
+//
+//                        if (tag.getPtmFreeAAString().contentEquals(new StringBuilder(sequence.substring(sequence.length()-4, sequence.length()-1)).reverse().toString() ) ) {
+//                            if (tag.ncTag == ThreeExpAA.NC.C) {
+//                                score += 0.1;
+//                            }
+//                        }
+//                    }
+                    // check NC tag for extra score
+
                     double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 
                     if (peptide0.isTarget) {
