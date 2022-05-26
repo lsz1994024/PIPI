@@ -190,6 +190,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         // finish prepare graph
 
         Set<Edge> edgeToDel = new HashSet<>();
+        Map<Integer, Integer> tempTodel = new HashMap<>();
+
         for (int node : nodeMap.keySet()){
             if (inEdgeMap.containsKey(node)) {
                 Map<Integer, Double> tempInMap = inEdgeMap.get(node);
@@ -204,6 +206,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 for (int n1 : tempInMap.keySet()) {
                     if (n1 != maxInPeak) {
                         edgeToDel.add(new Edge(n1,node));
+                        tempTodel.put(n1,node);
+
                     }
                 }
                 if (outEdgeMap.containsKey(node)) {
@@ -215,6 +219,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
             }
+        }
+        for (int n1 : tempTodel.keySet()) {
+            int n2 = tempTodel.get(n1);
+            inEdgeMap.get(n2).remove(n1);
+            outEdgeMap.get(n1).remove(n2);
         }
         for (int node : nodeMap.descendingKeySet()){
             if (outEdgeMap.containsKey(node)) {

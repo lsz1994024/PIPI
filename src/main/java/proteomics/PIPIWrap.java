@@ -124,7 +124,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
 //        for(ThreeExpAA tag : expAaLists) {
 //            System.out.println(tag.getPtmFreeAAString());
 //        }
-        if (!expAaLists.isEmpty()) {
+        if (true) {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
 
             // Begin search.
@@ -244,7 +244,13 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                     }
                     double deltaCn = 1;
                     if (peptideArray.length > 1) {
-                        deltaCn = (peptideArray[0].getScore() - peptideArray[1].getScore()) / peptideArray[0].getScore();
+                        for(int i = 0; i < peptideArray.length; i++) {
+                            if (peptideArray[i].getScore() != peptideArray[0].getScore()){
+                                deltaCn = (peptideArray[0].getScore() - peptideArray[i].getScore()) / peptideArray[0].getScore();
+                                break;
+                            }
+                        }
+//                        deltaCn = (peptideArray[0].getScore() - peptideArray[1].getScore()) / peptideArray[0].getScore();
                     }
 
                     String otherPtmPatterns = "-";

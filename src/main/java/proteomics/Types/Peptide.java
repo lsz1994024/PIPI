@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-public class Peptide implements Comparable<Peptide> {
+public class Peptide implements Comparable<Peptide>, Cloneable{
     public int scanNum = 0;
     private final String ptmFreePeptide;
     private final boolean isDecoy;
@@ -71,6 +71,11 @@ public class Peptide implements Comparable<Peptide> {
         hashCode = ptmFreePeptide.hashCode();
 
     }
+
+//    @Override
+//    public Peptide clone() throws CloneNotSupportedException {
+//        return (Peptide) super.clone();
+//    }
     public void setScanNum(int scanNum) {this.scanNum = scanNum;}
 
     public int getGlobalRank() {
@@ -181,7 +186,7 @@ public class Peptide implements Comparable<Peptide> {
     }
 
     public Peptide clone() throws CloneNotSupportedException {
-        super.clone();
+        super.clone();//???
         Peptide other = new Peptide(ptmFreePeptide, isDecoy, massTool, maxMs2Charge, normalizedCrossCorrelationCoefficient, globalRank);
         if (varPTMMap != null) {
             other.setVarPTM(varPTMMap.clone());
@@ -410,4 +415,6 @@ public class Peptide implements Comparable<Peptide> {
             }
         }
     }
+
+
 }
