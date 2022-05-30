@@ -192,39 +192,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Set<Edge> edgeToDel = new HashSet<>();
         Map<Integer, Integer> tempTodel = new HashMap<>();
 
-        for (int node : nodeMap.keySet()){
-            if (inEdgeMap.containsKey(node)) {
-                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
-                double maxIn = 0d;
-                int maxInPeak = -1;
-                for (int n1 : tempInMap.keySet()) {
-                    if (tempInMap.get(n1) > maxIn) {
-                        maxIn = tempInMap.get(n1);
-                        maxInPeak = n1;
-                    }
-                }
-                for (int n1 : tempInMap.keySet()) {
-                    if (n1 != maxInPeak) {
-                        edgeToDel.add(new Edge(n1,node));
-                        tempTodel.put(n1,node);
-
-                    }
-                }
-                if (outEdgeMap.containsKey(node)) {
-
-                    for (int n2 : outEdgeMap.get(node).keySet()) {
-                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
-                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
-
-                    }
-                }
-            }
-        }
-        for (int n1 : tempTodel.keySet()) {
-            int n2 = tempTodel.get(n1);
-            inEdgeMap.get(n2).remove(n1);
-            outEdgeMap.get(n1).remove(n2);
-        }
         for (int node : nodeMap.descendingKeySet()){
             if (outEdgeMap.containsKey(node)) {
                 Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
@@ -239,6 +206,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 for (int n2 : tempOutMap.keySet()) {
                     if (n2 != maxOutPeak) {
                         edgeToDel.add(new Edge(node,n2));
+                        tempTodel.put(node,n2);
+
                     }
                 }
                 if (inEdgeMap.containsKey(node)) {
@@ -246,6 +215,39 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     for (int n1 : inEdgeMap.get(node).keySet()) {
                         outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOut);
                         inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOut);
+
+                    }
+                }
+            }
+        }
+
+        for (int n1 : tempTodel.keySet()) {
+            int n2 = tempTodel.get(n1);
+            inEdgeMap.get(n2).remove(n1);
+            outEdgeMap.get(n1).remove(n2);
+        }
+        for (int node : nodeMap.keySet()){
+            if (inEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
+                double maxIn = 0d;
+                int maxInPeak = -1;
+                for (int n1 : tempInMap.keySet()) {
+                    if (tempInMap.get(n1) > maxIn) {
+                        maxIn = tempInMap.get(n1);
+                        maxInPeak = n1;
+                    }
+                }
+                for (int n1 : tempInMap.keySet()) {
+                    if (n1 != maxInPeak) {
+                        edgeToDel.add(new Edge(n1,node));
+
+                    }
+                }
+                if (outEdgeMap.containsKey(node)) {
+
+                    for (int n2 : outEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
+                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
 
                     }
                 }
