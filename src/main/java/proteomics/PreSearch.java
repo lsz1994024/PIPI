@@ -28,6 +28,7 @@ import proteomics.Spectrum.PreSpectra;
 import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
+import java.awt.datatransfer.MimeTypeParseException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
@@ -282,13 +283,47 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             }
         }
 //        System.out.println("scan, "+scanNum+","+expAaLists.size() + "," + numCorrectTagsBefore +","+numTotalTagsAfter+","+numCorrectTagsAfter);
+//        Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
 
-
+//        if (denoisedTags.isEmpty()){
+//            denoisedTags = expAaLists;
+//        }
         if (!denoisedTags.isEmpty()) {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(denoisedTags);
 
+//            Set<String> pepSet = new HashSet<>();
+//            for (ThreeExpAA tagInfo: denoisedTags) {
+//                String tag = tagInfo.getPtmFreeAAString().replace('#', 'I');
+//                String revTag = new StringBuilder(tag).reverse().toString();
+//                int compareResult = tag.compareTo(revTag);
+//                if (compareResult > 0) {
+//                    tag = revTag;
+//                }
+//                if (tagPepMap.containsKey(tag)) {
+//                    pepSet.addAll(tagPepMap.get(tag));
+//                }
+//            }
+            Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
+
+            Set<String> candiSet = new HashSet<>();
+            for (ThreeExpAA tagInfo: denoisedTags) {
+                String tag = tagInfo.getPtmFreeAAString();
+                if (tag.contains("I") || tag.contains("L")) {
+                    System.out.println("tag has I or L");
+                }
+                String revTag = new StringBuilder(tag).reverse().toString();
+                int compareResult = tag.compareTo(revTag);
+                if (compareResult > 0) {
+                    tag = revTag;
+                }
+                if (tagPepMap.containsKey(tag)) {
+                    candiSet.addAll(tagPepMap.get(tag));
+                }
+            }
+//            System.out.println(scanNum +","+pepSet.size());
             Entry entry = new Entry();
-            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
+            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass
+                    , localMaxMs2Charge, candiSet);
 //            entry.candidateList = search.candidatesList;
             //move search to here as presearch.
 

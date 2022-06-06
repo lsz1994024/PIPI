@@ -17,6 +17,7 @@
 package proteomics.Segment;
 
 
+import ProteomicsLibrary.DbTool;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.*;
@@ -31,7 +32,7 @@ public class InferSegment {
     private static final int regionNum = 10;
     private static final int topNumInEachRegion = 20;
     private static final Pattern pattern = Pattern.compile("([nc][0-9a-i])?([A-Z#$].?)");
-
+    public Map<String, Set<String>> tagPepMap = new HashMap<>();
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();
     private Map<Double, String> modifiedAAMap = new HashMap<>(35, 1);
@@ -148,14 +149,31 @@ public class InferSegment {
     }
 
     public SparseBooleanVector generateSegmentBooleanVector(String peptide) {
-        String normalizedPeptide = normalizeSequence(peptide);
-        Set<Integer> tempSet = new HashSet<>(peptide.length() + 1, 1);
+
+        String normalizedPeptide = normalizeSequence(DbTool.getSequenceOnly(peptide));
+        Set<Integer> tempSet = new HashSet<>(DbTool.getSequenceOnly(peptide).length() + 1, 1);
         for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
-            tempSet.add(aaVectorTemplate.get(new Segment(normalizedPeptide.substring(i, i + 3))));
+            Segment seg = new Segment(normalizedPeptide.substring(i, i + 3));
+            String tag = seg.toString();
+            if (tagPepMap.containsKey(tag)) {
+                tagPepMap.get(tag).add(peptide);
+            } else {
+                Set<String> pepSet = new HashSet<>();
+                pepSet.add(peptide);
+                tagPepMap.put(tag, pepSet);
+            }
+            tempSet.add(aaVectorTemplate.get(seg));
         }
         return new SparseBooleanVector(tempSet);
     }
-
+//    public SparseBooleanVector generateSegmentBooleanVector(String peptide) {
+//        String normalizedPeptide = normalizeSequence(peptide);
+//        Set<Integer> tempSet = new HashSet<>(peptide.length() + 1, 1);
+//        for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
+//            tempSet.add(aaVectorTemplate.get(new Segment(normalizedPeptide.substring(i, i + 3))));
+//        }
+//        return new SparseBooleanVector(tempSet);
+//    }
     public static String normalizeSequence(String seq) {
         return seq.replaceAll("[IL]", "#");
     }

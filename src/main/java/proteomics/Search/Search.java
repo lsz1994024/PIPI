@@ -32,7 +32,7 @@ public class Search {
     public List<PepWithScore> candidatesList = new LinkedList<>();
 
     public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
-            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
+            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, Set<String> candiSet) {
 
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
@@ -54,36 +54,31 @@ public class Search {
         TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
 
         NavigableMap<Double, Set<String>> subMassPeptideMap = massPeptideMap.subMap(leftMass, true, rightMass, true);
-
-        if (!subMassPeptideMap.isEmpty()) {
-            for (double mass : subMassPeptideMap.keySet()) {
-                for (String sequence : massPeptideMap.get(mass)) {
-                    if(sequence.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
-                        int a = 1;
-                    }
+//        Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
+//        Set<String> pepSet = new HashSet<>();
+//        for (ThreeExpAA tagInfo: denoisedTags) {
+//            String tag = tagInfo.getPtmFreeAAString();
+//            if (tag.contains("I") || tag.contains("L")) {
+//                System.out.println("tag has I or L");
+//            }
+//            String revTag = new StringBuilder(tag).reverse().toString();
+//            int compareResult = tag.compareTo(revTag);
+//            if (compareResult > 0) {
+//                tag = revTag;
+//            }
+//            if (tagPepMap.containsKey(tag)) {
+                for (String sequence : candiSet) {
                     Peptide0 peptide0 = peptide0Map.get(sequence);
                     double score = 0;
                     double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
                     if (temp1 > 1e-6) {
                         score = peptide0.code.dot(scanCode) / temp1;
                     }
-//                    double extraScore = 0.0;
-//                    for (ThreeExpAA tag : ncTags) {
-//                        if (tag.getPtmFreeAAString().contentEquals(sequence.substring(1, 4))) {
-//                            if (tag.ncTag == ThreeExpAA.NC.N) {
-//                                score += 0.1;
-//                            }
-//                        }
-//
-//                        if (tag.getPtmFreeAAString().contentEquals(new StringBuilder(sequence.substring(sequence.length()-4, sequence.length()-1)).reverse().toString() ) ) {
-//                            if (tag.ncTag == ThreeExpAA.NC.C) {
-//                                score += 0.1;
-//                            }
-//                        }
-//                    }
                     // check NC tag for extra score
+                    double deltaMass = massTool.calResidueMass(sequence) + massTool.H2O - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
+                    if (Math.abs(deltaMass) > 250) continue;
+//                    pepSet.add(sequence);
 
-                    double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 
                     if (peptide0.isTarget) {
 //                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
@@ -143,8 +138,9 @@ public class Search {
                         }
                     }
                 }
-            }
-        }
+//            }
+//        }
+//        System.out.println(scanNum + ","+pepSet.size());
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
             mergeResult(ptmFreeQueue, ptmOnlyQueue, peptide0Map);
         }

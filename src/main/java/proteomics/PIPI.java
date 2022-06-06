@@ -147,6 +147,14 @@ public class PIPI {
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
+        Set<String> tagPepSize = new HashSet<>();
+        for(Set<String> pepset : buildIndex.getInferSegment().tagPepMap.values()) {
+            tagPepSize.addAll(pepset);
+        }
+        System.out.println("lsz tagMap length "+ tagPepSize.size());
+//        System.out.println(buildIndex.getInferSegment().tagPepMap.keySet());
+
+
         logger.info("Reading spectra...");
         File spectraFile = new File(spectraPath);
         if ((!spectraFile.exists() || (spectraFile.isDirectory()))) {
