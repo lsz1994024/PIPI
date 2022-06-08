@@ -28,6 +28,7 @@ import proteomics.Spectrum.PreSpectra;
 import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
+import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
@@ -35,6 +36,7 @@ import com.google.common.graph.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final int candisNum = 20;
+    private int hashbits = 64;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
     private final double ms1Tolerance;
@@ -285,10 +287,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
 
         if (!denoisedTags.isEmpty()) {
-            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(denoisedTags);
+            Map<String, Double> tagWeightMap = new HashMap<>();
+            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(denoisedTags, tagWeightMap);
+            BigInteger scanHash = simHash(tagWeightMap);
 
             Entry entry = new Entry();
-            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
+            Search search = new Search(entry, scanHash, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
+
+//            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
 //            entry.candidateList = search.candidatesList;
             //move search to here as presearch.
 
@@ -298,6 +304,56 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
     }
 
+    private BigInteger simHash(Map<String, Double> tagWeightMap) {
+        double[] v = new double[hashbits];
+        for (String tag : tagWeightMap.keySet()) {
+            double weight = tagWeightMap.get(tag);
+            BigInteger t = this.hash(tag);
+            for (int i = 0; i < hashbits; i++) {
+                BigInteger bitmask = new BigInteger("1").shiftLeft(i);
+                if (t.and(bitmask).signum() != 0) {
+                    v[i] += weight;
+                } else {
+                    v[i] -= weight;
+                }
+            }
+        }
+
+        //binString to BigInteger
+        BigInteger fingerprint = new BigInteger("0");
+        for (int i = 0; i < hashbits; i++) {
+            if (v[i] >= 0) {
+                fingerprint = fingerprint.add(new BigInteger("1").shiftLeft(i));
+            }
+        }
+        return fingerprint;
+    }
+
+    private BigInteger hash(String source) {
+        if (source == null || source.length() == 0) {
+            return new BigInteger("0");
+        } else {
+            /**
+             * 当sourece 的长度过短，会导致hash算法失效，因此需要对过短的词补偿
+             */
+            while (source.length() < 3) {
+                source = source + source.charAt(0);
+            }
+            char[] sourceArray = source.toCharArray();
+            BigInteger x = BigInteger.valueOf(((long) sourceArray[0]) << 7);
+            BigInteger m = new BigInteger("1000003");
+            BigInteger mask = new BigInteger("2").pow(hashbits).subtract(new BigInteger("1"));
+            for (char item : sourceArray) {
+                BigInteger temp = BigInteger.valueOf((long) item);
+                x = x.multiply(m).xor(temp).and(mask);
+            }
+            x = x.xor(new BigInteger(String.valueOf(source.length())));
+            if (x.equals(new BigInteger("-1"))) {
+                x = new BigInteger("-2");
+            }
+            return x;
+        }
+    }
     public class Edge {
         public int n1;
         public int n2;

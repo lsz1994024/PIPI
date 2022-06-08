@@ -21,12 +21,12 @@ import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.*;
 
+import java.math.BigInteger;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class InferSegment {
-
     private static final int minTagNum = 200;
     private static final int regionNum = 10;
     private static final int topNumInEachRegion = 20;
@@ -147,14 +147,54 @@ public class InferSegment {
         }
     }
 
-    public SparseBooleanVector generateSegmentBooleanVector(String peptide) {
+    public SparseVector generateSegmentIntensityVector(List<ThreeExpAA> inputList, Map<String, Double> tagWeightMap) {
+        SparseVector finalVector = new SparseVector();
+        if (inputList.isEmpty()) {
+            return finalVector;
+        } else {
+            for (ThreeExpAA tag : inputList) {
+                double totalIntensity = tag.getTotalIntensity();
+                Segment seg = new Segment(tag.getPtmFreeAAString());
+                int idx = aaVectorTemplate.get(seg);
+                double value = Math.max(totalIntensity, finalVector.get(idx));
+                finalVector.put(idx, value);
+                tagWeightMap.put(seg.toString(), value);
+            }
+            return finalVector;
+        }
+    }
+
+
+    public SparseBooleanVector generateSegmentBooleanVector(String peptide, Map<String, Integer> pepCountMap, Map<String, Double> tfForOne) {
         String normalizedPeptide = normalizeSequence(peptide);
         Set<Integer> tempSet = new HashSet<>(peptide.length() + 1, 1);
+        Set<String> tagsHere = new HashSet<>();
         for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
-            tempSet.add(aaVectorTemplate.get(new Segment(normalizedPeptide.substring(i, i + 3))));
+            Segment seg = new Segment(normalizedPeptide.substring(i, i + 3));
+            tempSet.add(aaVectorTemplate.get(seg));
+            String tag = seg.toString();
+
+            if (tfForOne.containsKey(tag)) {
+                tfForOne.put(tag, tfForOne.get(tag)+1.0);
+            } else {
+                tfForOne.put(tag, 1.0);
+            }
+
+            if (tagsHere.contains(tag)) continue; // pep only count once
+            if (pepCountMap.containsKey(tag)) {
+                pepCountMap.put(tag, pepCountMap.get(tag)+1);
+            } else {
+                pepCountMap.put(tag, 1);
+            }
+            tagsHere.add(tag);
+        }
+
+        for (String tag: tfForOne.keySet()){
+            tfForOne.put(tag, tfForOne.get(tag)/(normalizedPeptide.length()-2));
         }
         return new SparseBooleanVector(tempSet);
     }
+
 
     public static String normalizeSequence(String seq) {
         return seq.replaceAll("[IL]", "#");

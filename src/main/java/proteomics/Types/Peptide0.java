@@ -18,6 +18,9 @@ package proteomics.Types;
 
 
 import ProteomicsLibrary.Types.SparseBooleanVector;
+import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
+
+import java.math.BigInteger;
 
 public class Peptide0 {
 
@@ -27,6 +30,9 @@ public class Peptide0 {
     public final char leftFlank;
     public final char rightFlank;
 
+    public int[] binaryHash = new int[64];
+    public double[] weightedHash = new double[64];
+    public BigInteger binHash = new BigInteger("0");
     public Peptide0(SparseBooleanVector code, boolean isTarget, String[] proteins, char leftFlank, char rightFlank) {
         this.code = code;
         this.isTarget = isTarget;

@@ -21,6 +21,8 @@ import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.*;
 import proteomics.PreSearch.Entry;
+
+import java.math.BigInteger;
 import java.util.*;
 
 public class Search {
@@ -31,6 +33,114 @@ public class Search {
     private List<Peptide> ptmFreeResult = new LinkedList<>();
     public List<PepWithScore> candidatesList = new LinkedList<>();
 
+    public Search(Entry entry, BigInteger scanHash, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
+            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
+
+        PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
+        PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
+
+        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
+        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
+        Map<BigInteger, LinkedList<String>> pepHashMap = buildIndex.testMap;
+
+        for (BigInteger pepHash : pepHashMap.keySet()){
+            if (hammingDistance(scanHash, pepHash) <= 3) {
+                int a = 1;
+                System.out.println("found one lsz");
+                LinkedList<String> somePeps = pepHashMap.get(pepHash);
+            }
+        }
+//        double mass = 0d;
+//        for (String sequence : massPeptideMap.get(mass)) {
+//            if(sequence.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
+//                int a = 1;
+//            }
+//            Peptide0 peptide0 = peptide0Map.get(sequence);
+//            double score = 0;
+//            double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
+//            if (temp1 > 1e-6) {
+//                score = peptide0.code.dot(scanCode) / temp1;
+//            }
+//
+//            double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
+//
+//            if (peptide0.isTarget) {
+//                if ((Math.abs(deltaMass) <= 0.01)) {
+//
+//                    // PTM-free
+//                    if (ptmFreeQueue.size() < rankNum) {
+//                        ptmFreeQueue.add(new ResultEntry(score, sequence, false));
+//                    } else {
+//                        if (score > ptmFreeQueue.peek().score) {
+//                            ptmFreeQueue.poll();
+//                            ptmFreeQueue.add(new ResultEntry(score, sequence, false));
+//                        }
+//                    }
+//                }
+//
+////                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+//                if ((Math.abs(deltaMass) > 0.01)) {
+//
+//                    // PTM-only
+//                    if (ptmOnlyQueue.size() < rankNum) {
+//                        ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
+//                    } else {
+//                        if (score > ptmOnlyQueue.peek().score) {
+//                            ptmOnlyQueue.poll();
+//                            ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
+//                        }
+//                    }
+//                }
+//            } else {
+////                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
+//                if ((Math.abs(deltaMass) <= 0.01)) {
+//
+//                    // PTM-free
+//                    if (ptmFreeQueue.size() < rankNum) {
+//                        ptmFreeQueue.add(new ResultEntry(score, sequence, true));
+//                    } else {
+//                        if (score > ptmFreeQueue.peek().score) {
+//                            ptmFreeQueue.poll();
+//                            ptmFreeQueue.add(new ResultEntry(score, sequence, true));
+//                        }
+//                    }
+//                }
+//
+////                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+//                if ((Math.abs(deltaMass) > 0.01)) {
+//
+//                    // PTM-only
+//                    if (ptmOnlyQueue.size() < rankNum) {
+//                        ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
+//                    } else {
+//                        if (score > ptmOnlyQueue.peek().score) {
+//                            ptmOnlyQueue.poll();
+//                            ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
+//                        }
+//                    }
+//                }
+//            }
+//        }
+        if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
+            mergeResult(ptmFreeQueue, ptmOnlyQueue, peptide0Map);
+        }
+
+        if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
+            entry.ptmOnlyList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+            entry.ptmFreeList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
+        }
+    }
+
+    public static int hammingDistance(BigInteger one, BigInteger two) {
+        BigInteger m = new BigInteger("1").shiftLeft(64).subtract(new BigInteger("1"));
+        BigInteger x = one.xor(two).and(m);
+        int tot = 0;
+        while (x.signum() != 0) {
+            tot += 1;
+            x = x.and(x.subtract(new BigInteger("1")));
+        }
+        return tot;
+    }
     public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
             , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
 
