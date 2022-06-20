@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.*;
 
+import proteomics.Hash.HashFunc;
+//import proteomics.Hash.HashFunc;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import proteomics.PTM.InferPTM;
@@ -30,8 +32,10 @@ import ProteomicsLibrary.*;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.Peptide0;
 
+//import static proteomics.Hash.HashFunc.simhash64;
+
 public class BuildIndex {
-    private final int hashbits = 64;
+    private final int hashbits = 16;
     private final MassTool massTool;
     private Map<Character, Double> fixModMap = new HashMap<>(25, 1);
     private double minPeptideMass = 9999;
@@ -39,13 +43,15 @@ public class BuildIndex {
     private InferSegment inferSegment;
     private TreeMap<Double, Set<String>> massPeptideMap = new TreeMap<>();
     private Map<String, Peptide0> peptide0Map;
-    public Map<BigInteger, LinkedList<String>> testMap = new HashMap<>();
+    public Map<Integer, LinkedList<String>> testMap = new HashMap<>();
 
     private final String labelling;
     private final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
+    public Map<Integer, Integer> truthHashMap = new HashMap<>();
+//    public Map<Integer, Long> truthHashMap64 = new HashMap<>();
 
-    public BuildIndex(Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
+    public BuildIndex( Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
         // initialize parameters
         int minPeptideLength = Math.max(5, Integer.valueOf(parameterMap.get("min_peptide_length")));
         int maxPeptideLength = Integer.valueOf(parameterMap.get("max_peptide_length"));
@@ -231,34 +237,341 @@ public class BuildIndex {
             }
         }
 
+
 //        int totalPepNum = tempMap.size();
 //        Map<BigInteger, Integer> testMap = new HashMap<>();
 //
         peptide0Map = new HashMap<>(tempMap); // Since this map won't be changed any more, using this step to create a HashMap with the capacity exactly equals the actual size.
         int numTargetPep = 0, numDecoyPep = 0;
         int aa = 1;
+        int totalPepNum = peptide0Map.size();
+        HashFunc hashFunc = new HashFunc();
+//        for (String pep : peptide0Map.keySet()){
+//            aa++;
+//            long pepHash = hashFunc.simhash64(tfMap.get(pep), pepCountMap,totalPepNum);
+//            peptide0Map.get(pep).longHash = pepHash;
+////            BigInteger bigInt = simHash(tfMap.get(pep), pepCountMap);
+////            peptide0Map.get(pep).binHash = bigInt;
+//            if (testMap.containsKey(pepHash)) {
+////                testMap.put(bigInt, testMap.get(bigInt) + 1);
+//                testMap.get(pepHash).add(pep);
+//
+//            } else {
+////                Set<String> testSet = new HashSet<>();
+////                testSet.add(pep);
+//                LinkedList<String> testList = new LinkedList<>();
+//                testList.add(pep);
+//                testMap.put(pepHash, testList);
+//            }
+//        }
+//         for(long pepHash : testMap.keySet())  {
+////             System.out.println(pepHash + ","+testMap.get(pepHash).size());
+//             if (testMap.get(pepHash).size() > 2) {
+//                 int a = 1;
+//             }
+//         }
+
+//        for(long pepHash1 : testMap.keySet())  {
+//            for (long pepHash2 : testMap.keySet()) {
+//                if (pepHash1== pepHash2 ) continue;
+//
+//                int hamDist = hashFunc.hammingDistance(pepHash1,pepHash2);
+//                if (hamDist <=3 ) {
+//                    LinkedList<String> pepSet2 = testMap.get(pepHash2);
+//                    LinkedList<String> pepSet1 = testMap.get(pepHash1);
+//                    int a = 1;
+//                }
+//            }
+//        }
+        int total  = 0;
+        for (LinkedList<String> testList  : testMap.values()) total+= testList.size();
+//        int total  = 0;
+//        for (int num : testMap.values()) total+= num;
+        int a = 1;
+    }
+    public BuildIndex(Map<Integer, String> pepTruth, Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
+        // initialize parameters
+        int minPeptideLength = Math.max(5, Integer.valueOf(parameterMap.get("min_peptide_length")));
+        int maxPeptideLength = Integer.valueOf(parameterMap.get("max_peptide_length"));
+        String dbPath = parameterMap.get("db");
+        int missedCleavage = Integer.valueOf(parameterMap.get("missed_cleavage"));
+        double ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
+        double oneMinusBinOffset = 1 - Double.valueOf(parameterMap.get("mz_bin_offset"));
+        this.labelling = labelling;
+
+        // Read fix modification
+        fixModMap.put('G', Double.valueOf(parameterMap.get("G")));
+        fixModMap.put('A', Double.valueOf(parameterMap.get("A")));
+        fixModMap.put('S', Double.valueOf(parameterMap.get("S")));
+        fixModMap.put('P', Double.valueOf(parameterMap.get("P")));
+        fixModMap.put('V', Double.valueOf(parameterMap.get("V")));
+        fixModMap.put('T', Double.valueOf(parameterMap.get("T")));
+        fixModMap.put('C', Double.valueOf(parameterMap.get("C")));
+        fixModMap.put('I', Double.valueOf(parameterMap.get("I")));
+        fixModMap.put('L', Double.valueOf(parameterMap.get("L")));
+        fixModMap.put('N', Double.valueOf(parameterMap.get("N")));
+        fixModMap.put('D', Double.valueOf(parameterMap.get("D")));
+        fixModMap.put('Q', Double.valueOf(parameterMap.get("Q")));
+        fixModMap.put('K', Double.valueOf(parameterMap.get("K")));
+        fixModMap.put('E', Double.valueOf(parameterMap.get("E")));
+        fixModMap.put('M', Double.valueOf(parameterMap.get("M")));
+        fixModMap.put('H', Double.valueOf(parameterMap.get("H")));
+        fixModMap.put('F', Double.valueOf(parameterMap.get("F")));
+        fixModMap.put('R', Double.valueOf(parameterMap.get("R")));
+        fixModMap.put('Y', Double.valueOf(parameterMap.get("Y")));
+        fixModMap.put('W', Double.valueOf(parameterMap.get("W")));
+        fixModMap.put('U', Double.valueOf(parameterMap.get("U")));
+        fixModMap.put('O', Double.valueOf(parameterMap.get("O")));
+        fixModMap.put('n', Double.valueOf(parameterMap.get("n")));
+        fixModMap.put('c', Double.valueOf(parameterMap.get("c")));
+
+        // read protein database
+        dbTool = new DbTool(dbPath, parameterMap.get("database_type"));
+        Map<String, String> proteinPeptideMap;
+        DbTool contaminantsDb = null;
+        if (addContaminant) {
+            contaminantsDb = new DbTool(null, "contaminants");
+            proteinPeptideMap = contaminantsDb.getProteinSequenceMap();
+            proteinPeptideMap.putAll(dbTool.getProteinSequenceMap()); // using the target sequence to replace contaminant sequence if there is conflict.
+        } else {
+            proteinPeptideMap = dbTool.getProteinSequenceMap();
+        }
+
+        // define a new MassTool object
+        massTool = new MassTool(missedCleavage, fixModMap, parameterMap.get("cleavage_site_1").trim(), parameterMap.get("protection_site_1").trim(), parameterMap.get("is_from_C_term_1").trim().contentEquals("1"), parameterMap.getOrDefault("cleavage_site_2", null), parameterMap.getOrDefault("protection_site_2", null), parameterMap.containsKey("is_from_C_term_2") ? parameterMap.get("is_from_C_term_2").trim().contentEquals("1") : null, ms2Tolerance, oneMinusBinOffset, labelling);
+
+        inferPTM = new InferPTM(massTool, fixModMap, parameterMap);
+
+        // build database
+        inferSegment = new InferSegment(massTool, parameterMap, fixModMap);
+
+        Set<String> forCheckDuplicate = new HashSet<>(500000);
+        Multimap<String, String> peptideProteinMap = HashMultimap.create();
+        Map<String, Double> peptideMassMap = new HashMap<>(500000);
+        Map<String, String> targetDecoyProteinSequenceMap = new HashMap<>();
+        for (String proId : proteinPeptideMap.keySet()) {
+            String proSeq = proteinPeptideMap.get(proId);
+            if (proId.contentEquals("sp|Q06945|SOX4_HUMAN")){
+                int a = 1;
+            }
+            Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
+            for (String peptide : peptideSet) {
+                if (MassTool.containsNonAAAndNC(peptide)) {
+                    continue;
+                }
+                if (peptide.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
+                    int a = 1;
+                }
+
+                if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
+                    if (!forCheckDuplicate.contains(peptide.replace('L', 'I'))) { // don't record duplicate peptide sequences
+                        // Add the sequence to the check set for duplicate check
+                        forCheckDuplicate.add(peptide.replace('L', 'I'));
+
+                        double mass = massTool.calResidueMass(peptide) + massTool.H2O;
+                        // recode min and max peptide mass
+                        if (mass < minPeptideMass) {
+                            minPeptideMass = mass;
+                        }
+                        if (mass > maxPeptideMass) {
+                            maxPeptideMass = mass;
+                        }
+
+                        peptideMassMap.put(peptide, mass);
+                        peptideProteinMap.put(peptide, proId);
+                    } else if (peptideProteinMap.containsKey(peptide)) {
+                        // Considering the case that the sequence has multiple proteins. In the above if block, such a protein ID wasn't recorded. If there are decoy IDs, replace it with the current target ID since the target ID has a higher priority.
+                        Set<String> proteinSet = new HashSet<>(peptideProteinMap.get(peptide));
+                        peptideProteinMap.get(peptide).clear();
+                        for (String protein : proteinSet) {
+                            if (!protein.startsWith("DECOY_")) {
+                                peptideProteinMap.put(peptide, protein);
+                            }
+                        }
+                        peptideProteinMap.put(peptide, proId);
+                    }
+                }
+            }
+
+            targetDecoyProteinSequenceMap.put(proId, proSeq);
+
+            if (addDecoy) {
+                // decoy sequence
+                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+                peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
+
+                for (String peptide : peptideSet) {
+                    if (MassTool.containsNonAAAndNC(peptide)) {
+                        continue;
+                    }
+
+                    if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
+                        if (!forCheckDuplicate.contains(peptide.replace('L', 'I'))) { // don't record duplicate peptide sequences
+                            // Add the sequence to the check set for duplicate check
+                            forCheckDuplicate.add(peptide.replace('L', 'I'));
+
+                            double mass = massTool.calResidueMass(peptide) + massTool.H2O;
+                            // recode min and max peptide mass
+                            if (mass < minPeptideMass) {
+                                minPeptideMass = mass;
+                            }
+                            if (mass > maxPeptideMass) {
+                                maxPeptideMass = mass;
+                            }
+
+                            peptideMassMap.put(peptide, mass);
+                            peptideProteinMap.put(peptide, "DECOY_" + proId);
+                        }
+                    }
+                }
+                targetDecoyProteinSequenceMap.put("DECOY_" + proId, decoyProSeq);
+            }
+        }
+
+        if (addDecoy) {
+            // writer concatenated fasta
+            Map<String, String> proteinAnnotationMap;
+            if (addContaminant) {
+                proteinAnnotationMap = contaminantsDb.getProteinAnnotateMap();
+                proteinAnnotationMap.putAll(dbTool.getProteinAnnotateMap()); // using the target annotation to replace contaminant sequence if there is conflict.
+            } else {
+                proteinAnnotationMap = dbTool.getProteinAnnotateMap();
+            }
+
+            BufferedWriter writer = new BufferedWriter(new FileWriter(dbPath + ".TD.fasta"));
+            for (String proId : targetDecoyProteinSequenceMap.keySet()) {
+                writer.write(String.format(Locale.US, ">%s %s\n", proId, proteinAnnotationMap.getOrDefault(proId, "")));
+                writer.write(targetDecoyProteinSequenceMap.get(proId) + "\n");
+            }
+            writer.close();
+        }
+
+        Map<String, Integer> pepCountMap = new HashMap<>(); //This is global, do it first
+        Map<String, Map<String, Double>> tfMap = new HashMap<>();
+//        Map<String, Map<String, Double>> tfidfMap = new HashMap<>();
+
+        Map<String, Peptide0> tempMap = new HashMap<>();
+        for (String peptide : peptideMassMap.keySet()) {
+            Map<String, Double> tfForOne = new HashMap<>();
+            SparseBooleanVector code = null;
+            if (needCoding) {
+                code = inferSegment.generateSegmentBooleanVector(DbTool.getSequenceOnly(peptide), pepCountMap, tfForOne);
+            }
+            tfMap.put(peptide, tfForOne);
+            Character[] leftRightFlank = DbTool.getLeftRightFlank(peptide, peptideProteinMap, targetDecoyProteinSequenceMap, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), parameterMap.get("is_from_C_term_1").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+            if (leftRightFlank == null) {
+                leftRightFlank = DbTool.getLeftRightFlank(peptide, peptideProteinMap, targetDecoyProteinSequenceMap, parameterMap.get("cleavage_site_2"), parameterMap.get("protection_site_2"), parameterMap.get("is_from_C_term_2").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+            }
+            if (leftRightFlank != null) {
+                tempMap.put(peptide, new Peptide0(code, isTarget(peptideProteinMap.get(peptide)), peptideProteinMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
+
+                if (massPeptideMap.containsKey(peptideMassMap.get(peptide))) {
+                    massPeptideMap.get(peptideMassMap.get(peptide)).add(peptide);
+                } else {
+                    Set<String> tempSet = new HashSet<>();
+                    tempSet.add(peptide);
+                    massPeptideMap.put(peptideMassMap.get(peptide), tempSet);
+                }
+            }
+        }
+
+        int[] bitCount = new int[32];
+        HashFunc temp = new HashFunc();
+//        Set<Integer> recordedHash = new HashSet<>();
+        for (String tag : pepCountMap.keySet()) {
+
+            int v = temp.hash32(tag);
+//            recordedHash.add(v);
+            for (int i = 32; i >= 1; --i) {
+                if (((v >> (32 - i)) & 1) == 1) {
+
+                    bitCount[i - 1] += 1;
+                }
+//                else
+//                    bitCount[i - 1] -= 1;
+            }
+        }
+        for (int i : bitCount) {
+//            System.out.println(i);
+        }
+
+
+//        int totalPepNum = tempMap.size();
+//        Map<BigInteger, Integer> testMap = new HashMap<>();
+//
+        peptide0Map = new HashMap<>(tempMap); // Since this map won't be changed any more, using this step to create a HashMap with the capacity exactly equals the actual size.
+        int numTargetPep = 0, numDecoyPep = 0;
+        int aa = 1;
+        int totalPepNum = peptide0Map.size();
+        HashFunc hashFunc = new HashFunc();
         for (String pep : peptide0Map.keySet()){
+            if (pep.contentEquals("nHAVSEGTKc")) {
+                int a = 1;
+            }
             aa++;
-            BigInteger bigInt = simHash(tfMap.get(pep), pepCountMap);
-            peptide0Map.get(pep).binHash = bigInt;
-            if (testMap.containsKey(bigInt)) {
+            int pepHash = hashFunc.simhash32(tfMap.get(pep), pepCountMap,totalPepNum);
+            peptide0Map.get(pep).longHash = pepHash;
+//            BigInteger bigInt = simHash(tfMap.get(pep), pepCountMap);
+//            peptide0Map.get(pep).binHash = bigInt;
+            if (testMap.containsKey(pepHash)) {
 //                testMap.put(bigInt, testMap.get(bigInt) + 1);
-                testMap.get(bigInt).add(pep);
+                testMap.get(pepHash).add(pep);
 
             } else {
 //                Set<String> testSet = new HashSet<>();
 //                testSet.add(pep);
                 LinkedList<String> testList = new LinkedList<>();
                 testList.add(pep);
-                testMap.put(bigInt, testList);
+                testMap.put(pepHash, testList);
             }
         }
-//         for(BigInteger bigInt : testMap.keySet())  {
-//             System.out.println(bigInt.toString() + ","+testMap.get(bigInt).size());
+//         for(long pepHash : testMap.keySet())  {
+////             System.out.println(pepHash + ","+testMap.get(pepHash).size());
+//             if (testMap.get(pepHash).size() > 2) {
+//                 int a = 1;
+//             }
 //         }
+
+//        for(long pepHash1 : testMap.keySet())  {
+//            LinkedList<String> pepSet1 = testMap.get(pepHash1);
+//            LinkedList<String> neighbors = new LinkedList<>();
+//            neighbors.addAll(pepSet1);
+//            for (long pepHash2 : testMap.keySet()) {
+//                if (pepHash1== pepHash2 ) continue;
+//
+//                int hamDist = hashFunc.hammingDistance(pepHash1,pepHash2);
+//                if (hamDist < 8 ) {
+//                    LinkedList<String> pepSet2 = testMap.get(pepHash2);
+//                    neighbors.addAll(pepSet2);
+//                    int a = 1;
+//                }
+//            }
+//            if (neighbors.size() > 4 ){
+//                int a = 1;
+//            }
+//
+//            if (neighbors.size() > 7 ){
+//                int a = 1;
+//            }
+//
+//            int a = 1;
+//        }
+//        int total  = 0;
+//        for (LinkedList<String> testList  : testMap.values()) total+= testList.size();
 //        int total  = 0;
 //        for (int num : testMap.values()) total+= num;
         int a = 1;
+        for (int scan : pepTruth.keySet()) {
+            if (scan == 1886){
+                int aaa = 1;
+            }
+            String truthStr = pepTruth.get(scan);
+            if (peptide0Map.containsKey(truthStr)){
+                truthHashMap.put(scan, peptide0Map.get(truthStr).longHash);
+            } else {
+//                System.out.println("not containning truth of , "+ scan);
+            }
+        }
 //        for (Peptide0 pep : peptide0Map.values()){
 //
 //            if (pep.isTarget) {
@@ -268,6 +581,7 @@ public class BuildIndex {
 //            }
 //        }
     }
+
 
     private BigInteger simHash(Map<String, Double> tfMap, Map<String, Integer> pepCountMap) {
         int[] v = new int[hashbits];

@@ -169,6 +169,7 @@ public class InferSegment {
         String normalizedPeptide = normalizeSequence(peptide);
         Set<Integer> tempSet = new HashSet<>(peptide.length() + 1, 1);
         Set<String> tagsHere = new HashSet<>();
+
         for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
             Segment seg = new Segment(normalizedPeptide.substring(i, i + 3));
             tempSet.add(aaVectorTemplate.get(seg));
@@ -188,6 +189,26 @@ public class InferSegment {
             }
             tagsHere.add(tag);
         }
+//        tagsHere.clear();
+//        for (int i = 0; i <= normalizedPeptide.length() - 2; ++i) {
+//            Segment seg = new Segment(normalizedPeptide.substring(i, i + 2));
+////            tempSet.add(aaVectorTemplate.get(seg));
+//            String tag = seg.toString();
+//
+//            if (tfForOne.containsKey(tag)) {
+//                tfForOne.put(tag, tfForOne.get(tag)+1.0);
+//            } else {
+//                tfForOne.put(tag, 1.0);
+//            }
+//
+//            if (tagsHere.contains(tag)) continue; // pep only count once
+//            if (pepCountMap.containsKey(tag)) {
+//                pepCountMap.put(tag, pepCountMap.get(tag)+1);
+//            } else {
+//                pepCountMap.put(tag, 1);
+//            }
+//            tagsHere.add(tag);
+//        }
 
         for (String tag: tfForOne.keySet()){
             tfForOne.put(tag, tfForOne.get(tag)/(normalizedPeptide.length()-2));

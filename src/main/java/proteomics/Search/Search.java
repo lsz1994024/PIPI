@@ -24,7 +24,7 @@ import proteomics.PreSearch.Entry;
 
 import java.math.BigInteger;
 import java.util.*;
-
+import proteomics.Hash.HashFunc;
 public class Search {
 
     private static final int rankNum = 5;
@@ -32,95 +32,31 @@ public class Search {
     private List<Peptide> ptmOnlyResult = new LinkedList<>();
     private List<Peptide> ptmFreeResult = new LinkedList<>();
     public List<PepWithScore> candidatesList = new LinkedList<>();
-
-    public Search(Entry entry, BigInteger scanHash, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
+    public HashFunc hashFunc = new HashFunc();
+    public Search(int truthHash, String truth , Entry entry, int scanHash, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
             , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
 
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
 
+        int truthDistance = hashFunc.hammingDistance32(truthHash,scanHash);
+        System.out.println(scanNum+"," + truthDistance);
+
+
         Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
         TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
-        Map<BigInteger, LinkedList<String>> pepHashMap = buildIndex.testMap;
-
-        for (BigInteger pepHash : pepHashMap.keySet()){
-            if (hammingDistance(scanHash, pepHash) <= 3) {
+        Map<Integer, LinkedList<String>> pepHashMap = buildIndex.testMap;
+        int numGoodCluster = 0;
+//        Set<String> candiSet = new HashSet<>();
+        for (int pepHash : pepHashMap.keySet()){
+            if (hashFunc.hammingDistance(scanHash, pepHash) <= truthDistance) {
                 int a = 1;
-                System.out.println("found one lsz");
                 LinkedList<String> somePeps = pepHashMap.get(pepHash);
+                numGoodCluster += somePeps.size() ;
+//                candiSet.addAll(pepHashMap.get(pepHash));
             }
         }
-//        double mass = 0d;
-//        for (String sequence : massPeptideMap.get(mass)) {
-//            if(sequence.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
-//                int a = 1;
-//            }
-//            Peptide0 peptide0 = peptide0Map.get(sequence);
-//            double score = 0;
-//            double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
-//            if (temp1 > 1e-6) {
-//                score = peptide0.code.dot(scanCode) / temp1;
-//            }
-//
-//            double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
-//
-//            if (peptide0.isTarget) {
-//                if ((Math.abs(deltaMass) <= 0.01)) {
-//
-//                    // PTM-free
-//                    if (ptmFreeQueue.size() < rankNum) {
-//                        ptmFreeQueue.add(new ResultEntry(score, sequence, false));
-//                    } else {
-//                        if (score > ptmFreeQueue.peek().score) {
-//                            ptmFreeQueue.poll();
-//                            ptmFreeQueue.add(new ResultEntry(score, sequence, false));
-//                        }
-//                    }
-//                }
-//
-////                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
-//                if ((Math.abs(deltaMass) > 0.01)) {
-//
-//                    // PTM-only
-//                    if (ptmOnlyQueue.size() < rankNum) {
-//                        ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
-//                    } else {
-//                        if (score > ptmOnlyQueue.peek().score) {
-//                            ptmOnlyQueue.poll();
-//                            ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
-//                        }
-//                    }
-//                }
-//            } else {
-////                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
-//                if ((Math.abs(deltaMass) <= 0.01)) {
-//
-//                    // PTM-free
-//                    if (ptmFreeQueue.size() < rankNum) {
-//                        ptmFreeQueue.add(new ResultEntry(score, sequence, true));
-//                    } else {
-//                        if (score > ptmFreeQueue.peek().score) {
-//                            ptmFreeQueue.poll();
-//                            ptmFreeQueue.add(new ResultEntry(score, sequence, true));
-//                        }
-//                    }
-//                }
-//
-////                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
-//                if ((Math.abs(deltaMass) > 0.01)) {
-//
-//                    // PTM-only
-//                    if (ptmOnlyQueue.size() < rankNum) {
-//                        ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
-//                    } else {
-//                        if (score > ptmOnlyQueue.peek().score) {
-//                            ptmOnlyQueue.poll();
-//                            ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
-//                        }
-//                    }
-//                }
-//            }
-//        }
+//        System.out.println(scanNum +"," + numGoodCluster);
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
             mergeResult(ptmFreeQueue, ptmOnlyQueue, peptide0Map);
         }
@@ -129,6 +65,9 @@ public class Search {
             entry.ptmOnlyList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
             entry.ptmFreeList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
+//        long test = 4018189923985028163L;
+//        System.out.println(scanNum+"," + hashFunc.hammingDistance(truthHash,scanHash));
+        int a = 1;
     }
 
     public static int hammingDistance(BigInteger one, BigInteger two) {

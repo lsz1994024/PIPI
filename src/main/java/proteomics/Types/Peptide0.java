@@ -33,6 +33,7 @@ public class Peptide0 {
     public int[] binaryHash = new int[64];
     public double[] weightedHash = new double[64];
     public BigInteger binHash = new BigInteger("0");
+    public int longHash = 0;
     public Peptide0(SparseBooleanVector code, boolean isTarget, String[] proteins, char leftFlank, char rightFlank) {
         this.code = code;
         this.isTarget = isTarget;

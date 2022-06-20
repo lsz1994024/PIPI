@@ -141,8 +141,24 @@ public class PIPI {
             logger.warn("add_contaminant = 0. Won't search the build-in contaminant proteins.");
         }
 
+        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
+
+        Map<Integer, String> pepTruth = new HashMap<>();
+        String line;
+        while ((line = parameterReader.readLine()) != null) {
+            if (line.isEmpty()) continue;
+            line = line.trim();
+            String[] splitRes = line.split(",");
+            if (splitRes.length == 1) {
+                int a = 1;
+            }
+//            String pepWithMod = splitRes[1].replace('L','#').replace('I', '#');
+            String pepWithMod = "n"+ splitRes[1]+ "c";
+
+            pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
+        }
         logger.info("Indexing protein database...");
-        BuildIndex buildIndex = new BuildIndex(parameterMap, labelling, true, parameterMap.get("add_decoy").contentEquals("1"), parameterMap.get("add_contaminant").contentEquals("1"));
+        BuildIndex buildIndex = new BuildIndex(pepTruth,parameterMap, labelling, true, parameterMap.get("add_decoy").contentEquals("1"), parameterMap.get("add_contaminant").contentEquals("1"));
         MassTool massTool = buildIndex.returnMassTool();
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
@@ -169,20 +185,6 @@ public class PIPI {
         PreSpectra preSpectra = new PreSpectra(spectraParser, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
 
 //        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/PXD004732/pool121/truth.txt"));
-        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
-
-        Map<Integer, String> pepTruth = new HashMap<>();
-        String line;
-        while ((line = parameterReader.readLine()) != null) {
-            if (line.isEmpty()) continue;
-            line = line.trim();
-            String[] splitRes = line.split(",");
-            if (splitRes.length == 1) {
-                int a = 1;
-            }
-            String pepWithMod = splitRes[1].replace('L','#').replace('I', '#');
-            pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
-        }
 
         logger.info("Pre searching...");
         int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
@@ -217,16 +219,19 @@ public class PIPI {
 //            if (scanNum != 48035 && scanNum!=3452) {  //3452
 //                continue;
 //            }
-//            if (!pepTruth.containsKey(scanNum)){
-//                continue;
-//            }
+            if (!pepTruth.containsKey(scanNum)){
+                continue;
+            }
+            if  (buildIndex.truthHashMap.get(scanNum) == null){
+                continue;
+            }
             scanIdMap.put(scanNum, scanId);
             precursorChargeMap.put(scanNum, precursorCharge);
             precursorMassMap.put(scanNum, precursorMass);
 
             taskList.add(threadPool.submit(new PreSearch(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo, pepTruth.get(1886))));
+                    , spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo, pepTruth.get(scanNum), buildIndex.truthHashMap.get(scanNum))));
         }
         sqlResultSet.close();
         sqlStatement.close();

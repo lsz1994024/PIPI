@@ -29,6 +29,8 @@ import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
@@ -36,7 +38,7 @@ import com.google.common.graph.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final int candisNum = 20;
-    private int hashbits = 64;
+    private int hashbits = 16;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
     private final double ms1Tolerance;
@@ -61,12 +63,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private final int scanNum;
     private final int precursorScanNo;
     private String truth;
-
+    public int truthHash;
 
     public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
             , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass
-            , InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, int precursorScanNo, String truth) {
+            , InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, int precursorScanNo, String truth, int truthHash) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -92,6 +94,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         this.scanNum = scanNum;
         this.precursorScanNo = precursorScanNo;
         this.truth = truth;
+        this.truthHash = truthHash;
     }
 
     @Override
@@ -105,7 +108,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             lock.unlock();
         }
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, PreSpectra.topN);
+        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, 15);
 
         if (plMap.isEmpty()) {
             return null;
@@ -289,10 +292,24 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         if (!denoisedTags.isEmpty()) {
             Map<String, Double> tagWeightMap = new HashMap<>();
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(denoisedTags, tagWeightMap);
-            BigInteger scanHash = simHash(tagWeightMap);
+            if (scanNum == 1886) {
+                int a =1 ;
+            }
+//            tagWeightMap.clear();
+//            tagWeightMap.put("GES",1.0);//
+//            tagWeightMap.put("HAV",1.0);//
+//            tagWeightMap.put("EGT",1.0);//
+//            tagWeightMap.put("ESV",1.0);//
+//            tagWeightMap.put("ETK",1.14);
+//            tagWeightMap.put("AVS",1.0);//
+////            tagWeightMap.put("TKV",1.93);
+//            tagWeightMap.put("GTK",1.0);//
+
+
+            int scanHash = simhash32(tagWeightMap);
 
             Entry entry = new Entry();
-            Search search = new Search(entry, scanHash, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
+            Search search = new Search(truthHash, truth, entry, scanHash, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
 
 //            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
 //            entry.candidateList = search.candidatesList;
@@ -304,6 +321,170 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
     }
 
+    public static long hash64(String doc) {
+        byte[] buffer = doc.getBytes(Charset.forName("utf-8"));
+        ByteBuffer data = ByteBuffer.wrap(buffer);
+        return hash64(data, 0, buffer.length, 0);
+    }
+
+    public static long hash64(ByteBuffer key, int offset, int length, long seed) {
+        long m64 = 0xc6a4a7935bd1e995L;
+        int r64 = 47;
+
+        long h64 = (seed & 0xffffffffL) ^ (m64 * length);
+
+        int lenLongs = length >> 3;
+
+        for (int i = 0; i < lenLongs; ++i) {
+            int i_8 = i << 3;
+
+            long k64 = ((long) key.get(offset + i_8 + 0) & 0xff)
+                    + (((long) key.get(offset + i_8 + 1) & 0xff) << 8)
+                    + (((long) key.get(offset + i_8 + 2) & 0xff) << 16)
+                    + (((long) key.get(offset + i_8 + 3) & 0xff) << 24)
+                    + (((long) key.get(offset + i_8 + 4) & 0xff) << 32)
+                    + (((long) key.get(offset + i_8 + 5) & 0xff) << 40)
+                    + (((long) key.get(offset + i_8 + 6) & 0xff) << 48)
+                    + (((long) key.get(offset + i_8 + 7) & 0xff) << 56);
+
+            k64 *= m64;
+            k64 ^= k64 >>> r64;
+            k64 *= m64;
+
+            h64 ^= k64;
+            h64 *= m64;
+        }
+
+        int rem = length & 0x7;
+
+        switch (rem) {
+            case 0:
+                break;
+            case 7:
+                h64 ^= (long) key.get(offset + length - rem + 6) << 48;
+            case 6:
+                h64 ^= (long) key.get(offset + length - rem + 5) << 40;
+            case 5:
+                h64 ^= (long) key.get(offset + length - rem + 4) << 32;
+            case 4:
+                h64 ^= (long) key.get(offset + length - rem + 3) << 24;
+            case 3:
+                h64 ^= (long) key.get(offset + length - rem + 2) << 16;
+            case 2:
+                h64 ^= (long) key.get(offset + length - rem + 1) << 8;
+            case 1:
+                h64 ^= (long) key.get(offset + length - rem);
+                h64 *= m64;
+        }
+
+        h64 ^= h64 >>> r64;
+        h64 *= m64;
+        h64 ^= h64 >>> r64;
+
+        return h64;
+    }
+    public static long simhash64(Map<String, Double> tfMap) {
+        int bitLen = 64;
+        double[] bits = new double[bitLen];
+        for (String tag : tfMap.keySet()) {
+            double weight = tfMap.get(tag);
+            long v = hash64(tag);
+            for (int i = bitLen; i >= 1; --i) {
+                if (((v >> (bitLen - i)) & 1) == 1)
+                    bits[i - 1] += weight;
+                else
+                    bits[i - 1] -= weight;
+            }
+        }
+        long hash = 0x0000000000000000;
+        long one = 0x0000000000000001;
+        for (int i = bitLen; i >= 1; --i) {
+            if (bits[i - 1] > 0) {
+                hash |= one;
+            }
+            one = one << 1;
+        }
+        return hash;
+    }
+
+    public int simhash32(Map<String, Double> tfMap) {
+        int bitLen = 32;
+        double[] bits = new double[bitLen];
+        for (String tag : tfMap.keySet()) {
+            double weight = tfMap.get(tag);
+            int v = hash32(tag);
+            for (int i = bitLen; i >= 1; --i) {
+                if (((v >> (bitLen - i)) & 1) == 1)
+                    bits[i - 1] += weight;
+                else
+                    bits[i - 1] -= weight;
+            }
+        }
+        int hash = 0x00000000;
+        int one = 0x00000001;
+        for (int i = bitLen; i >= 1; --i) {
+            if (bits[i - 1] > 1) {
+                hash |= one;
+            }
+            one = one << 1;
+        }
+        return hash;
+    }
+
+    public static int hash32(String doc) {
+        byte[] buffer = doc.getBytes(Charset.forName("utf-8"));
+        ByteBuffer data = ByteBuffer.wrap(buffer);
+        return hash32(data, 0, buffer.length, 0);
+    }
+
+    public static int hash32(ByteBuffer data, int offset, int length, int seed) {
+        int m = 0x5bd1e995;
+        int r = 24;
+
+        int h = seed ^ length;
+
+        int len_4 = length >> 2;
+
+        for (int i = 0; i < len_4; i++) {
+            int i_4 = i << 2;
+            int k = data.get(offset + i_4 + 3);
+            k = k << 8;
+            k = k | (data.get(offset + i_4 + 2) & 0xff);
+            k = k << 8;
+            k = k | (data.get(offset + i_4 + 1) & 0xff);
+            k = k << 8;
+            k = k | (data.get(offset + i_4 + 0) & 0xff);
+            k *= m;
+            k ^= k >>> r;
+            k *= m;
+            h *= m;
+            h ^= k;
+        }
+
+        // avoid calculating modulo
+        int len_m = len_4 << 2;
+        int left = length - len_m;
+
+        if (left != 0) {
+            if (left >= 3) {
+                h ^= (int) data.get(offset + length - 3) << 16;
+            }
+            if (left >= 2) {
+                h ^= (int) data.get(offset + length - 2) << 8;
+            }
+            if (left >= 1) {
+                h ^= (int) data.get(offset + length - 1);
+            }
+
+            h *= m;
+        }
+
+        h ^= h >>> 13;
+        h *= m;
+        h ^= h >>> 15;
+
+        return h;
+    }
     private BigInteger simHash(Map<String, Double> tagWeightMap) {
         double[] v = new double[hashbits];
         for (String tag : tagWeightMap.keySet()) {
