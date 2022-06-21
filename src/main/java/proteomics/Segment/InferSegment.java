@@ -19,12 +19,15 @@ package proteomics.Segment;
 
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
+import org.apache.commons.math3.util.Pair;
 import proteomics.Types.*;
 
 import java.math.BigInteger;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class InferSegment {
     private static final int minTagNum = 200;
@@ -128,10 +131,116 @@ public class InferSegment {
         deltaMassArray = modifiedAAMap.keySet().toArray(new Double[0]);
     }
 
+    public List<ThreeExpAA> getLongestTagsFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
+//        return inferThreeAAFromSpectrum(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON);
+        return getLongestTags(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum);
+    }
     public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
         return inferThreeAAFromSpectrum(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON);
     }
 
+    private List<ThreeExpAA> getLongestTags(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
+        List<Pair<Double, Double>> peaksList = new ArrayList<>(plMap.size());
+        for (double mz : plMap.keySet()) {
+            peaksList.add(new Pair<>(mz,plMap.get(mz)));
+        }
+
+        Set<Integer> nodeSet = new HashSet<>();
+        Map<Integer, Map<Integer, String>> edgeAAMap = new HashMap<>();
+        List<Pair<Integer,Integer>> edgeList = new ArrayList<>();
+
+        for (int i1 = 0; i1 < peaksList.size()-1; i1++) {
+            double mz1 = peaksList.get(i1).getKey();
+            for (int i2 = i1+1; i2 < peaksList.size(); i2++) {
+                double mz2 = peaksList.get(i2).getKey();
+
+                if (mz2-mz1 < massTool.getMassTable().get('G')-ms2Tolerance) continue;  //smallest
+                if (mz2-mz1 > massTool.getMassTable().get('W')+ms2Tolerance) break; //largest
+
+                String aa = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                if (aa == null) continue;
+
+                nodeSet.add(i1);
+                nodeSet.add(i2);
+                edgeList.add(new Pair<>(i1,i2));
+                if (edgeAAMap.containsKey(i1)) {
+                    edgeAAMap.get(i1).put(i2, aa);
+                } else {
+                    Map<Integer, String> temp = new HashMap<>();
+                    temp.put(i2, aa);
+                    edgeAAMap.put(i1, temp);
+                }
+            }
+        }
+        List<Integer> nodeList = new ArrayList<>(nodeSet);
+        Map<Integer, Integer> pIdIdMap = new HashMap<>();
+        int ii = 0;
+        for (int pId : nodeList) {
+            pIdIdMap.put(pId, ii);
+            ii++;
+        }
+        int numNodes = nodeList.size();
+
+        Set<Integer> gIdSet = IntStream.range(0, numNodes).boxed().collect(Collectors.toSet());
+        Set<Integer> starts = new HashSet<>(gIdSet);
+        Set<Integer> ends = new HashSet<>(gIdSet);
+        int[][] g = new int[nodeList.size()][nodeList.size()];
+        for (int pId1 : edgeAAMap.keySet()) {
+            for (int pId2 : edgeAAMap.get(pId1).keySet()) {
+                g[pIdIdMap.get(pId1)][pIdIdMap.get(pId2)] = 1;
+                starts.remove(pIdIdMap.get(pId2));
+                ends.remove(pIdIdMap.get(pId1));
+            }
+        }
+
+        ArrayList<ArrayList<Integer>> ans = new ArrayList<>();
+
+        for (int s : starts){
+            for (int e : ends) {
+                int[] visited = new int[numNodes];
+                ArrayList<Integer> path = new ArrayList<>();
+
+//                ArrayList<Integer> ans = new ArrayList<>();
+                dfs(g, s, e, visited, numNodes,path, ans);
+            }
+        }
+
+        List<ThreeExpAA> threeExpAAList = new ArrayList<>();
+        for (ArrayList<Integer> path : ans) {
+            ArrayList<ExpAA> aaList = new ArrayList<>();
+            for (int i1 = 0; i1 < path.size()-1; i1++) {
+                int pId1 = nodeList.get(path.get(i1));
+                int pId2 = nodeList.get(path.get(i1 + 1));
+                ExpAA aa = new ExpAA(edgeAAMap.get(pId1).get(pId2), edgeAAMap.get(pId1).get(pId2).charAt(0), peaksList.get(pId1).getFirst(), peaksList.get(pId2).getFirst()
+                        , peaksList.get(pId1).getValue(), peaksList.get(pId2).getValue(), -1, 0, 0, 0);
+                aaList.add(aa);
+            }
+            threeExpAAList.add( new ThreeExpAA(aaList));
+
+            int a = 1 ;
+        }
+        return threeExpAAList;
+    }
+
+    void dfs(int[][] g,  int start, int end, int[] visited, int numNodes, ArrayList<Integer> path, ArrayList<ArrayList<Integer>> ans){
+        visited[start] = 1;
+//        ArrayList<Integer> path = new ArrayList<>();
+        // 用于存储所有路径的集合
+//        ArrayList<String> ans = new ArrayList<>();
+        path.add(start);
+        if(start == end){
+            ArrayList<Integer> resPath = new ArrayList<>(path);
+            ans.add(resPath);
+        }else{
+            for (int i = 0; i < numNodes; i++) {
+                if(visited[i]==0 && i!=start && g[start][i]==1){
+                    dfs(g,  i, end, visited, numNodes, path, ans);
+                }
+            }
+        }
+        path.remove(path.size()-1);
+        visited[start] = 0;
+    }
     public SparseVector generateSegmentIntensityVector(List<ThreeExpAA> inputList) {
         SparseVector finalVector = new SparseVector();
         if (inputList.isEmpty()) {

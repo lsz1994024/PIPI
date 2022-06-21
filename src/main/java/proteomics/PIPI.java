@@ -219,19 +219,19 @@ public class PIPI {
 //            if (scanNum != 48035 && scanNum!=3452) {  //3452
 //                continue;
 //            }
-            if (!pepTruth.containsKey(scanNum)){
-                continue;
-            }
-            if  (buildIndex.truthHashMap.get(scanNum) == null){
-                continue;
-            }
+//            if (!pepTruth.containsKey(scanNum)){
+//                continue;
+//            }
+//            if  (buildIndex.truthHashMap.get(scanNum) == null){
+//                continue;
+//            }
             scanIdMap.put(scanNum, scanId);
             precursorChargeMap.put(scanNum, precursorCharge);
             precursorMassMap.put(scanNum, precursorMass);
 
             taskList.add(threadPool.submit(new PreSearch(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo, pepTruth.get(scanNum), buildIndex.truthHashMap.get(scanNum))));
+                    , spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo, pepTruth.get(scanNum), 1)));
         }
         sqlResultSet.close();
         sqlStatement.close();

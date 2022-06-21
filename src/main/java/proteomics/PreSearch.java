@@ -108,7 +108,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             lock.unlock();
         }
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, 15);
+        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, 6);
 
         if (plMap.isEmpty()) {
             return null;
@@ -118,7 +118,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, finalPlMap, scanNum);
-
+        List<ThreeExpAA> longExpLists = inferSegment.getLongestTagsFromSpectrum(precursorMass, finalPlMap, scanNum);
+        expAaLists.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+        longExpLists.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
 
         //check for NC tag
         List<ThreeExpAA> ncTags = new ArrayList<>();
@@ -130,7 +132,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             if ( tag.getHeadLocation() == MassTool.PROTON + massTool.H2O ) {
                 tag.ncTag = ThreeExpAA.NC.C;
                 ncTags.add(tag);
-
             }
         }
 

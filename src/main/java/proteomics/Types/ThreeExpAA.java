@@ -17,12 +17,11 @@
 package proteomics.Types;
 
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class ThreeExpAA implements Comparable<ThreeExpAA> {
 
-    private final ExpAA[] threeExpAa;
+    private ExpAA[] threeExpAa;
     private int hashCode;
     private final double totalIntensity;
     private final String ptmFreeAAString;
@@ -39,6 +38,28 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         hashCode = toString.hashCode();
 
         StringBuilder sb = new StringBuilder(5);
+        for (ExpAA aa : threeExpAa) {
+            sb.append(aa.getPtmFreeAA());
+        }
+        ptmFreeAAString = sb.toString();
+
+        double intensity = threeExpAa[0].getHeadIntensity();
+        for (ExpAA aa : threeExpAa) {
+            intensity += aa.getTailIntensity();
+        }
+        totalIntensity = intensity;
+    }
+
+    public ThreeExpAA(List<ExpAA> aaList) {
+        threeExpAa = (ExpAA[]) aaList.toArray(new ExpAA[aaList.size()]);
+        String toString = "";
+        for (ExpAA aa : threeExpAa) {
+            toString += threeExpAa[0].toString() + "-";
+        }
+
+        hashCode = toString.substring(0, toString.length()-1).hashCode();
+
+        StringBuilder sb = new StringBuilder(threeExpAa.length+2);
         for (ExpAA aa : threeExpAa) {
             sb.append(aa.getPtmFreeAA());
         }
@@ -71,7 +92,7 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     public void setTheoLocation(int i, int theoLoc) {
         threeExpAa[i].setTheoLocation(theoLoc);
         // update toString and hashCode
-        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString();
+        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString(); // not compatible
         hashCode = toString.hashCode();
     }
 
@@ -84,6 +105,11 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     }
 
     public String getPtmFreeAAString() {
+        return ptmFreeAAString;
+    }
+
+    @Override
+    public String toString() {
         return ptmFreeAAString;
     }
 
@@ -101,7 +127,8 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
 
     public ThreeExpAA clone() throws CloneNotSupportedException {
         super.clone();
-        return new ThreeExpAA(threeExpAa[0].clone(), threeExpAa[1].clone(), threeExpAa[2].clone());
+        List<ExpAA> temp = Arrays.asList(threeExpAa);
+        return new ThreeExpAA(temp);
     }
 
     public int size() {
