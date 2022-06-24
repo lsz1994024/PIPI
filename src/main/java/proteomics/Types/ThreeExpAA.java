@@ -50,6 +50,23 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         }
         totalIntensity = intensity;
     }
+    public ThreeExpAA(ExpAA aa1, ExpAA aa2, ExpAA aa3, ExpAA aa4) {
+        threeExpAa = new ExpAA[]{aa1, aa2, aa3, aa4};
+        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString()+ "-" + threeExpAa[3].toString();
+        hashCode = toString.hashCode();
+
+        StringBuilder sb = new StringBuilder(7);
+        for (ExpAA aa : threeExpAa) {
+            sb.append(aa.getPtmFreeAA());
+        }
+        ptmFreeAAString = sb.toString();
+
+        double intensity = threeExpAa[0].getHeadIntensity();
+        for (ExpAA aa : threeExpAa) {
+            intensity += aa.getTailIntensity();
+        }
+        totalIntensity = intensity;
+    }
 
     public int hashCode() {
         return hashCode;
@@ -68,12 +85,12 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         return true;
     }
 
-    public void setTheoLocation(int i, int theoLoc) {
-        threeExpAa[i].setTheoLocation(theoLoc);
-        // update toString and hashCode
-        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString();
-        hashCode = toString.hashCode();
-    }
+//    public void setTheoLocation(int i, int theoLoc) {
+//        threeExpAa[i].setTheoLocation(theoLoc);
+//        // update toString and hashCode
+//        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString();
+//        hashCode = toString.hashCode();
+//    }
 
     public int compareTo(ThreeExpAA other) {
         return Double.compare(threeExpAa[0].getHeadLocation(), other.threeExpAa[0].getHeadLocation());
@@ -84,6 +101,10 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     }
 
     public String getPtmFreeAAString() {
+        return ptmFreeAAString;
+    }
+
+    public String toString() {
         return ptmFreeAAString;
     }
 
@@ -101,7 +122,11 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
 
     public ThreeExpAA clone() throws CloneNotSupportedException {
         super.clone();
-        return new ThreeExpAA(threeExpAa[0].clone(), threeExpAa[1].clone(), threeExpAa[2].clone());
+        if (threeExpAa.length == 3 ){
+            return new ThreeExpAA(threeExpAa[0].clone(), threeExpAa[1].clone(), threeExpAa[2].clone());
+        }else {
+            return new ThreeExpAA(threeExpAa[0].clone(), threeExpAa[1].clone(), threeExpAa[2].clone(),threeExpAa[3].clone());
+        }
     }
 
     public int size() {

@@ -219,7 +219,7 @@ public class PIPI {
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             int precursorScanNo = sqlResultSet.getInt("precursorScanNo");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
-//            if (scanNum != 18454) {  //22459
+//            if (scanNum != 34750) {  //22459
 //                continue;
 //            }
 //            if (scanNum != 48035 && scanNum!=3452) {  //3452

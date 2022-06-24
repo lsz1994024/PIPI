@@ -32,28 +32,29 @@ public class Search {
     public List<PepWithScore> candidatesList = new LinkedList<>();
 
     public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
-            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, Set<String> candiSet) {
+            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass
+            , int localMaxMs2Charge, Set<String> candiSet, String truth) {
 
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
         double scanNormSquare = scanCode.norm2square();
-        double leftTol = ms1Tolerance;
-        double rightTol = ms1Tolerance;
-        if (ms1ToleranceUnit == 1) {
-            leftTol = precursorMass - (precursorMass * leftInverseMs1Tolerance);
-            rightTol = (precursorMass * rightInverseMs1Tolerance) - precursorMass;
-        }
-        double leftMass = Math.max(precursorMass + minPtmMass - leftTol, buildIndex.getMinPeptideMass());
-        double rightMass = Math.min(precursorMass + maxPtmMass + rightTol, buildIndex.getMaxPeptideMass());
+//        double leftTol = ms1Tolerance;
+//        double rightTol = ms1Tolerance;
+//        if (ms1ToleranceUnit == 1) {
+//            leftTol = precursorMass - (precursorMass * leftInverseMs1Tolerance);
+//            rightTol = (precursorMass * rightInverseMs1Tolerance) - precursorMass;
+//        }
+//        double leftMass = Math.max(precursorMass + minPtmMass - leftTol, buildIndex.getMinPeptideMass());
+//        double rightMass = Math.min(precursorMass + maxPtmMass + rightTol, buildIndex.getMaxPeptideMass());
 
-        if (leftMass >= rightMass) {
-            return;
-        }
+//        if (leftMass >= rightMass) {
+//            return;
+//        }
 
         Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
-        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
+//        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
 
-        NavigableMap<Double, Set<String>> subMassPeptideMap = massPeptideMap.subMap(leftMass, true, rightMass, true);
+//        NavigableMap<Double, Set<String>> subMassPeptideMap = massPeptideMap.subMap(leftMass, true, rightMass, true);
 //        Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
 //        Set<String> pepSet = new HashSet<>();
 //        for (ThreeExpAA tagInfo: denoisedTags) {
@@ -67,79 +68,86 @@ public class Search {
 //                tag = revTag;
 //            }
 //            if (tagPepMap.containsKey(tag)) {
-                for (String sequence : candiSet) {
-                    Peptide0 peptide0 = peptide0Map.get(sequence);
-                    double score = 0;
-                    double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
-                    if (temp1 > 1e-6) {
-                        score = peptide0.code.dot(scanCode) / temp1;
-                    }
-                    // check NC tag for extra score
-                    double deltaMass = massTool.calResidueMass(sequence) + massTool.H2O - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
-                    if (Math.abs(deltaMass) > 250) continue;
+
+        boolean containsTruth = false;
+        for (String sequence : candiSet) {
+//            String copySeq = sequence;
+//            if (copySeq.replace('I', '#').replace('L','#').contentEquals(truth)) {
+//                containsTruth = true;
+//            }
+            Peptide0 peptide0 = peptide0Map.get(sequence);
+            double score = 0;
+            double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
+            if (temp1 > 1e-6) {
+                score = peptide0.code.dot(scanCode) / temp1;
+            }
+            // check NC tag for extra score
+            double deltaMass = massTool.calResidueMass(sequence) + massTool.H2O - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
+//            if (Math.abs(deltaMass) > 250) continue;
 //                    pepSet.add(sequence);
 
 
-                    if (peptide0.isTarget) {
+            if (peptide0.isTarget) {
 //                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
-                        if ((Math.abs(deltaMass) <= 0.01)) {
+                if ((Math.abs(deltaMass) <= 0.01)) {
 
-                            // PTM-free
-                            if (ptmFreeQueue.size() < rankNum) {
-                                ptmFreeQueue.add(new ResultEntry(score, sequence, false));
-                            } else {
-                                if (score > ptmFreeQueue.peek().score) {
-                                    ptmFreeQueue.poll();
-                                    ptmFreeQueue.add(new ResultEntry(score, sequence, false));
-                                }
-                            }
-                        }
-
-//                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
-                        if ((Math.abs(deltaMass) > 0.01)) {
-
-                            // PTM-only
-                            if (ptmOnlyQueue.size() < rankNum) {
-                                ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
-                            } else {
-                                if (score > ptmOnlyQueue.peek().score) {
-                                    ptmOnlyQueue.poll();
-                                    ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
-                                }
-                            }
-                        }
+                    // PTM-free
+                    if (ptmFreeQueue.size() < rankNum) {
+                        ptmFreeQueue.add(new ResultEntry(score, sequence, false));
                     } else {
-//                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
-                        if ((Math.abs(deltaMass) <= 0.01)) {
-
-                            // PTM-free
-                            if (ptmFreeQueue.size() < rankNum) {
-                                ptmFreeQueue.add(new ResultEntry(score, sequence, true));
-                            } else {
-                                if (score > ptmFreeQueue.peek().score) {
-                                    ptmFreeQueue.poll();
-                                    ptmFreeQueue.add(new ResultEntry(score, sequence, true));
-                                }
-                            }
-                        }
-
-//                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
-                        if ((Math.abs(deltaMass) > 0.01)) {
-
-                            // PTM-only
-                            if (ptmOnlyQueue.size() < rankNum) {
-                                ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
-                            } else {
-                                if (score > ptmOnlyQueue.peek().score) {
-                                    ptmOnlyQueue.poll();
-                                    ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
-                                }
-                            }
+                        if (score > ptmFreeQueue.peek().score) {
+                            ptmFreeQueue.poll();
+                            ptmFreeQueue.add(new ResultEntry(score, sequence, false));
                         }
                     }
                 }
+
+//                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+                if ((Math.abs(deltaMass) > 0.01)) {
+
+                    // PTM-only
+                    if (ptmOnlyQueue.size() < rankNum) {
+                        ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
+                    } else {
+                        if (score > ptmOnlyQueue.peek().score) {
+                            ptmOnlyQueue.poll();
+                            ptmOnlyQueue.add(new ResultEntry(score, sequence, false));
+                        }
+                    }
+                }
+            } else {
+//                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
+                if ((Math.abs(deltaMass) <= 0.01)) {
+
+                    // PTM-free
+                    if (ptmFreeQueue.size() < rankNum) {
+                        ptmFreeQueue.add(new ResultEntry(score, sequence, true));
+                    } else {
+                        if (score > ptmFreeQueue.peek().score) {
+                            ptmFreeQueue.poll();
+                            ptmFreeQueue.add(new ResultEntry(score, sequence, true));
+                        }
+                    }
+                }
+
+//                        if ((deltaMass > rightTol) || (deltaMass < -1 * leftTol)) {
+                if ((Math.abs(deltaMass) > 0.01)) {
+
+                    // PTM-only
+                    if (ptmOnlyQueue.size() < rankNum) {
+                        ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
+                    } else {
+                        if (score > ptmOnlyQueue.peek().score) {
+                            ptmOnlyQueue.poll();
+                            ptmOnlyQueue.add(new ResultEntry(score, sequence, true));
+                        }
+                    }
+                }
+            }
+        }
 //            }
 //        }
+//        System.out.println(scanNum +","+(containsTruth?1:0));
 //        System.out.println(scanNum + ","+pepSet.size());
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
             mergeResult(ptmFreeQueue, ptmOnlyQueue, peptide0Map);

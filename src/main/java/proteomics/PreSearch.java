@@ -113,200 +113,192 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
-        List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, finalPlMap, scanNum);
 
+        List<ThreeExpAA> tag3List = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, finalPlMap, scanNum);
+        List<ThreeExpAA> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
 
-        //check for NC tag
-        List<ThreeExpAA> ncTags = new ArrayList<>();
-        for (ThreeExpAA tag : expAaLists) {
-            if ( tag.getHeadLocation() == MassTool.PROTON ) {
-                tag.ncTag = ThreeExpAA.NC.N;
-                ncTags.add(tag);
-            }
-            if ( tag.getHeadLocation() == MassTool.PROTON + massTool.H2O ) {
-                tag.ncTag = ThreeExpAA.NC.C;
-                ncTags.add(tag);
-
-            }
-        }
-
-        Map<Double, Integer> mzIdMap = new HashMap<>();
-        int i = 0;
-        for (double mz : finalPlMap.keySet()) {
-            mzIdMap.put(mz, i);
-            i++;
-        }
-//        for (ThreeExpAA tag : expAaLists) {
-//            System.out.println(tag.getPtmFreeAAString() + ","
-//                    +mzIdMap.get(tag.getExpAAs()[0].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[1].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[2].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[2].getTailLocation())
-//                    + "," + tag.getExpAAs()[0].getHeadLocation()+ ","+tag.getExpAAs()[1].getHeadLocation()+ ","+tag.getExpAAs()[2].getHeadLocation()+ ","+tag.getExpAAs()[2].getTailLocation());
+//        tag4List.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+////        tag4List.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
 //
+//
+//        //check for NC tag
+//        List<ThreeExpAA> ncTags = new ArrayList<>();
+//        for (ThreeExpAA tag : tag4List) {
+//            if ( tag.getHeadLocation() == MassTool.PROTON ) {
+//                tag.ncTag = ThreeExpAA.NC.N;
+//                ncTags.add(tag);
+//            }
+//            if ( tag.getHeadLocation() == MassTool.PROTON + massTool.H2O ) {
+//                tag.ncTag = ThreeExpAA.NC.C;
+//                ncTags.add(tag);
+//
+//            }
 //        }
-        TreeMap<Integer, Double> nodeMap = new TreeMap<>();
-        Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
-        Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
-        for (ThreeExpAA tag : expAaLists) {
-            for(ExpAA aa : tag.getExpAAs()) {
-                if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
-                    continue;
-                }
-                int n1 = mzIdMap.get(aa.getHeadLocation());
-                int n2 = mzIdMap.get(aa.getTailLocation());
-                double inte1 = aa.getHeadIntensity();
-                double inte2 = aa.getTailIntensity();
-                nodeMap.put(n1, inte1);
-                nodeMap.put(n2, inte2);
-                if (outEdgeMap.containsKey(n1)) {
-                    outEdgeMap.get(n1).put(n2, 0.5*(inte1+inte2));
-                } else {
-                    Map<Integer, Double> temp = new HashMap<>();
-                    temp.put(n2, 0.5*(inte1+inte2));
-                    outEdgeMap.put(n1, temp);
-                }
-
-                if (inEdgeMap.containsKey(n2)) {
-                    inEdgeMap.get(n2).put(n1, 0.5*(inte1+inte2));
-                } else {
-                    Map<Integer, Double> temp = new HashMap<>();
-                    temp.put(n1, 0.5*(inte1+inte2));
-                    inEdgeMap.put(n2, temp);
-                }
-
-            }
-        }
-        for (int node : nodeMap.keySet()) {
-            if (!inEdgeMap.containsKey(node) ){
-                for (int n2 : outEdgeMap.get(node).keySet()) {
-                    outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2)+nodeMap.get(node)/2);
-                    inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node)+nodeMap.get(node)/2);
-                }
-            }
-            if (!outEdgeMap.containsKey(node) ){
-                for (int n1 : inEdgeMap.get(node).keySet()) {
-                    outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node)+nodeMap.get(node)/2);
-                    inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1)+nodeMap.get(node)/2);
-                }
-            }
-        }
-        // finish prepare graph
-
-        Set<Edge> edgeToDel = new HashSet<>();
-        Map<Integer, Integer> tempTodel = new HashMap<>();
-
-        for (int node : nodeMap.descendingKeySet()){
-            if (outEdgeMap.containsKey(node)) {
-                Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
-                double maxOut = 0d;
-                int maxOutPeak = -1;
-                for (int n2 : tempOutMap.keySet()) {
-                    if (tempOutMap.get(n2) > maxOut) {
-                        maxOut = tempOutMap.get(n2);
-                        maxOutPeak = n2;
-                    }
-                }
-                for (int n2 : tempOutMap.keySet()) {
-                    if (n2 != maxOutPeak) {
-                        edgeToDel.add(new Edge(node,n2));
-                        tempTodel.put(node,n2);
-
-                    }
-                }
-                if (inEdgeMap.containsKey(node)) {
-
-                    for (int n1 : inEdgeMap.get(node).keySet()) {
-                        outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOut);
-                        inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOut);
-
-                    }
-                }
-            }
-        }
-
-        for (int n1 : tempTodel.keySet()) {
-            int n2 = tempTodel.get(n1);
-            inEdgeMap.get(n2).remove(n1);
-            outEdgeMap.get(n1).remove(n2);
-        }
-        for (int node : nodeMap.keySet()){
-            if (inEdgeMap.containsKey(node)) {
-                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
-                double maxIn = 0d;
-                int maxInPeak = -1;
-                for (int n1 : tempInMap.keySet()) {
-                    if (tempInMap.get(n1) > maxIn) {
-                        maxIn = tempInMap.get(n1);
-                        maxInPeak = n1;
-                    }
-                }
-                for (int n1 : tempInMap.keySet()) {
-                    if (n1 != maxInPeak) {
-                        edgeToDel.add(new Edge(n1,node));
-
-                    }
-                }
-                if (outEdgeMap.containsKey(node)) {
-
-                    for (int n2 : outEdgeMap.get(node).keySet()) {
-                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
-                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
-
-                    }
-                }
-            }
-        }
-//        truth = "#RFPAEDEFPD#SAHNNHMAK";
-        int numCorrectTagsBefore = 0;
-        int numTotalTagsAfter = 0;
-        int numCorrectTagsAfter = 0;
-        List<ThreeExpAA> denoisedTags = new ArrayList<>();
-        for(ThreeExpAA tag: expAaLists) {
-            String tagSeq = tag.getPtmFreeAAString();
-            String revTagSeq = new StringBuilder(tagSeq).reverse().toString();
-
-            if (truth.contains(tagSeq) || truth.contains(revTagSeq)) {
-                numCorrectTagsBefore++;
-            }
-
-            boolean containsBadEdge = false;
-            for (ExpAA aa : tag.getExpAAs()) {
-                Edge tempEdge = new Edge(mzIdMap.get(aa.getHeadLocation()), mzIdMap.get(aa.getTailLocation()));
-                if (edgeToDel.contains(tempEdge)) {
-                    containsBadEdge = true;
-                }
-            }
-            if (!containsBadEdge) {
-                denoisedTags.add(tag);
-                numTotalTagsAfter++;
-                if (truth.contains(tagSeq) || truth.contains(revTagSeq)) {
-                    numCorrectTagsAfter++;
-                }
-            }
-        }
-//        System.out.println("scan, "+scanNum+","+expAaLists.size() + "," + numCorrectTagsBefore +","+numTotalTagsAfter+","+numCorrectTagsAfter);
-//        Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
-
-//        if (denoisedTags.isEmpty()){
-//            denoisedTags = expAaLists;
+//
+//        Map<Double, Integer> mzIdMap = new HashMap<>();
+//        int i = 0;
+//        for (double mz : finalPlMap.keySet()) {
+//            mzIdMap.put(mz, i);
+//            i++;
 //        }
-        if (!denoisedTags.isEmpty()) {
-            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(denoisedTags);
-
-//            Set<String> pepSet = new HashSet<>();
-//            for (ThreeExpAA tagInfo: denoisedTags) {
-//                String tag = tagInfo.getPtmFreeAAString().replace('#', 'I');
-//                String revTag = new StringBuilder(tag).reverse().toString();
-//                int compareResult = tag.compareTo(revTag);
-//                if (compareResult > 0) {
-//                    tag = revTag;
+////        for (ThreeExpAA tag : expAaLists) {
+////            System.out.println(tag.getPtmFreeAAString() + ","
+////                    +mzIdMap.get(tag.getExpAAs()[0].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[1].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[2].getHeadLocation())+ ","+mzIdMap.get(tag.getExpAAs()[2].getTailLocation())
+////                    + "," + tag.getExpAAs()[0].getHeadLocation()+ ","+tag.getExpAAs()[1].getHeadLocation()+ ","+tag.getExpAAs()[2].getHeadLocation()+ ","+tag.getExpAAs()[2].getTailLocation());
+////
+////        }
+//        TreeMap<Integer, Double> nodeMap = new TreeMap<>();
+//        Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
+//        Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
+//        for (ThreeExpAA tag : tag4List) {
+//            for(ExpAA aa : tag.getExpAAs()) {
+//                if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
+//                    continue;
 //                }
-//                if (tagPepMap.containsKey(tag)) {
-//                    pepSet.addAll(tagPepMap.get(tag));
+//                int n1 = mzIdMap.get(aa.getHeadLocation());
+//                int n2 = mzIdMap.get(aa.getTailLocation());
+//                double inte1 = aa.getHeadIntensity();
+//                double inte2 = aa.getTailIntensity();
+//                nodeMap.put(n1, inte1);
+//                nodeMap.put(n2, inte2);
+//                if (outEdgeMap.containsKey(n1)) {
+//                    outEdgeMap.get(n1).put(n2, 0.5*(inte1+inte2));
+//                } else {
+//                    Map<Integer, Double> temp = new HashMap<>();
+//                    temp.put(n2, 0.5*(inte1+inte2));
+//                    outEdgeMap.put(n1, temp);
+//                }
+//
+//                if (inEdgeMap.containsKey(n2)) {
+//                    inEdgeMap.get(n2).put(n1, 0.5*(inte1+inte2));
+//                } else {
+//                    Map<Integer, Double> temp = new HashMap<>();
+//                    temp.put(n1, 0.5*(inte1+inte2));
+//                    inEdgeMap.put(n2, temp);
+//                }
+//
+//            }
+//        }
+//        for (int node : nodeMap.keySet()) {
+//            if (!inEdgeMap.containsKey(node) ){
+//                for (int n2 : outEdgeMap.get(node).keySet()) {
+//                    outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2)+nodeMap.get(node)/2);
+//                    inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node)+nodeMap.get(node)/2);
 //                }
 //            }
+//            if (!outEdgeMap.containsKey(node) ){
+//                for (int n1 : inEdgeMap.get(node).keySet()) {
+//                    outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node)+nodeMap.get(node)/2);
+//                    inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1)+nodeMap.get(node)/2);
+//                }
+//            }
+//        }
+//        // finish prepare graph
+//
+//        Set<Edge> edgeToDel = new HashSet<>();
+//        Map<Integer, Integer> tempTodel = new HashMap<>();
+//
+//        for (int node : nodeMap.descendingKeySet()){
+//            if (outEdgeMap.containsKey(node)) {
+//                Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
+//                double maxOut = 0d;
+//                int maxOutPeak = -1;
+//                for (int n2 : tempOutMap.keySet()) {
+//                    if (tempOutMap.get(n2) > maxOut) {
+//                        maxOut = tempOutMap.get(n2);
+//                        maxOutPeak = n2;
+//                    }
+//                }
+//                for (int n2 : tempOutMap.keySet()) {
+//                    if (n2 != maxOutPeak) {
+//                        edgeToDel.add(new Edge(node,n2));
+//                        tempTodel.put(node,n2);
+//
+//                    }
+//                }
+//                if (inEdgeMap.containsKey(node)) {
+//
+//                    for (int n1 : inEdgeMap.get(node).keySet()) {
+//                        outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOut);
+//                        inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOut);
+//
+//                    }
+//                }
+//            }
+//        }
+//
+//        for (int n1 : tempTodel.keySet()) {
+//            int n2 = tempTodel.get(n1);
+//            inEdgeMap.get(n2).remove(n1);
+//            outEdgeMap.get(n1).remove(n2);
+//        }
+//        for (int node : nodeMap.keySet()){
+//            if (inEdgeMap.containsKey(node)) {
+//                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
+//                double maxIn = 0d;
+//                int maxInPeak = -1;
+//                for (int n1 : tempInMap.keySet()) {
+//                    if (tempInMap.get(n1) > maxIn) {
+//                        maxIn = tempInMap.get(n1);
+//                        maxInPeak = n1;
+//                    }
+//                }
+//                for (int n1 : tempInMap.keySet()) {
+//                    if (n1 != maxInPeak) {
+//                        edgeToDel.add(new Edge(n1,node));
+//
+//                    }
+//                }
+//                if (outEdgeMap.containsKey(node)) {
+//
+//                    for (int n2 : outEdgeMap.get(node).keySet()) {
+//                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
+//                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
+//
+//                    }
+//                }
+//            }
+//        }
+////        truth = "#RFPAEDEFPD#SAHNNHMAK";
+//        Set<String> correctTagsBefore = new HashSet<>();
+//        Set<String> totalTagsAfter = new HashSet<>();
+//        Set<String> correctTagsAfter = new HashSet<>();
+//        List<ThreeExpAA> denoisedTags = new ArrayList<>();
+//        for(ThreeExpAA tag: tag4List) {
+//            String tagSeq = tag.getPtmFreeAAString();
+//            String revTagSeq = new StringBuilder(tagSeq).reverse().toString();
+//
+//            if (truth.contains(tagSeq) || truth.contains(revTagSeq)) {
+//                correctTagsBefore.add(tagSeq);
+//            }
+//
+//            boolean containsBadEdge = false;
+//            for (ExpAA aa : tag.getExpAAs()) {
+//                Edge tempEdge = new Edge(mzIdMap.get(aa.getHeadLocation()), mzIdMap.get(aa.getTailLocation()));
+//                if (edgeToDel.contains(tempEdge)) {
+//                    containsBadEdge = true;
+//                }
+//            }
+//            if (!containsBadEdge) {
+//                denoisedTags.add(tag);
+//                totalTagsAfter.add(tag.getPtmFreeAAString());
+//                if (truth.contains(tagSeq) || truth.contains(revTagSeq)) {
+//                    correctTagsAfter.add(tag.getPtmFreeAAString());
+//                }
+//            }
+//        }
+        if (scanNum == 1886) {
+            int a = 1;
+        }
+//        System.out.println(scanNum+","+expAaLists.size() + "," + correctTagsBefore.size() +","+totalTagsAfter.size()+","+correctTagsAfter.size());
+        if (!tag3List.isEmpty()) {
+            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(tag3List);
+//            SparseVector scanCode = new SparseVector();
+
             Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
 
             Set<String> candiSet = new HashSet<>();
-            for (ThreeExpAA tagInfo: denoisedTags) {
+            for (ThreeExpAA tagInfo: tag4List) {
                 String tag = tagInfo.getPtmFreeAAString();
                 if (tag.contains("I") || tag.contains("L")) {
                     System.out.println("tag has I or L");
@@ -320,12 +312,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     candiSet.addAll(tagPepMap.get(tag));
                 }
             }
-//            System.out.println(scanNum +","+pepSet.size());
+//            System.out.println(scanNum +","+candiSet.size());
             Entry entry = new Entry();
-            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass
-                    , localMaxMs2Charge, candiSet);
-//            entry.candidateList = search.candidatesList;
-            //move search to here as presearch.
+            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+                    , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, candiSet, "n"+truth+"c");
+
 
             return entry;
         } else {
