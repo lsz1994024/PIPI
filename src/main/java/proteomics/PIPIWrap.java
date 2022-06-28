@@ -112,7 +112,8 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         }
 
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, PreSpectra.topN);
+        TreeMap<Double, Double> plMap = preSpectrum.
+                preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, PreSpectra.topN);
 
         if (plMap.isEmpty()) {
             return null;

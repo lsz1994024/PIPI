@@ -33,6 +33,7 @@ public class InferSegment {
     private static final int topNumInEachRegion = 20;
     private static final Pattern pattern = Pattern.compile("([nc][0-9a-i])?([A-Z#$].?)");
     public Map<String, Set<String>> tagPepMap = new HashMap<>();
+    public Map<String, Set<String>> tagProtMap = new HashMap<>();
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();
     private Map<Double, String> modifiedAAMap = new HashMap<>(35, 1);
@@ -152,7 +153,7 @@ public class InferSegment {
         }
     }
 
-    public SparseBooleanVector generateSegmentBooleanVector(String peptide) {
+    public SparseBooleanVector generateSegmentBooleanVector(String peptide, String[] proteins) {
 
         String normalizedPeptide = normalizeSequence(DbTool.getSequenceOnly(peptide));
         for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
@@ -165,6 +166,15 @@ public class InferSegment {
                 Set<String> pepSet = new HashSet<>();
                 pepSet.add(peptide);
                 tagPepMap.put(tag, pepSet);
+            }
+            for (String prot : proteins) {
+                if (tagProtMap.containsKey(tag)) {
+                    tagProtMap.get(tag).add(prot);
+                } else {
+                    Set<String> protSet = new HashSet<>();
+                    protSet.add(prot);
+                    tagProtMap.put(tag, protSet);
+                }
             }
 
 //            tempSet.add(aaVectorTemplate.get(seg));

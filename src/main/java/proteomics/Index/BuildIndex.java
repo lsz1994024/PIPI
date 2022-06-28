@@ -206,7 +206,7 @@ public class BuildIndex {
         for (String peptide : peptideMassMap.keySet()) {
             SparseBooleanVector code = null;
             if (needCoding) {
-                code = inferSegment.generateSegmentBooleanVector(peptide);
+                code = inferSegment.generateSegmentBooleanVector(peptide, peptideProteinMap.get(peptide).toArray(new String[0]));
             }
 
             Character[] leftRightFlank = DbTool.getLeftRightFlank(peptide, peptideProteinMap, targetDecoyProteinSequenceMap, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), parameterMap.get("is_from_C_term_1").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.

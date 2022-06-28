@@ -20,6 +20,7 @@ import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.PrepareSpectrum;
 import ProteomicsLibrary.Types.SparseVector;
 import org.apache.commons.math3.analysis.function.Exp;
+import org.apache.commons.math3.util.Pair;
 import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
 import proteomics.Search.Search;
@@ -296,7 +297,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //            SparseVector scanCode = new SparseVector();
 
             Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
-
+            Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tagProtMap;
+            List<Pair<String, Double>> tagSeqList = new ArrayList<>();
             Set<String> candiSet = new HashSet<>();
             for (ThreeExpAA tagInfo: tag4List) {
                 String tag = tagInfo.getPtmFreeAAString();
@@ -311,11 +313,16 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (tagPepMap.containsKey(tag)) {
                     candiSet.addAll(tagPepMap.get(tag));
                 }
+                tagSeqList.add(new Pair(tag, tagInfo.getTotalIntensity()));
+//                if (tagProtMap.containsKey(tag)) {
+//                    candiProtSet.addAll(tagProtMap.get(tag));
+//                }
             }
-//            System.out.println(scanNum +","+candiSet.size());
+//            System.out.println(scanNum +","+candiProtSet.size());
             Entry entry = new Entry();
-            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
-                    , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, candiSet, "n"+truth+"c");
+            entry.candidateList = tagSeqList;
+//            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+//                    , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, candiSet, "n"+truth+"c");
 
 
             return entry;
@@ -352,7 +359,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         public double precursorMass = PreSearch.this.precursorMass;
         public List<Peptide> ptmOnlyList = new ArrayList<>();
         public List<Peptide> ptmFreeList = new ArrayList<>();
-        public String candidateList = null;
+        public List<Pair<String, Double>> candidateList = new ArrayList<>();
         Entry() {
 //            this.scanNum = scanNum;
         }

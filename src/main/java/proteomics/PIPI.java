@@ -16,6 +16,7 @@
 
 package proteomics;
 
+import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import proteomics.Output.WritePepXml;
@@ -247,6 +248,8 @@ public class PIPI {
         int resultCount = 0;
         int totalCount = taskList.size();
         int count = 0;
+        List<Pair<String, Double>> tagSeqList = new ArrayList<>();
+        Set<String> tagSet = new HashSet<>();
         while (count < totalCount) {
             // record search results and delete finished ones.
             List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count);
@@ -254,6 +257,12 @@ public class PIPI {
                 if (task.isDone()) {
                     if (task.get() != null) {
                         PreSearch.Entry entry = task.get();
+
+                        tagSeqList.addAll(entry.candidateList);
+                        for (Pair<String, Double> tagPair : entry.candidateList){
+
+                            tagSet.add(tagPair.getKey());
+                        }
                         ptmOnlyCandiMap.put(entry.scanNum, entry.ptmOnlyList);
                         ptmFreeCandiMap.put(entry.scanNum, entry.ptmFreeList);
                         if (pcMassScanNoMap.containsKey(entry.precursorMass)) {
@@ -299,6 +308,32 @@ public class PIPI {
         if (lock.isLocked()) {
             lock.unlock();
         }
+
+        Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tagProtMap;
+        Set<String> protSet = new HashSet<>();
+        Set<String> reducedProtSet = new HashSet<>();
+
+        for (String tag4 : tagSet) {
+            if (tagProtMap.containsKey(tag4)){
+                for (String prot : tagProtMap.get(tag4)) {
+                    protSet.add(prot);
+                }
+            }
+        }
+        System.out.println("num Total tag4s," + tagSet.size());
+        System.out.println("num Total prots," + protSet.size());
+        tagSeqList.sort(Comparator.comparingDouble(Pair::getSecond));
+//        for (Pair<String, Double> tagPair : tagSeqList){
+//            System.out.println(tagPair.getFirst()+"," + tagPair.getSecond());
+//        }
+        for (int i = tagSeqList.size()-1; i > tagSeqList.size()*0.01; i--) {
+            if (tagProtMap.containsKey(tagSeqList.get(i).getFirst())){
+                for (String prot : tagProtMap.get(tagSeqList.get(i).getFirst())) {
+                    reducedProtSet.add(prot);
+                }
+            }
+        }
+        System.out.println("num Reduced prots," + reducedProtSet.size());
 
         System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNoMap.size() + "," + ptmOnlyCandiMap.keySet().size());
         logger.info("Start searching...");
