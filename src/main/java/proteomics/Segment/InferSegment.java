@@ -160,6 +160,12 @@ public class InferSegment {
 
             Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
             String tag = seg.toString();
+//            if (tag.contains("#")) {
+//                int a = 0;
+//            }
+            Segment segL = new Segment(normalizedPeptide.substring(i, i + 4).replace('#','L'));
+            String tagL = segL.toString();
+
             if (tagPepMap.containsKey(tag)) {
                 tagPepMap.get(tag).add(peptide);
             } else {
@@ -168,12 +174,12 @@ public class InferSegment {
                 tagPepMap.put(tag, pepSet);
             }
             for (String prot : proteins) {
-                if (tagProtMap.containsKey(tag)) {
-                    tagProtMap.get(tag).add(prot);
+                if (tagProtMap.containsKey(tagL)) {
+                    tagProtMap.get(tagL).add(prot);
                 } else {
                     Set<String> protSet = new HashSet<>();
                     protSet.add(prot);
-                    tagProtMap.put(tag, protSet);
+                    tagProtMap.put(tagL, protSet);
                 }
             }
 

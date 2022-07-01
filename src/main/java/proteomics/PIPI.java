@@ -310,29 +310,94 @@ public class PIPI {
         }
 
         Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tagProtMap;
-        Set<String> protSet = new HashSet<>();
+//        Set<String> protSet = new HashSet<>();
         Set<String> reducedProtSet = new HashSet<>();
-
-        for (String tag4 : tagSet) {
-            if (tagProtMap.containsKey(tag4)){
-                for (String prot : tagProtMap.get(tag4)) {
-                    protSet.add(prot);
-                }
-            }
-        }
-        System.out.println("num Total tag4s," + tagSet.size());
-        System.out.println("num Total prots," + protSet.size());
-        tagSeqList.sort(Comparator.comparingDouble(Pair::getSecond));
-//        for (Pair<String, Double> tagPair : tagSeqList){
-//            System.out.println(tagPair.getFirst()+"," + tagPair.getSecond());
+        Map<String, Double> protScoreMap = new HashMap<>();
+//        for (String tag4 : tagSet) {
+//            if (tagProtMap.containsKey(tag4)){
+//                for (String prot : tagProtMap.get(tag4)) {
+//                    protSet.add(prot);
+//                }
+//            }
 //        }
-        for (int i = tagSeqList.size()-1; i > tagSeqList.size()*0.01; i--) {
-            if (tagProtMap.containsKey(tagSeqList.get(i).getFirst())){
-                for (String prot : tagProtMap.get(tagSeqList.get(i).getFirst())) {
-                    reducedProtSet.add(prot);
+
+//        for (String tag : tagProtMap.keySet()) {
+//            System.out.println(tag +"," + tagProtMap.get(tag).size());
+//        }
+
+        System.out.println("num Total tag4s," + tagSet.size());
+//        System.out.println("num Total prots," + protSet.size());
+        tagSeqList.sort(Comparator.comparingDouble(Pair::getSecond));
+
+        Map<String, Double> uniqueTagMap  = new HashMap<>();
+        for (Pair<String, Double> pair : tagSeqList) {
+            if (uniqueTagMap.containsKey(pair.getFirst())) {
+                uniqueTagMap.put(pair.getFirst(), Math.max(uniqueTagMap.get(pair.getFirst()), pair.getSecond()));
+            } else {
+                uniqueTagMap.put(pair.getFirst(), pair.getSecond());
+            }
+        }
+
+        List<Pair<String, Double>> uniqueTagList = new ArrayList<>();
+        for (String tag : uniqueTagMap.keySet()){
+//            System.out.println(tag+"," + uniqueTagMap.get(tag));
+            uniqueTagList.add(new Pair<String, Double>(tag, uniqueTagMap.get(tag)));
+        }
+        uniqueTagList.sort(Comparator.comparingDouble(Pair::getSecond));
+
+        Map<String, Set<Pair<String , Double>>> protTagMap = new HashMap<>();
+        for (int i = uniqueTagList.size()-1; i > uniqueTagList.size()*0.95; i--){
+            Pair<String, Double> tagPair = uniqueTagList.get(i);
+            String tag = tagPair.getFirst();
+
+            if (tagProtMap.containsKey(tag)){
+                double score =  tagPair.getSecond();
+                for (String prot : tagProtMap.get(tag)) {
+                    if (protScoreMap.containsKey(prot)){
+                        protScoreMap.put(prot, protScoreMap.get(prot)+score);
+                    } else {
+                        protScoreMap.put(prot, score);
+                    }
+                    if (protTagMap.containsKey(prot)){
+                        protTagMap.get(prot).add(new Pair<>(tag, score));
+                    } else {
+                        Set<Pair<String , Double>> tempSet = new HashSet<>();
+                        tempSet.add(new Pair<>(tag, score));
+                        protTagMap.put(prot, tempSet);
+                    }
                 }
             }
         }
+
+        List<Pair<String, Double>> protScoreList = new ArrayList<>();
+        for (String tag : protScoreMap.keySet()){
+            protScoreList.add(new Pair<>(tag, protScoreMap.get(tag)));
+        }
+        protScoreList.sort(Comparator.comparingDouble(Pair::getSecond));
+        for (int i = 0; i < protScoreList.size(); i++){
+            System.out.print(protScoreList.get(i).getFirst()+","+protScoreList.get(i).getSecond());
+//            for (Pair<String , Double> tagPair : protTagMap.get(protScoreList.get(i).getFirst())) {
+//                System.out.print(","+tagPair.getFirst()+","+tagPair.getSecond());
+//            }
+            System.out.print("\n");
+        }
+
+
+
+
+        System.out.println("num uniqueTagList ," + uniqueTagList.size());
+//        int numUsedTags = 0;
+//        for (int i = uniqueTagList.size()-1; i > uniqueTagList.size()*0.999; i--) {
+//            if (tagProtMap.containsKey(uniqueTagList.get(i).getFirst())){
+//                numUsedTags++;
+//                for (String prot : tagProtMap.get(uniqueTagList.get(i).getFirst())) {
+//                    reducedProtSet.add(prot);
+//                }
+////                System.out.println(uniqueTagList.get(i).getFirst() + "," + tagProtMap.get(uniqueTagList.get(i).getFirst()).size());
+//            }
+//        }
+//        System.out.println("numUsedTags," + numUsedTags);
+
         System.out.println("num Reduced prots," + reducedProtSet.size());
 
         System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNoMap.size() + "," + ptmOnlyCandiMap.keySet().size());
