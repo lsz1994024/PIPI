@@ -40,6 +40,7 @@ public class BuildIndex {
     private final String labelling;
     private final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
+    public Map<String, Integer> protLengthMap = new HashMap<>();
 
     public BuildIndex(Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
         // initialize parameters
@@ -106,6 +107,8 @@ public class BuildIndex {
             if (proId.contentEquals("sp|Q06945|SOX4_HUMAN")){
                 int a = 1;
             }
+            int numOfTags = inferSegment.generateSegmentBooleanVectorForProt(proSeq);
+            protLengthMap.put(proId, numOfTags);
             Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
 //            Set<String> oriPeptideSet = massTool.buildPeptideSet(proSeq);
 //            if (peptideSet.size() <= oriPeptideSet.size()) {

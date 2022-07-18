@@ -19,21 +19,17 @@ package proteomics;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.PrepareSpectrum;
 import ProteomicsLibrary.Types.SparseVector;
-import org.apache.commons.math3.analysis.function.Exp;
 import org.apache.commons.math3.util.Pair;
 import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
-import proteomics.Search.Search;
 import proteomics.Segment.InferSegment;
 import proteomics.Spectrum.PreSpectra;
 import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
-import java.awt.datatransfer.MimeTypeParseException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
-import com.google.common.graph.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final int candisNum = 20;
@@ -117,11 +113,26 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         List<ThreeExpAA> tag3List = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, finalPlMap, scanNum);
         List<ThreeExpAA> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
-
+        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum);
         tag4List.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
 //        tag4List.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
-
-
+        Set<ThreeExpAA> tag5Set = new HashSet<>();
+        Set<ThreeExpAA> tag6Set = new HashSet<>();
+        for (ThreeExpAA longTag : allLongTagList) {
+            if (longTag.size() >= 5) {
+                for (int i = 0; i <= longTag.size() - 5; i++) {
+//                    List<ExpAA> expAAList = longTag.expAAList.subList(i, i+5)
+                    tag5Set.add(new ThreeExpAA(longTag.expAAList.subList(i, i+5)));
+                }
+            }
+            if (longTag.size() >= 6) {
+                for (int i = 0; i <= longTag.size() - 6; i++) {
+                    tag6Set.add(new ThreeExpAA(longTag.expAAList.subList(i, i+6)));
+                }
+            }
+        }
+        List<ThreeExpAA> tag5List = new LinkedList<>(tag5Set);
+        List<ThreeExpAA> tag6List = new LinkedList<>(tag6Set);
         //check for NC tag
         List<ThreeExpAA> ncTags = new ArrayList<>();
         for (ThreeExpAA tag : tag4List) {
@@ -297,10 +308,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //            SparseVector scanCode = new SparseVector();
 
             Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
-            Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tagProtMap;
+            Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tag4ProtMap;
             List<Pair<String, Double>> tagSeqList = new ArrayList<>();
             Set<String> candiSet = new HashSet<>();
-            for (ThreeExpAA tagInfo: tag4List) {
+            Set<ThreeExpAA> tagWithScore5 = new HashSet<>();
+            for (ThreeExpAA tagInfo: tag6List) {
                 String tag = tagInfo.getPtmFreeAAString().replace('#','L');
 //                if (tag.contains("I") || tag.contains("L")) {
 //                    System.out.println("tag has I or L");
@@ -314,11 +326,13 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     candiSet.addAll(tagPepMap.get(tag));
                 }
                 tagSeqList.add(new Pair(tag, tagInfo.getTotalIntensity()));
-//                if (tagProtMap.containsKey(tag)) {
-//                    candiProtSet.addAll(tagProtMap.get(tag));
-//                }
+                if (tagInfo.getTotalIntensity() == 5) {
+                    tagWithScore5.add(tagInfo);
+                }
             }
-//            System.out.println(scanNum +","+candiProtSet.size());
+
+
+
             Entry entry = new Entry();
             entry.candidateList = tagSeqList;
 //            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance

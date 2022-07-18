@@ -20,11 +20,14 @@ package proteomics.Segment;
 import ProteomicsLibrary.DbTool;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
+import org.apache.commons.math3.util.Pair;
 import proteomics.Types.*;
 
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class InferSegment {
 
@@ -33,7 +36,9 @@ public class InferSegment {
     private static final int topNumInEachRegion = 20;
     private static final Pattern pattern = Pattern.compile("([nc][0-9a-i])?([A-Z#$].?)");
     public Map<String, Set<String>> tagPepMap = new HashMap<>();
-    public Map<String, Set<String>> tagProtMap = new HashMap<>();
+    public Map<String, Set<String>> tag4ProtMap = new HashMap<>();
+    public Map<String, Set<String>> tag5ProtMap = new HashMap<>();
+    public Map<String, Set<String>> tag6ProtMap = new HashMap<>();
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();
     private Map<Double, String> modifiedAAMap = new HashMap<>(35, 1);
@@ -174,16 +179,48 @@ public class InferSegment {
                 tagPepMap.put(tag, pepSet);
             }
             for (String prot : proteins) {
-                if (tagProtMap.containsKey(tagL)) {
-                    tagProtMap.get(tagL).add(prot);
+                if (prot.contains("DECOY")) continue;
+
+                if (tag4ProtMap.containsKey(tagL)) {
+                    tag4ProtMap.get(tagL).add(prot);
                 } else {
                     Set<String> protSet = new HashSet<>();
                     protSet.add(prot);
-                    tagProtMap.put(tagL, protSet);
+                    tag4ProtMap.put(tagL, protSet);
                 }
             }
+        }
 
-//            tempSet.add(aaVectorTemplate.get(seg));
+        for (int i = 0; i <= normalizedPeptide.length() - 5; ++i) {
+            Segment segL = new Segment(normalizedPeptide.substring(i, i + 5).replace('#','L'));
+            String tagL = segL.toString();
+            for (String prot : proteins) {
+                if (prot.contains("DECOY")) continue;
+
+                if (tag5ProtMap.containsKey(tagL)) {
+                    tag5ProtMap.get(tagL).add(prot);
+                } else {
+                    Set<String> protSet = new HashSet<>();
+                    protSet.add(prot);
+                    tag5ProtMap.put(tagL, protSet);
+                }
+            }
+        }
+
+        for (int i = 0; i <= normalizedPeptide.length() - 6; ++i) {
+            Segment segL = new Segment(normalizedPeptide.substring(i, i + 6).replace('#','L'));
+            String tagL = segL.toString();
+            for (String prot : proteins) {
+                if (prot.contains("DECOY")) continue;
+
+                if (tag6ProtMap.containsKey(tagL)) {
+                    tag6ProtMap.get(tagL).add(prot);
+                } else {
+                    Set<String> protSet = new HashSet<>();
+                    protSet.add(prot);
+                    tag6ProtMap.put(tagL, protSet);
+                }
+            }
         }
 
         Set<Integer> tempSet = new HashSet<>(DbTool.getSequenceOnly(peptide).length() + 1, 1);
@@ -344,13 +381,68 @@ public class InferSegment {
             return tempList;
         }
     }
+    public List<ThreeExpAA> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
+        Double[] mzArray = plMap.keySet().toArray(new Double[0]);
+        Double[] intensityArray = plMap.values().toArray(new Double[0]);
+        List<ThreeExpAA> outputList = new LinkedList<>();
 
+        Set<Pair<Integer, Integer>> edgeSet = new HashSet<>();
+        Set<Integer> nodeSet = new HashSet<>();
+        Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
+        Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
+        Map<Pair<Integer, Integer>, ExpAA> edgeInfoMap = new HashMap<>();
+        for (int i = 0; i < mzArray.length - 1; ++i) {
+            double mz1 = mzArray[i];
+            double intensity1 = intensityArray[i];
+            for (int j = i + 1; j < mzArray.length; ++j) {
+                double mz2 = mzArray[j];
+                double intensity2 = intensityArray[j];
+                String aa = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                if (aa != null) {
+                    Pair<Integer, Integer> edge = new Pair<>(i,j);
+                    edgeSet.add(edge);
+                    nodeSet.add(i);
+                    nodeSet.add(j);
+                    startNodeSet.remove(j);
+                    endNodeSet.remove(i);
+                    edgeInfoMap.put(edge, new ExpAA(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, -1, 0, 0, 0));
+                }
+            }
+        }
+        startNodeSet.retainAll(nodeSet);
+        endNodeSet.retainAll(nodeSet);
+        Graph g = new Graph(edgeSet, nodeSet);
+        ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
+        for (ArrayList<Integer> path : allPath) {
+            if (path.size() < 4) continue;
+            List<ExpAA> expAAList = new ArrayList<>();
+            for (int i = 0; i < path.size()-1; i++){
+                int j = i + 1;
+                expAAList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+            }
+            outputList.add(new ThreeExpAA(expAAList));
+        }
+        outputList.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+        return outputList;
+    }
+    public int generateSegmentBooleanVectorForProt(String prot) {
+        String normalizedProt = normalizeSequence(DbTool.getSequenceOnly(prot));
+        Set<String> tagSet = new HashSet<>();
+        for (int i = 0; i <= normalizedProt.length() - 4; ++i) {
+            Segment seg = new Segment(normalizedProt.substring(i, i + 4));
+            String tag = seg.toString();
+            tagSet.add(tag);
+            Segment segL = new Segment(normalizedProt.substring(i, i + 4).replace('#','L'));
+            String tagL = segL.toString();
+        }
+
+        return tagSet.size();
+    }
     private List<ThreeExpAA> getTag4(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         Set<ThreeExpAA> tempSet = new HashSet<>();
         List<ThreeExpAA> outputList = new LinkedList<>();
-//        for (int m = 0; m < mzArray.length - 4; ++m) {
         for (int i = 0; i < mzArray.length - 4; ++i) {
             double mz1 = mzArray[i];
             double intensity1 = intensityArray[i];
@@ -433,18 +525,8 @@ public class InferSegment {
                                     }
                                 }
                             }
-//                            for (ExpAA expAas4 : tempAasList4) {
-//                                List<ExpAA> tempList2 = new LinkedList<>();
-//                                tempList2.add(expAa2);
-//                                tempList2.add(expAas4);
-//                                tempAasList2.add(tempList2);
-//                            }
                         }
                     }
-//                    for (List<ExpAA> expAas2 : tempAasList2) {
-//                        ThreeExpAA threeExpAa = new ThreeExpAA(expAa1, expAas2.get(0), expAas2.get(1));
-//                        tempSet.add(threeExpAa);
-//                    }
                 }
             }
         }
