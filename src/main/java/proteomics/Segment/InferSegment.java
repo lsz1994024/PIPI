@@ -37,8 +37,9 @@ public class InferSegment {
     private static final Pattern pattern = Pattern.compile("([nc][0-9a-i])?([A-Z#$].?)");
     public Map<String, Set<String>> tagPepMap = new HashMap<>();
     public Map<String, Set<String>> tag4ProtMap = new HashMap<>();
-    public Map<String, Set<String>> tag5ProtMap = new HashMap<>();
+    public Map<String, Set<String>> tag7ProtMap = new HashMap<>();
     public Map<String, Set<String>> tag6ProtMap = new HashMap<>();
+    public Map<String, Set<String>> tag8ProtMap = new HashMap<>();
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();
     private Map<Double, String> modifiedAAMap = new HashMap<>(35, 1);
@@ -191,37 +192,54 @@ public class InferSegment {
             }
         }
 
-        for (int i = 0; i <= normalizedPeptide.length() - 5; ++i) {
-            Segment segL = new Segment(normalizedPeptide.substring(i, i + 5).replace('#','L'));
+        for (int i = 0; i <= normalizedPeptide.length() - 7; ++i) {
+            Segment segL = new Segment(normalizedPeptide.substring(i, i + 7).replace('#','L'));
             String tagL = segL.toString();
             for (String prot : proteins) {
                 if (prot.contains("DECOY")) continue;
 
-                if (tag5ProtMap.containsKey(tagL)) {
-                    tag5ProtMap.get(tagL).add(prot);
+                if (tag7ProtMap.containsKey(tagL)) {
+                    tag7ProtMap.get(tagL).add(prot);
                 } else {
                     Set<String> protSet = new HashSet<>();
                     protSet.add(prot);
-                    tag5ProtMap.put(tagL, protSet);
+                    tag7ProtMap.put(tagL, protSet);
                 }
             }
         }
+//
+//        for (int i = 0; i <= normalizedPeptide.length() - 6; ++i) {
+//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 6).replace('#','L'));
+//            String tagL = segL.toString();
+//            for (String prot : proteins) {
+//                if (prot.contains("DECOY")) continue;
+//
+//                if (tag6ProtMap.containsKey(tagL)) {
+//                    tag6ProtMap.get(tagL).add(prot);
+//                } else {
+//                    Set<String> protSet = new HashSet<>();
+//                    protSet.add(prot);
+//                    tag6ProtMap.put(tagL, protSet);
+//                }
+//            }
+//        }
 
-        for (int i = 0; i <= normalizedPeptide.length() - 6; ++i) {
-            Segment segL = new Segment(normalizedPeptide.substring(i, i + 6).replace('#','L'));
-            String tagL = segL.toString();
-            for (String prot : proteins) {
-                if (prot.contains("DECOY")) continue;
 
-                if (tag6ProtMap.containsKey(tagL)) {
-                    tag6ProtMap.get(tagL).add(prot);
-                } else {
-                    Set<String> protSet = new HashSet<>();
-                    protSet.add(prot);
-                    tag6ProtMap.put(tagL, protSet);
-                }
-            }
-        }
+//        for (int i = 0; i <= normalizedPeptide.length() - 8; ++i) {
+//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 8).replace('#','L'));
+//            String tagL = segL.toString();
+//            for (String prot : proteins) {
+//                if (prot.contains("DECOY")) continue;
+//
+//                if (tag8ProtMap.containsKey(tagL)) {
+//                    tag8ProtMap.get(tagL).add(prot);
+//                } else {
+//                    Set<String> protSet = new HashSet<>();
+//                    protSet.add(prot);
+//                    tag8ProtMap.put(tagL, protSet);
+//                }
+//            }
+//        }
 
         Set<Integer> tempSet = new HashSet<>(DbTool.getSequenceOnly(peptide).length() + 1, 1);
         for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
@@ -428,12 +446,12 @@ public class InferSegment {
     public int generateSegmentBooleanVectorForProt(String prot) {
         String normalizedProt = normalizeSequence(DbTool.getSequenceOnly(prot));
         Set<String> tagSet = new HashSet<>();
-        for (int i = 0; i <= normalizedProt.length() - 4; ++i) {
-            Segment seg = new Segment(normalizedProt.substring(i, i + 4));
+        for (int i = 0; i <= normalizedProt.length() - 7; ++i) {
+            Segment seg = new Segment(normalizedProt.substring(i, i + 7));
             String tag = seg.toString();
             tagSet.add(tag);
-            Segment segL = new Segment(normalizedProt.substring(i, i + 4).replace('#','L'));
-            String tagL = segL.toString();
+//            Segment segL = new Segment(normalizedProt.substring(i, i + 4).replace('#','L'));
+//            String tagL = segL.toString();
         }
 
         return tagSet.size();

@@ -116,13 +116,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum);
         tag4List.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
 //        tag4List.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
-        Set<ThreeExpAA> tag5Set = new HashSet<>();
+        Set<ThreeExpAA> tag8Set = new HashSet<>();
+        Set<ThreeExpAA> tag7Set = new HashSet<>();
         Set<ThreeExpAA> tag6Set = new HashSet<>();
         for (ThreeExpAA longTag : allLongTagList) {
-            if (longTag.size() >= 5) {
-                for (int i = 0; i <= longTag.size() - 5; i++) {
+            if (longTag.size() >= 7) {
+                for (int i = 0; i <= longTag.size() - 7; i++) {
 //                    List<ExpAA> expAAList = longTag.expAAList.subList(i, i+5)
-                    tag5Set.add(new ThreeExpAA(longTag.expAAList.subList(i, i+5)));
+                    tag7Set.add(new ThreeExpAA(longTag.expAAList.subList(i, i+7)));
                 }
             }
             if (longTag.size() >= 6) {
@@ -130,8 +131,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     tag6Set.add(new ThreeExpAA(longTag.expAAList.subList(i, i+6)));
                 }
             }
+            if (longTag.size() >= 8) {
+                for (int i = 0; i <= longTag.size() - 8; i++) {
+                    tag8Set.add(new ThreeExpAA(longTag.expAAList.subList(i, i+8)));
+                }
+            }
         }
-        List<ThreeExpAA> tag5List = new LinkedList<>(tag5Set);
+        List<ThreeExpAA> tag7List = new LinkedList<>(tag7Set);
+        List<ThreeExpAA> tag8List = new LinkedList<>(tag8Set);
         List<ThreeExpAA> tag6List = new LinkedList<>(tag6Set);
         //check for NC tag
         List<ThreeExpAA> ncTags = new ArrayList<>();
@@ -312,7 +319,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             List<Pair<String, Double>> tagSeqList = new ArrayList<>();
             Set<String> candiSet = new HashSet<>();
             Set<ThreeExpAA> tagWithScore5 = new HashSet<>();
-            for (ThreeExpAA tagInfo: tag6List) {
+            for (ThreeExpAA tagInfo: tag7List) {
                 String tag = tagInfo.getPtmFreeAAString().replace('#','L');
 //                if (tag.contains("I") || tag.contains("L")) {
 //                    System.out.println("tag has I or L");

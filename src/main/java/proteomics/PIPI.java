@@ -318,7 +318,7 @@ public class PIPI {
             lock.unlock();
         }
 
-        Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tag6ProtMap;
+        Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tag7ProtMap;
         Set<String> reducedProtSet = new HashSet<>();
         Map<String, Double> protScoreMap = new HashMap<>();
         Map<String, Integer> protTagNumMap = new HashMap<>();
@@ -329,16 +329,16 @@ public class PIPI {
 //            System.out.println(tag+","+tagProtMap.get(tag).size());
 //        }
         Map<String, Double> uniqueTagMap  = new HashMap<>();
-        for (Pair<String, Double> pair : tagSeqList.subList((int)Math.round(0.85*tagSeqList.size()), tagSeqList.size()-1)) {
+        for (Pair<String, Double> pair : tagSeqList.subList((int)Math.round(0.6*tagSeqList.size()), tagSeqList.size()-1)) {
             if (uniqueTagMap.containsKey(pair.getFirst())) {
                 uniqueTagMap.put(pair.getFirst(), uniqueTagMap.get(pair.getFirst())+ pair.getSecond());
             } else {
                 uniqueTagMap.put(pair.getFirst(), pair.getSecond());
             }
         }
-        for (Pair<String, Double> pair : tagSeqList){
-            System.out.println(pair.getFirst() +"," + pair.getSecond());
-        }
+//        for (Pair<String, Double> pair : tagSeqList){
+//            System.out.println(pair.getFirst() +"," + pair.getSecond());
+//        }
 
         List<Pair<String, Double>> uniqueTagList = new ArrayList<>();
         for (String tag : uniqueTagMap.keySet()){
@@ -346,6 +346,7 @@ public class PIPI {
             uniqueTagList.add(new Pair<String, Double>(tag, uniqueTagMap.get(tag)));
         }
         uniqueTagList.sort(Comparator.comparingDouble(Pair::getSecond));
+        Map<String , Integer> protLengthMap = buildIndex.protLengthMap;
 
         Map<String, Set<Pair<String , Double>>> protTagMap = new HashMap<>();
         for (int i = uniqueTagList.size()-1; i > uniqueTagList.size()*0.0; i--){
@@ -366,7 +367,7 @@ public class PIPI {
                             } else if (protSeq.indexOf(revTag ) != -1) {
                                 pos = protSeq.indexOf(revTag);
                             }
-                            System.out.println("sp|Q8NC51|PAIRB_HUMAN,"+tag+"," +score+","+numOfProts+","+protScoreMap.get(prot) + "," + pos);
+//                            System.out.println("sp|Q8NC51|PAIRB_HUMAN,"+tag+"," +score+","+numOfProts+","+protScoreMap.get(prot) + "," + pos);
                         }
                         protTagNumMap.put(prot, protTagNumMap.get(prot)+1);
                         protScoreMap.put(prot, protScoreMap.get(prot)+score);
@@ -378,7 +379,7 @@ public class PIPI {
                             } else if (prot.indexOf(revTag ) != -1) {
                                 pos = prot.indexOf(revTag);
                             }
-                            System.out.println("sp|Q8NC51|PAIRB_HUMAN,"+tag+"," +score+","+numOfProts+","+protScoreMap.get(prot)+ "," + pos);
+//                            System.out.println("sp|Q8NC51|PAIRB_HUMAN,"+tag+"," +score+","+numOfProts+","+protScoreMap.get(prot)+ "," + pos);
                         }
                         protTagNumMap.put(prot, 1);
 
@@ -400,11 +401,10 @@ public class PIPI {
             protScoreList.add(new Pair<>(tag, protScoreMap.get(tag)));
         }
         protScoreList.sort(Comparator.comparingDouble(Pair::getSecond));
-        Map<String , Integer> protLengthMap = buildIndex.protLengthMap;
         for (int i = 0; i < protScoreList.size(); i++){
-//            System.out.print(protScoreList.get(i).getFirst()+","+(omProts.contains(protScoreList.get(i).getFirst()) ? 1:0)+","+protScoreList.get(i).getSecond() +","
-//                    + protLengthMap.get(protScoreList.get(i).getFirst())+","+protTagNumMap.get(protScoreList.get(i).getFirst()));
-//            System.out.print("\n");
+            System.out.print(protScoreList.get(i).getFirst()+","+(omProts.contains(protScoreList.get(i).getFirst()) ? 1:0)+","+protScoreList.get(i).getSecond() +","
+                    + protLengthMap.get(protScoreList.get(i).getFirst())+","+protTagNumMap.get(protScoreList.get(i).getFirst()));
+            System.out.print("\n");
         }
         System.out.println("num tagSeqList ," + tagSeqList.size());
         System.out.println("num uniqueTagList ," + uniqueTagList.size());
