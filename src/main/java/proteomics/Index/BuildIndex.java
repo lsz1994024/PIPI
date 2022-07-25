@@ -16,17 +16,21 @@
 
 package proteomics.Index;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
+import java.io.*;
 import java.util.*;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import proteomics.FM.FMIndex;
+import proteomics.FM.SearchInterval;
+import proteomics.FM.UnicodeReader;
 import proteomics.PTM.InferPTM;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.*;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.Peptide0;
+
+import static java.awt.SystemColor.text;
 
 public class BuildIndex {
 
@@ -41,7 +45,9 @@ public class BuildIndex {
     private final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
     public Map<String, Integer> protLengthMap = new HashMap<>();
-
+    public FMIndex fmIndex = null;
+    public int[] dotPosArr = null;
+    public Map<Integer, String> posProtMap = new HashMap<>();
     public BuildIndex(Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
         // initialize parameters
         int minPeptideLength = Math.max(5, Integer.valueOf(parameterMap.get("min_peptide_length")));
@@ -102,18 +108,24 @@ public class BuildIndex {
         Multimap<String, String> peptideProteinMap = HashMultimap.create();
         Map<String, Double> peptideMassMap = new HashMap<>(500000);
         Map<String, String> targetDecoyProteinSequenceMap = new HashMap<>();
+
+        BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProt.txt"));
+//        String catProtStr = "";
+        int dotPos = 0;
+        int dotNum = 0;
+        dotPosArr = new int[proteinPeptideMap.keySet().size()];
+//        ArrayList<Integer>
         for (String proId : proteinPeptideMap.keySet()) {
+            dotPosArr[dotNum] = dotPos;
+            posProtMap.put(dotNum, proId);
             String proSeq = proteinPeptideMap.get(proId);
-            if (proId.contentEquals("sp|Q06945|SOX4_HUMAN")){
-                int a = 1;
-            }
+            writerProt.write("." + proSeq.replace('L', 'I'));
+            dotNum++;
+            dotPos += proSeq.length()+1;
+//            dotPosArr[dotNum] = dotPos;
             int numOfTags = inferSegment.generateSegmentBooleanVectorForProt(proSeq);
             protLengthMap.put(proId, numOfTags);
             Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
-//            Set<String> oriPeptideSet = massTool.buildPeptideSet(proSeq);
-//            if (peptideSet.size() <= oriPeptideSet.size()) {
-//                int a = 1;
-//            }
             for (String peptide : peptideSet) {
                 if (MassTool.containsNonAAAndNC(peptide)) {
                     continue;
@@ -186,6 +198,21 @@ public class BuildIndex {
                 targetDecoyProteinSequenceMap.put("DECOY_" + proId, decoyProSeq);
             }
         }
+        writerProt.close();
+        char[] text = loadFile("catProt.txt", true);
+        fmIndex = new FMIndex(text);
+
+//        char[] P = "FHNLQGEK".toCharArray();
+//        SearchInterval searchInterval = fmIndex.backwardSearch(P);
+//        int patternsCount = searchInterval.ep - searchInterval.sp + 1;
+//        int[] firstIndexValues = new int[patternsCount];
+//        int[] secondIndexValues = new int[patternsCount];
+//        int count = 0;
+//        for (int i = searchInterval.sp; i <= searchInterval.ep; i++) {
+//            firstIndexValues[count] = fmIndex.SA[i];
+//            secondIndexValues[count] = fmIndex.SA[i] + P.length - 1;
+//            count++;
+//        }
 
         if (addDecoy) {
             // writer concatenated fasta
@@ -240,6 +267,34 @@ public class BuildIndex {
         int a = 1;
     }
 
+    public static char[] loadFile(String file, boolean appendTerminalCharacter) throws IOException{
+        // read text file, auto recognize bom marker or use
+        // system default if markers not found.
+        BufferedReader reader = null;
+        CharArrayWriter writer = null;
+        UnicodeReader r = new UnicodeReader(new FileInputStream(file), null);
+
+        char[] buffer = new char[16 * 1024];   // 16k buffer
+        int read;
+        try {
+            reader = new BufferedReader(r);
+            writer = new CharArrayWriter();
+            while( (read = reader.read(buffer)) != -1) {
+                writer.write(buffer, 0, read);
+            }
+            if (appendTerminalCharacter) {
+                writer.append('\0');
+            }
+            writer.flush();
+            return writer.toCharArray();
+        } catch (IOException ex) {
+            throw ex;
+        } finally {
+            try {
+                writer.close(); reader.close(); r.close();
+            } catch (Exception ex) { }
+        }
+    }
     public DbTool getDbTool() {
         return dbTool;
     }

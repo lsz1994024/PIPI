@@ -36,7 +36,7 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     public NC ncTag = NC.NOT; //-1 not aligned, 0 B, 1 Y
     public boolean isGoodTag3 = false;
     public List<ExpAA> expAAList = null;
-
+    public double[] intensityArray;
     public ThreeExpAA(ExpAA aa1, ExpAA aa2, ExpAA aa3) {
         threeExpAa = new ExpAA[]{aa1, aa2, aa3};
         String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString();
@@ -72,14 +72,18 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         totalIntensity = intensity;
     }
     public ThreeExpAA(List<ExpAA> expAAList) {
+        intensityArray = new double[expAAList.size()+1];
         this.expAAList = expAAList;
+        intensityArray[0] = expAAList.get(0).getHeadIntensity();
+        for (int i = 0; i < expAAList.size(); i++) {
+            intensityArray[i+1] = expAAList.get(i).getTailIntensity();
+        }
         threeExpAa = expAAList.toArray(new ExpAA[0]);
         String toString = threeExpAa[0].toString();
         for (int i = 1; i < threeExpAa.length; i++){
             toString += "-" + threeExpAa[i].toString();
         }
         hashCode = toString.hashCode();
-
         StringBuilder sb = new StringBuilder(2*threeExpAa.length - 1);
         for (ExpAA aa : threeExpAa) {
             sb.append(aa.getPtmFreeAA());

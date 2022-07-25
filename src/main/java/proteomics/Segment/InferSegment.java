@@ -431,8 +431,9 @@ public class InferSegment {
         endNodeSet.retainAll(nodeSet);
         Graph g = new Graph(edgeSet, nodeSet);
         ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
+//        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
-            if (path.size() < 4) continue;
+            if (path.size() < 7) continue;
             List<ExpAA> expAAList = new ArrayList<>();
             for (int i = 0; i < path.size()-1; i++){
                 int j = i + 1;
@@ -441,7 +442,25 @@ public class InferSegment {
             outputList.add(new ThreeExpAA(expAAList));
         }
         outputList.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
-        return outputList;
+        boolean[] shouldKeep = new boolean[outputList.size()];
+        Set<String> addedTags = new HashSet<>();
+        int i = 0;
+        for(ThreeExpAA tag : outputList) {
+            if (addedTags.contains(tag.getPtmFreeAAString())) {
+                shouldKeep[i] = false;
+            } else {
+                shouldKeep[i] = true;
+                addedTags.add(tag.getPtmFreeAAString());
+            }
+            i++;
+        }
+        List<ThreeExpAA> finalList = new LinkedList<>();
+        for (int j = 0; j < outputList.size(); j++){
+            if (shouldKeep[j]) {
+                finalList.add(outputList.get(j));
+            }
+        }
+        return finalList;
     }
     public int generateSegmentBooleanVectorForProt(String prot) {
         String normalizedProt = normalizeSequence(DbTool.getSequenceOnly(prot));
