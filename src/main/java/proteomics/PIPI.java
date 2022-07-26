@@ -421,11 +421,19 @@ public class PIPI {
             protScoreLongList.add(new Pair<>(tag, protScoreLongMap.get(tag)));
         }
         protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
-        for (int i = 0; i < protScoreLongList.size(); i++){
+        int num = 0;
+        int correct = 0;
+        for (int i = protScoreLongList.size()-1; i >= 0; i--){
             System.out.print(protScoreLongList.get(i).getFirst()+","+(omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0)+","+protScoreLongList.get(i).getSecond() +","
                     + protLengthMap.get(protScoreLongList.get(i).getFirst())+","+protTagNumMap.get(protScoreLongList.get(i).getFirst()));
             System.out.print("\n");
+            num++;
+            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
+                correct++;
+            }
         }
+        System.out.println("5300 contains,"+ correct);
+
         System.out.println("num tagSeqList ," + tagSeqList.size());
         System.out.println("num uniqueTagList ," + uniqueTagList.size());
 

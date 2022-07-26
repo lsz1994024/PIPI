@@ -119,7 +119,7 @@ public class BuildIndex {
             dotPosArr[dotNum] = dotPos;
             posProtMap.put(dotNum, proId);
             String proSeq = proteinPeptideMap.get(proId);
-            writerProt.write("." + proSeq.replace('L', 'I'));
+            writerProt.write("." + proSeq.replace('I', 'L'));
             dotNum++;
             dotPos += proSeq.length()+1;
 //            dotPosArr[dotNum] = dotPos;

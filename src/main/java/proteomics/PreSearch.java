@@ -122,7 +122,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         if (allLongTagList.isEmpty()) {
             return null;
         }
-        double scoreCutOff = allLongTagList.get(0).getTotalIntensity()-2;
+
+        //which top long tags to uses
+        double scoreCutOff = allLongTagList.get(0).getTotalIntensity()-1;
         int rankCutOff = 10;
         int validTagNum = 0;
         for (int ii = 0; ii < Math.min(rankCutOff, allLongTagList.size()); ii++){
@@ -188,7 +190,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         TreeMap<Integer, Double> nodeMap = new TreeMap<>();
         Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
         Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
-        for (ThreeExpAA tag : tag4List) {
+        for (ThreeExpAA tag : allLongTagList) {
             for(ExpAA aa : tag.getExpAAs()) {
                 if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
                     continue;
@@ -234,7 +236,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         // finish prepare graph
 
         Set<Edge> edgeToDel = new HashSet<>();
-        Map<Integer, Integer> tempTodel = new HashMap<>();
+        Map<Integer, Integer> tempToDel = new HashMap<>();
 
         for (int node : nodeMap.descendingKeySet()){
             if (outEdgeMap.containsKey(node)) {
@@ -250,7 +252,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 for (int n2 : tempOutMap.keySet()) {
                     if (n2 != maxOutPeak) {
                         edgeToDel.add(new Edge(node,n2));
-                        tempTodel.put(node,n2);
+                        tempToDel.put(node,n2);
 
                     }
                 }
@@ -265,8 +267,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             }
         }
 
-        for (int n1 : tempTodel.keySet()) {
-            int n2 = tempTodel.get(n1);
+        for (int n1 : tempToDel.keySet()) {
+            int n2 = tempToDel.get(n1);
             inEdgeMap.get(n2).remove(n1);
             outEdgeMap.get(n1).remove(n2);
         }
@@ -297,12 +299,17 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
             }
         }
+        Set<Pair<Integer,Integer>> pairToDel = new HashSet<>();
+        for (Edge e : edgeToDel){
+            pairToDel.add(new Pair(e.n1, e.n2));
+        }
+        List<ThreeExpAA> allLongDenoisedTagList = inferSegment.getLongDenoisedTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, pairToDel);
 //        truth = "#RFPAEDEFPD#SAHNNHMAK";
         Set<String> correctTagsBefore = new HashSet<>();
         Set<String> totalTagsAfter = new HashSet<>();
         Set<String> correctTagsAfter = new HashSet<>();
         List<ThreeExpAA> denoisedTags = new ArrayList<>();
-        for(ThreeExpAA tag: tag4List) {
+        for(ThreeExpAA tag: allLongTagList) {
             String tagSeq = tag.getPtmFreeAAString();
             String revTagSeq = new StringBuilder(tagSeq).reverse().toString();
 
@@ -328,109 +335,99 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         if (scanNum == 1886) {
             int a = 1;
         }
-//        System.out.println(scanNum+","+expAaLists.size() + "," + correctTagsBefore.size() +","+totalTagsAfter.size()+","+correctTagsAfter.size());
-        if (!tag3List.isEmpty()) {
-            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(tag3List);
-//            SparseVector scanCode = new SparseVector();
+        if (!allLongTagList.isEmpty()) {
 
-            Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
-            Map<String, Set<String>> tagProtMap = buildIndex.getInferSegment().tag4ProtMap;
-            List<Pair<String, Double>> tagSeqList = new ArrayList<>();
-            Set<String> candiSet = new HashSet<>();
-            Set<ThreeExpAA> tagWithScore5 = new HashSet<>();
-            FMIndex fmIndex = buildIndex.fmIndex;
-            for (ThreeExpAA tagInfo: tag7List) {
-                String tag = tagInfo.getPtmFreeAAString().replace('#','L');
-//                if (tag.contains("I") || tag.contains("L")) {
-//                    System.out.println("tag has I or L");
-//                }
-                String revTag = new StringBuilder(tag).reverse().toString();
-                int compareResult = tag.compareTo(revTag);
-                if (compareResult > 0) {
-                    tag = revTag;
-                }
-                if (tagPepMap.containsKey(tag)) {
-                    candiSet.addAll(tagPepMap.get(tag));
-                }
-                tagSeqList.add(new Pair(tag, tagInfo.getTotalIntensity()));
-                if (tagInfo.getTotalIntensity() == 5) {
-                    tagWithScore5.add(tagInfo);
-                }
+            int[] debugScans = new int[]{3452,45474,45515,45532,45741,45780,46000,46034,50377,50650,52158,51975,52021,52031,52090,52180,52338,52335,52411,52438,53487};
+            List<Integer> debugList = new LinkedList<>();
+            for (int deScanNum : debugScans){
+                debugList.add(deScanNum);
             }
+            if (debugList.contains(scanNum)){
+                int a = 1;
+            }
+            List<Pair<String, Double>> tagSeqList = new ArrayList<>();
+            FMIndex fmIndex = buildIndex.fmIndex;
 
             ArrayList<Pair<Integer, Double>> posScoreList = new ArrayList<>();
             Set<String> usedLongTags = new HashSet<>();
-            for (ThreeExpAA longTag : allLongTagList.subList(0, validTagNum)) {
+            Map<Integer , String> posTagMap = new HashMap<>();
+            Queue<Pair<String, Double>> tagQueue = new LinkedList<>();
+
+            for (ThreeExpAA longTag : allLongTagList.subList(0, Math.min(validTagNum, allLongTagList.size()))) {
                 if (longTag.size() < 6) continue;
 
                 double[] intensityArray = longTag.intensityArray;
-                String oriTagStr = longTag.getPtmFreeAAString().replace('#','L');
-//                String revOriStr = new StringBuilder(oriTagStr).reverse().toString();
-                Queue<Pair<String, Double>> tagQueue = new LinkedList<>();
+                String oriTagStr = longTag.getPtmFreeAAString().replace('#', 'L');
+//                Queue<Pair<String, Double>> tagQueue = new LinkedList<>();
 
                 tagQueue.offer(new Pair<>(oriTagStr, longTag.getTotalIntensity()));
-                while (!tagQueue.isEmpty()) {
-                    Pair<String, Double> tagPair = tagQueue.poll();
-                    int ptnForwardCount = 0;
-                    int ptnBackwardCount = 0;
+//                tagList.add(new Pair<>(oriTagStr, longTag.getTotalIntensity()));
+            }
+//tagQueue.
+            LinkedList<Pair<String, Double>> tagList = new LinkedList<>();
+            Set<String> tagsThisRound = new HashSet<>();
+            while (!tagQueue.isEmpty()) {
+                Pair<String, Double> tagPair = tagQueue.poll();
+                int ptnForwardCount = 0;
+                int ptnBackwardCount = 0;
 
-                    String tagStr = tagPair.getFirst();
-                    if (!usedLongTags.contains(tagStr)) {
-                        usedLongTags.add(tagStr);
-                        char[] tagChar = tagStr.toCharArray();
-                        SearchInterval searchForward = fmIndex.fmSearch(tagChar);
-                        if (searchForward != null) {
-                            ptnForwardCount = searchForward.ep - searchForward.sp + 1;
-                            if (ptnForwardCount > 0) {
-                                for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
-                                    posScoreList.add(new Pair<>(fmIndex.SA[ii], tagPair.getSecond()/1));
-                                }
+                String tagStr = tagPair.getFirst();
+                if (!usedLongTags.contains(tagStr)) {
+                    usedLongTags.add(tagStr);
+                    char[] tagChar = tagStr.toCharArray();
+                    SearchInterval searchForward = fmIndex.fmSearch(tagChar);
+                    if (searchForward != null) {
+                        ptnForwardCount = searchForward.ep - searchForward.sp + 1;
+                        if (ptnForwardCount > 0) {
+                            for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
+                                posScoreList.add(new Pair<>(fmIndex.SA[ii], tagPair.getSecond()/1));
+                                posTagMap.put(fmIndex.SA[ii], tagStr);
                             }
-                        }
-                    }
-                    String revTagStr = new StringBuilder(tagStr).reverse().toString();
-                    if (!usedLongTags.contains(revTagStr)) {
-                        usedLongTags.add(revTagStr);
-                        char[] revTagChar = revTagStr.toCharArray();
-                        SearchInterval searchBackward = fmIndex.fmSearch(revTagChar);
-                        if (searchBackward != null) {
-                            ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
-                            if (ptnBackwardCount > 0) {
-                                for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
-                                    posScoreList.add(new Pair<>(fmIndex.SA[ii], tagPair.getSecond()/1));
-                                }
-                            }
-                        }
-                    }
-
-
-                    if (ptnForwardCount + ptnBackwardCount >= 1) {
-                        break;
-                    }
-
-                    if (tagStr.length() > 7) {
-                        String subTagL = tagStr.substring(0, tagStr.length() - 1);
-                        double scoreL = 0;
-                        for (int j = 0; j <= subTagL.length(); j++){
-                            scoreL += intensityArray[j];
-                        }
-                        String subTagR = tagStr.substring(1);
-                        double scoreR = 0;
-                        for (int j = 1; j <= subTagR.length()+1; j++){
-                            scoreR += intensityArray[j];
-                        }
-                        if (!usedLongTags.contains(subTagL)){
-                            tagQueue.offer(new Pair<>(subTagL, scoreL));
-                        }
-                        if (!usedLongTags.contains(subTagR)){
-                            tagQueue.offer(new Pair<>(subTagR, scoreR));
                         }
                     }
                 }
+                String revTagStr = new StringBuilder(tagStr).reverse().toString();
+                if (!usedLongTags.contains(revTagStr)) {
+                    usedLongTags.add(revTagStr);
+                    char[] revTagChar = revTagStr.toCharArray();
+                    SearchInterval searchBackward = fmIndex.fmSearch(revTagChar);
+                    if (searchBackward != null) {
+                        ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
+                        if (ptnBackwardCount > 0) {
+                            for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
+                                posScoreList.add(new Pair<>(fmIndex.SA[ii], tagPair.getSecond()/1));
+                                posTagMap.put(fmIndex.SA[ii], revTagStr);
+                            }
+                        }
+                    }
+                }
+
+
+                if (ptnForwardCount + ptnBackwardCount >= 1) {
+                    break; // if it is processing original tags, dont break
+                }
+                if (tagStr.length() > 6) tagsThisRound.add(tagStr);
+
+                if (tagQueue.isEmpty()) {
+                    for (String tag : tagsThisRound) {
+                        String subTagL = tag.substring(0, tag.length() - 1);
+                        String subTagR = tag.substring(1);
+
+                        if (!usedLongTags.contains(subTagL)){
+                            tagQueue.offer(new Pair<>(subTagL, subTagL.length()-0.5));
+                        }
+                        if (!usedLongTags.contains(subTagR)){
+                            tagQueue.offer(new Pair<>(subTagR, subTagR.length()-0.5));
+                        }
+                    }
+                }
+
+
             }
 
             double highestScore = 0;
             Map<String, Double> protScoreMap = new HashMap<>();
+            Map<String, Set<String>> protTagMap = new HashMap<>();
             Map<String, Integer> protTimesMap = new HashMap<>();
             for (Pair<Integer, Double> posScore : posScoreList) {
                 int res = Arrays.binarySearch(buildIndex.dotPosArr, posScore.getFirst());
@@ -438,20 +435,25 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     System.out.println("located on dot sign," + scanNum);
                 }
                 String prot = buildIndex.posProtMap.get(-res-2);
-                if (prot.contentEquals("sp|P12277|KCRB_HUMAN")){
-                    int a = 1;
-                }
                 if (protScoreMap.containsKey(prot) ) {
                     protScoreMap.put(prot, protScoreMap.get(prot)+posScore.getSecond());
                     protTimesMap.put(prot, protTimesMap.get(prot)+1);
+                    protTagMap.get(prot).add(posTagMap.get(posScore.getFirst()));
                     if (protScoreMap.get(prot)+posScore.getSecond() > highestScore) highestScore = protScoreMap.get(prot)+posScore.getSecond();
+//                    if (prot.contentEquals("sp|Q8WXG9|AGRV1_HUMAN")){
+//                        System.out.println(scanNum + "," + posScore.getSecond() );
+//                    }
                 } else {
                     protScoreMap.put(prot, posScore.getSecond());
                     protTimesMap.put(prot, 1);
+                    Set<String> temp = new HashSet<>();
+                    temp.add(posTagMap.get(posScore.getFirst()));
+                    protTagMap.put(prot,temp);
                     if (posScore.getSecond() > highestScore) highestScore = posScore.getSecond();
-
+//                    if (prot.contentEquals("sp|Q8WXG9|AGRV1_HUMAN")){
+//                        System.out.println(scanNum + "," + posScore.getSecond() );
+//                    }
                 }
-//                protScoreMap.put(prot,)
             }
 
 
@@ -459,11 +461,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             entry.candidateList = tagSeqList;
             Map<String, Double> top1Pep = new HashMap<>();
             for (String prot : protScoreMap.keySet()) {
-                if (protScoreMap.get(prot) > highestScore-3) {
-                    entry.protScoreMap.put(prot, protScoreMap.get(prot));
+                if (protScoreMap.get(prot) > highestScore*0.9) {
+                    top1Pep.put(prot, protScoreMap.get(prot));
                 }
             }
-//            entry.protScoreMap = protScoreMap;
+            if (top1Pep.containsKey("sp|Q8WXG9|AGRV1_HUMAN")){
+//                System.out.println(scanNum + "," + top1Pep.get("sp|Q8WXG9|AGRV1_HUMAN") );
+            }
+            entry.protScoreMap = top1Pep;
 //            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
 //                    , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, candiSet, "n"+truth+"c");
 

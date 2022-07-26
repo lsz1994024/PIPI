@@ -162,51 +162,51 @@ public class InferSegment {
     public SparseBooleanVector generateSegmentBooleanVector(String peptide, String[] proteins) {
 
         String normalizedPeptide = normalizeSequence(DbTool.getSequenceOnly(peptide));
-        for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
-
-            Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
-            String tag = seg.toString();
-//            if (tag.contains("#")) {
-//                int a = 0;
+//        for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
+//
+//            Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
+//            String tag = seg.toString();
+////            if (tag.contains("#")) {
+////                int a = 0;
+////            }
+//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 4).replace('#','L'));
+//            String tagL = segL.toString();
+//
+//            if (tagPepMap.containsKey(tag)) {
+//                tagPepMap.get(tag).add(peptide);
+//            } else {
+//                Set<String> pepSet = new HashSet<>();
+//                pepSet.add(peptide);
+//                tagPepMap.put(tag, pepSet);
 //            }
-            Segment segL = new Segment(normalizedPeptide.substring(i, i + 4).replace('#','L'));
-            String tagL = segL.toString();
-
-            if (tagPepMap.containsKey(tag)) {
-                tagPepMap.get(tag).add(peptide);
-            } else {
-                Set<String> pepSet = new HashSet<>();
-                pepSet.add(peptide);
-                tagPepMap.put(tag, pepSet);
-            }
-            for (String prot : proteins) {
-                if (prot.contains("DECOY")) continue;
-
-                if (tag4ProtMap.containsKey(tagL)) {
-                    tag4ProtMap.get(tagL).add(prot);
-                } else {
-                    Set<String> protSet = new HashSet<>();
-                    protSet.add(prot);
-                    tag4ProtMap.put(tagL, protSet);
-                }
-            }
-        }
-
-        for (int i = 0; i <= normalizedPeptide.length() - 7; ++i) {
-            Segment segL = new Segment(normalizedPeptide.substring(i, i + 7).replace('#','L'));
-            String tagL = segL.toString();
-            for (String prot : proteins) {
-                if (prot.contains("DECOY")) continue;
-
-                if (tag7ProtMap.containsKey(tagL)) {
-                    tag7ProtMap.get(tagL).add(prot);
-                } else {
-                    Set<String> protSet = new HashSet<>();
-                    protSet.add(prot);
-                    tag7ProtMap.put(tagL, protSet);
-                }
-            }
-        }
+//            for (String prot : proteins) {
+//                if (prot.contains("DECOY")) continue;
+//
+//                if (tag4ProtMap.containsKey(tagL)) {
+//                    tag4ProtMap.get(tagL).add(prot);
+//                } else {
+//                    Set<String> protSet = new HashSet<>();
+//                    protSet.add(prot);
+//                    tag4ProtMap.put(tagL, protSet);
+//                }
+//            }
+//        }
+//
+//        for (int i = 0; i <= normalizedPeptide.length() - 7; ++i) {
+//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 7).replace('#','L'));
+//            String tagL = segL.toString();
+//            for (String prot : proteins) {
+//                if (prot.contains("DECOY")) continue;
+//
+//                if (tag7ProtMap.containsKey(tagL)) {
+//                    tag7ProtMap.get(tagL).add(prot);
+//                } else {
+//                    Set<String> protSet = new HashSet<>();
+//                    protSet.add(prot);
+//                    tag7ProtMap.put(tagL, protSet);
+//                }
+//            }
+//        }
 //
 //        for (int i = 0; i <= normalizedPeptide.length() - 6; ++i) {
 //            Segment segL = new Segment(normalizedPeptide.substring(i, i + 6).replace('#','L'));
@@ -433,7 +433,71 @@ public class InferSegment {
         ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
 //        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
-            if (path.size() < 7) continue;
+            if (path.size() < 7) continue; //aa length is 6 . peaks number is 7.
+            List<ExpAA> expAAList = new ArrayList<>();
+            for (int i = 0; i < path.size()-1; i++){
+                int j = i + 1;
+                expAAList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+            }
+            outputList.add(new ThreeExpAA(expAAList));
+        }
+        outputList.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+        boolean[] shouldKeep = new boolean[outputList.size()];
+        Set<String> addedTags = new HashSet<>();
+        int i = 0;
+        for(ThreeExpAA tag : outputList) {
+            if (addedTags.contains(tag.getPtmFreeAAString())) {
+                shouldKeep[i] = false;
+            } else {
+                shouldKeep[i] = true;
+                addedTags.add(tag.getPtmFreeAAString());
+            }
+            i++;
+        }
+        List<ThreeExpAA> finalList = new LinkedList<>();
+        for (int j = 0; j < outputList.size(); j++){
+            if (shouldKeep[j]) {
+                finalList.add(outputList.get(j));
+            }
+        }
+        return finalList;
+    }
+
+    public List<ThreeExpAA> getLongDenoisedTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, Set<Pair<Integer, Integer>> edgeToDel) throws Exception {
+        Double[] mzArray = plMap.keySet().toArray(new Double[0]);
+        Double[] intensityArray = plMap.values().toArray(new Double[0]);
+        List<ThreeExpAA> outputList = new LinkedList<>();
+
+        Set<Pair<Integer, Integer>> edgeSet = new HashSet<>();
+        Set<Integer> nodeSet = new HashSet<>();
+        Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
+        Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
+        Map<Pair<Integer, Integer>, ExpAA> edgeInfoMap = new HashMap<>();
+        for (int i = 0; i < mzArray.length - 1; ++i) {
+            double mz1 = mzArray[i];
+            double intensity1 = intensityArray[i];
+            for (int j = i + 1; j < mzArray.length; ++j) {
+                double mz2 = mzArray[j];
+                double intensity2 = intensityArray[j];
+                String aa = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                if (aa != null) {
+                    Pair<Integer, Integer> edge = new Pair<>(i,j);
+                    if (!edgeToDel.contains(edge)) edgeSet.add(edge);
+                    nodeSet.add(i);
+                    nodeSet.add(j);
+                    startNodeSet.remove(j);
+                    endNodeSet.remove(i);
+                    edgeInfoMap.put(edge, new ExpAA(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, -1, 0, 0, 0));
+                }
+            }
+        }
+        startNodeSet.retainAll(nodeSet);
+        endNodeSet.retainAll(nodeSet);
+        Graph g = new Graph(edgeSet, nodeSet);
+        ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
+//        Map<String, Double>
+        for (ArrayList<Integer> path : allPath) {
+            if (path.size() < 7) continue; //aa length is 6 . peaks number is 7.
             List<ExpAA> expAAList = new ArrayList<>();
             for (int i = 0; i < path.size()-1; i++){
                 int j = i + 1;
