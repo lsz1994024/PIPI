@@ -280,7 +280,7 @@ public class PIPI {
                                 for (Pair<String, Double> tagScore : tagScoreList){
                                     String tag = tagScore.getFirst();
                                     if (tagScoreMap.containsKey(tag)){
-                                        tagScoreMap.put(tag, Math.min(Math.max(10, tagScore.getSecond()), tagScore.getSecond() + tagScoreMap.get(tag)));
+                                        tagScoreMap.put(tag, Math.min(tag.length()*2, tagScore.getSecond() + tagScoreMap.get(tag)));
 //                                        tagScoreMap.put(tag, tagScore.getSecond() + tagScoreMap.get(tag));
                                     } else {
                                         tagScoreMap.put(tag, tagScore.getSecond());
@@ -291,7 +291,7 @@ public class PIPI {
                                 for (Pair<String, Double> tagScore : tagScoreList){
                                     String tag = tagScore.getFirst();
                                     if (tagScoreMap.containsKey(tag)){
-                                        tagScoreMap.put(tag, Math.min(Math.max(10, tagScore.getSecond()), tagScore.getSecond() + tagScoreMap.get(tag)));
+                                        tagScoreMap.put(tag, Math.min(tag.length()*2, tagScore.getSecond() + tagScoreMap.get(tag)));
 //                                        tagScoreMap.put(tag, tagScore.getSecond() + tagScoreMap.get(tag));
                                     } else {
                                         tagScoreMap.put(tag, tagScore.getSecond());
@@ -354,30 +354,35 @@ public class PIPI {
             lock.unlock();
         }
         Map<String , Integer> protLengthMap = buildIndex.protLengthMap;
-        for (String prot : protTagScoreMapMap.keySet()){
-            Map<String , Double> tagScoreMap = protTagScoreMapMap.get(prot);
-            Set<String> tagToRemove = new HashSet<>();
-            for  (String tag :tagScoreMap.keySet()) {
-//                if (tagScoreMap.get(tag) < tag.length()*0.2) {
-//                    tagToRemove.add(tag);
-//                }
-            }
-            for (String tag : tagToRemove) {
-                tagScoreMap.remove(tag);
-            }
-        }
+//        for (String prot : protTagScoreMapMap.keySet()){
+//            Map<String , Double> tagScoreMap = protTagScoreMapMap.get(prot);
+//            Set<String> tagToRemove = new HashSet<>();
+//            for  (String tag :tagScoreMap.keySet()) {
+////                if (tagScoreMap.get(tag) < tag.length()*0.2) {
+////                    tagToRemove.add(tag);
+////                }
+//            }
+//            for (String tag : tagToRemove) {
+//                tagScoreMap.remove(tag);
+//            }
+//        }
         Map<String, Double> protScoreFinalMap = new HashMap<>();
         Map<String, Integer> tagNumMap = new HashMap<>();
         for (String prot : protTagScoreMapMap.keySet()){
             double score = 0;
+            double totalLen = 0;
             Map<String , Double> tagScoreMap = protTagScoreMapMap.get(prot);
             if (tagScoreMap.isEmpty()) {
                 continue;
             }
+//            for  (String tag :tagScoreMap.keySet()) {
+//                score += tagScoreMap.get(tag);
+//            }
             for  (String tag :tagScoreMap.keySet()) {
-                score += tagScoreMap.get(tag);
+                score += tagScoreMap.get(tag) * tag.length()* tag.length();
+                totalLen+= tag.length();
             }
-            protScoreFinalMap.put(prot, score);
+            protScoreFinalMap.put(prot, score*totalLen/Math.sqrt(protLengthMap.get(prot)));
 
             for (String tag :tagScoreMap.keySet()) {
                 if (tagNumMap.containsKey(tag)) {
