@@ -48,6 +48,8 @@ public class BuildIndex {
     public FMIndex fmIndex = null;
     public int[] dotPosArr = null;
     public Map<Integer, String> posProtMap = new HashMap<>();
+    public Map<String, String> proteinPeptideMap;
+
     public BuildIndex(Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
         // initialize parameters
         int minPeptideLength = Math.max(5, Integer.valueOf(parameterMap.get("min_peptide_length")));
@@ -86,7 +88,7 @@ public class BuildIndex {
 
         // read protein database
         dbTool = new DbTool(dbPath, parameterMap.get("database_type"));
-        Map<String, String> proteinPeptideMap;
+//        Map<String, String> proteinPeptideMap;
         DbTool contaminantsDb = null;
         if (addContaminant) {
             contaminantsDb = new DbTool(null, "contaminants");
