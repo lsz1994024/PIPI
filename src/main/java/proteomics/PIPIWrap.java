@@ -122,31 +122,8 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
-//        for(ThreeExpAA tag : expAaLists) {
-//            System.out.println(tag.getPtmFreeAAString());
-//        }
         if (true) {
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
-
-            // Begin search.
-//            Search search = new Search(scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge);
-            // prepare the spectrum
-
-//            String pepHighestSimiScore = "";
-//            double highestScore = -1;
-//            for (Peptide peptide : search.getPTMOnlyResult()) {
-//                if (peptide.getNormalizedCrossCorr() >= highestScore) {
-//                    pepHighestSimiScore = peptide.getPTMFreePeptide();
-//                    highestScore = peptide.getNormalizedCrossCorr();
-//                }
-//            }
-//
-//            for (Peptide peptide : search.getPTMFreeResult()) {
-//                if (peptide.getNormalizedCrossCorr() >= highestScore) {
-//                    pepHighestSimiScore = peptide.getPTMFreePeptide();
-//                    highestScore = peptide.getNormalizedCrossCorr();
-//                }
-//            }
 
 
             SparseVector expProcessedPL;
@@ -167,9 +144,6 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             TreeSet<Peptide> peptideSet = new TreeSet<>(Collections.reverseOrder());
             Map<String, TreeSet<Peptide>> modSequences = new TreeMap<>();
             int whereIsTopCand = 0; // 0 for still top, -1 for no PTM pattern, -2 for PTM free but score < 0, other number is the final ranking
-//            GRBEnv env = new GRBEnv(true);
-//            env.set(GRB.IntParam.OutputFlag,0);
-//            env.start();
             int indexOfPtmContainCandidates = 1;
             for (Peptide peptide : ptmOnlyList) {
                 Peptide0 peptide0 = peptide0Map.get(peptide.getPTMFreePeptide());

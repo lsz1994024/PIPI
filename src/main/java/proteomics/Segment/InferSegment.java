@@ -162,84 +162,19 @@ public class InferSegment {
     public SparseBooleanVector generateSegmentBooleanVector(String peptide, String[] proteins) {
 
         String normalizedPeptide = normalizeSequence(DbTool.getSequenceOnly(peptide));
-//        for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
-//
-//            Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
-//            String tag = seg.toString();
-////            if (tag.contains("#")) {
-////                int a = 0;
-////            }
-//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 4).replace('#','L'));
-//            String tagL = segL.toString();
-//
-//            if (tagPepMap.containsKey(tag)) {
-//                tagPepMap.get(tag).add(peptide);
-//            } else {
-//                Set<String> pepSet = new HashSet<>();
-//                pepSet.add(peptide);
-//                tagPepMap.put(tag, pepSet);
-//            }
-//            for (String prot : proteins) {
-//                if (prot.contains("DECOY")) continue;
-//
-//                if (tag4ProtMap.containsKey(tagL)) {
-//                    tag4ProtMap.get(tagL).add(prot);
-//                } else {
-//                    Set<String> protSet = new HashSet<>();
-//                    protSet.add(prot);
-//                    tag4ProtMap.put(tagL, protSet);
-//                }
-//            }
-//        }
-//
-//        for (int i = 0; i <= normalizedPeptide.length() - 7; ++i) {
-//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 7).replace('#','L'));
-//            String tagL = segL.toString();
-//            for (String prot : proteins) {
-//                if (prot.contains("DECOY")) continue;
-//
-//                if (tag7ProtMap.containsKey(tagL)) {
-//                    tag7ProtMap.get(tagL).add(prot);
-//                } else {
-//                    Set<String> protSet = new HashSet<>();
-//                    protSet.add(prot);
-//                    tag7ProtMap.put(tagL, protSet);
-//                }
-//            }
-//        }
-//
-//        for (int i = 0; i <= normalizedPeptide.length() - 6; ++i) {
-//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 6).replace('#','L'));
-//            String tagL = segL.toString();
-//            for (String prot : proteins) {
-//                if (prot.contains("DECOY")) continue;
-//
-//                if (tag6ProtMap.containsKey(tagL)) {
-//                    tag6ProtMap.get(tagL).add(prot);
-//                } else {
-//                    Set<String> protSet = new HashSet<>();
-//                    protSet.add(prot);
-//                    tag6ProtMap.put(tagL, protSet);
-//                }
-//            }
-//        }
+        for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
 
+            Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
+            String tag = seg.toString();
 
-//        for (int i = 0; i <= normalizedPeptide.length() - 8; ++i) {
-//            Segment segL = new Segment(normalizedPeptide.substring(i, i + 8).replace('#','L'));
-//            String tagL = segL.toString();
-//            for (String prot : proteins) {
-//                if (prot.contains("DECOY")) continue;
-//
-//                if (tag8ProtMap.containsKey(tagL)) {
-//                    tag8ProtMap.get(tagL).add(prot);
-//                } else {
-//                    Set<String> protSet = new HashSet<>();
-//                    protSet.add(prot);
-//                    tag8ProtMap.put(tagL, protSet);
-//                }
-//            }
-//        }
+            if (tagPepMap.containsKey(tag)) {
+                tagPepMap.get(tag).add(peptide);
+            } else {
+                Set<String> pepSet = new HashSet<>();
+                pepSet.add(peptide);
+                tagPepMap.put(tag, pepSet);
+            }
+        }
 
         Set<Integer> tempSet = new HashSet<>(DbTool.getSequenceOnly(peptide).length() + 1, 1);
         for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
