@@ -209,7 +209,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-//            threadNum = 1;
+            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPool = Executors.newFixedThreadPool(threadNum);
@@ -231,10 +231,7 @@ public class PIPI {
             int precursorCharge = sqlResultSet.getInt("precursorCharge");
             int precursorScanNo = sqlResultSet.getInt("precursorScanNo");
             double precursorMass = sqlResultSet.getDouble("precursorMass");
-//            if (scanNum != 2327) {  //22459
-//                continue;
-//            }
-//            if (scanNum != 48035 && scanNum!=3452) {  //3452
+//            if (scanNum != 1886) {  //22459
 //                continue;
 //            }
 //            if (!pepTruth.containsKey(scanNum)){
@@ -244,7 +241,6 @@ public class PIPI {
             precursorChargeMap.put(scanNum, precursorCharge);
             precursorMassMap.put(scanNum, precursorMass);
             submitNum++;
-//            System.out.println("submitted, "+ scanNum);
             taskList.add(threadPool.submit(new PreSearch(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                     , spectraParser, minClear, maxClear, lock, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo, pepTruth.get(1886))));
@@ -262,10 +258,7 @@ public class PIPI {
         int resultCount = 0;
         int totalCount = taskList.size();
         int count = 0;
-        List<Pair<String, Double>> tagSeqList = new ArrayList<>();
-        Map<String, Double> protScoreLongMap = new HashMap<>();
         Map<String, Map<String, Double>> protTagScoreMapMap = new HashMap<>();
-//        Set<String> tagSet = new HashSet<>();
         while (count < totalCount) {
             // record search results and delete finished ones.
             List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count);
@@ -273,12 +266,6 @@ public class PIPI {
                 if (task.isDone()) {
                     if (task.get() != null) {
                         PreSearch.Entry entry = task.get();
-//                        System.out.println("get, "+ entry.scanNum);
-
-//                        tagSeqList.addAll(entry.candidateList);
-//                        for (Pair<String, Double> tagPair : entry.candidateList){
-//                            tagSet.add(tagPair.getKey());
-//                        }
                         for (String prot : entry.protTagScoreMap.keySet()){
                             List<Pair<String, Double>> tagScoreList = entry.protTagScoreMap.get(prot);
                             if (protTagScoreMapMap.containsKey(prot)) {
@@ -287,7 +274,6 @@ public class PIPI {
                                     String tag = tagScore.getFirst();
                                     if (tagScoreMap.containsKey(tag)){
                                         tagScoreMap.put(tag, Math.min(tag.length()*2, tagScore.getSecond() + tagScoreMap.get(tag)));
-//                                        tagScoreMap.put(tag, tagScore.getSecond() + tagScoreMap.get(tag));
                                     } else {
                                         tagScoreMap.put(tag, tagScore.getSecond());
                                     }
@@ -298,7 +284,6 @@ public class PIPI {
                                     String tag = tagScore.getFirst();
                                     if (tagScoreMap.containsKey(tag)){
                                         tagScoreMap.put(tag, Math.min(tag.length()*2, tagScore.getSecond() + tagScoreMap.get(tag)));
-//                                        tagScoreMap.put(tag, tagScore.getSecond() + tagScoreMap.get(tag));
                                     } else {
                                         tagScoreMap.put(tag, tagScore.getSecond());
                                     }
@@ -307,13 +292,6 @@ public class PIPI {
                             }
                         }
 
-                        for (String prot : entry.protScoreMap.keySet()) {
-                            if (protScoreLongMap.containsKey(prot)) {
-                                protScoreLongMap.put(prot, protScoreLongMap.get(prot)+entry.protScoreMap.get(prot));
-                            } else {
-                                protScoreLongMap.put(prot, entry.protScoreMap.get(prot));
-                            }
-                        }
                         ptmOnlyCandiMap.put(entry.scanNum, entry.ptmOnlyList);
                         ptmFreeCandiMap.put(entry.scanNum, entry.ptmFreeList);
                         if (pcMassScanNoMap.containsKey(entry.precursorMass)) {
@@ -371,9 +349,6 @@ public class PIPI {
             if (tagScoreMap.isEmpty()) {
                 continue;
             }
-//            for  (String tag :tagScoreMap.keySet()) {
-//                score += tagScoreMap.get(tag);
-//            }
             for  (String tag :tagScoreMap.keySet()) {
                 score += tagScoreMap.get(tag) * tag.length()* tag.length();
                 totalLen+= tag.length();
@@ -423,7 +398,6 @@ public class PIPI {
 
         System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNoMap.size() + "," + ptmOnlyCandiMap.keySet().size());
         logger.info("Start searching...");
-//        int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
@@ -434,10 +408,7 @@ public class PIPI {
         ArrayList<Future<PIPIWrap.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
         ReentrantLock lock2 = new ReentrantLock();
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
-//        Statement sqlStatementNew = sqlConnection.createStatement();
-//        ResultSet sqlResultSetNew = null;
         int submitTimes = 0;
-
         Set<String> protHardSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
             if (pair.getSecond() < 1) continue;
@@ -447,9 +418,6 @@ public class PIPI {
         Map<String, Peptide0> pep0Map = buildIndex.getPeptide0Map();
         for (double mass : pcMassScanNoMap.keySet()) {
             for (int thisScanNum : pcMassScanNoMap.get(mass)){
-//                if (ptmOnlyCandiMap.get(thisScanNum) == null) {
-//                    System.out.println("null lsz :" + thisScanNum );
-//                }
                 Set<Peptide> realPtmOnlyList = new HashSet<>();
                 Set<Peptide> realPtmFreeList = new HashSet<>();
                 for (Peptide pep : ptmOnlyCandiMap.get(thisScanNum)) {
@@ -471,6 +439,7 @@ public class PIPI {
                         }
                     }
                 }
+//                System.out.println(thisScanNum+","+ptmOnlyCandiMap.get(thisScanNum).size()+","+ptmFreeCandiMap.get(thisScanNum).size()+"," + realPtmOnlyList.size()+","+realPtmFreeList.size());
                 for (Set<Integer> otherScanNumSet : pcMassScanNoMap.subMap(mass - 0.02, true, mass + 0.02, true).values()) {
                     for (int otherScanNum : otherScanNumSet) {
 
@@ -483,7 +452,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
@@ -493,7 +461,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -510,7 +477,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
@@ -520,7 +486,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -537,7 +502,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
@@ -547,7 +511,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -564,7 +527,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
@@ -574,7 +536,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -591,7 +552,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
@@ -601,7 +561,6 @@ public class PIPI {
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -613,22 +572,20 @@ public class PIPI {
                             for (Peptide pep : ptmOnlyCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
                                     if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (true) {
+                                    if (protHardSet.contains(prot)) {
                                         realPtmOnlyList.add(pep.clone());
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
                                     if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (true) {
+                                    if (protHardSet.contains(prot)) {
                                         realPtmFreeList.add(pep.clone());
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -640,22 +597,20 @@ public class PIPI {
                             for (Peptide pep : ptmOnlyCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
                                     if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (true) {
+                                    if (protHardSet.contains(prot)) {
                                         realPtmOnlyList.add(pep.clone());
                                         break;
                                     }
                                 }
-//                                realPtmOnlyList.add(pep.clone());
                             }
                             for (Peptide pep : ptmFreeCandiMap.get(otherScanNum)) {
                                 for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
                                     if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (true) {
+                                    if (protHardSet.contains(prot)) {
                                         realPtmFreeList.add(pep.clone());
                                         break;
                                     }
                                 }
-//                                realPtmFreeList.add(pep.clone());
                             }
                         }
                     }
@@ -665,6 +620,7 @@ public class PIPI {
                 int precursorScanNo = 0;
                 double precursorMass = precursorMassMap.get(thisScanNum);
                 submitTimes++;
+//                System.out.println(thisScanNum+","+realPtmOnlyList.size()+","+realPtmFreeList.size());
                 taskListPTM.add(threadPool2.submit(new PIPIWrap(thisScanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass()
                         , inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParser, minClear, maxClear, lock2, scanId, precursorCharge, precursorMass, inferPTM, preSpectrum
                         , sqlPath, binomial, precursorScanNo, realPtmOnlyList, realPtmFreeList)));
