@@ -35,7 +35,7 @@ import java.util.*;
 public class PreSpectra {
 
     private static final Logger logger = LoggerFactory.getLogger(PreSpectra.class);
-    public static final int topN = 10;
+    public static final int topN = 14;
 
     private final IsotopeDistribution isotopeDistribution;
 
