@@ -51,7 +51,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private final double minClear;
     private final double maxClear;
     private final ReentrantLock lock;
-    private final String scanId;
+    private final String scanIdF;
     private final int precursorCharge;
     private final double precursorMass;
     private final InferPTM inferPTM;
@@ -64,7 +64,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
     public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double ms2Tolerance, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
-            , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge, double precursorMass
+            , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanIdF, int precursorCharge, double precursorMass
             , InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, int precursorScanNo, String truth) {
 
         this.buildIndex = buildIndex;
@@ -81,7 +81,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         this.minClear = minClear;
         this.maxClear = maxClear;
         this.lock = lock;
-        this.scanId = scanId;
+        this.scanIdF = scanIdF;
         this.precursorCharge = precursorCharge;
         this.precursorMass = precursorMass;
         this.inferPTM = inferPTM;
@@ -98,7 +98,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Map<Double, Double> rawPLMap;
         try {
             lock.lock();
-            rawPLMap = spectraParser.getSpectrumById(scanId).getPeakList();
+            rawPLMap = spectraParser.getSpectrumById(scanIdF.split("\\.")[1]).getPeakList();
         } finally {
             lock.unlock();
         }
@@ -504,7 +504,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
 //            long t2 = System.currentTimeMillis();
 //            System.out.println(scanNum+",finished," + (t2-t1));
-
+            entry.scanIdF = this.scanIdF;
             return entry;
         } else {
 //            System.out.println("nullLsz, "+ scanNum);
@@ -544,6 +544,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         public Map<String, Double> protScoreMap = new HashMap<>();
 
         public Map<String, List<Pair<String, Double>>> protTagScoreMap = new HashMap<>();
+        public String scanIdF;
         Entry() {
 //            this.scanNum = scanNum;
         }

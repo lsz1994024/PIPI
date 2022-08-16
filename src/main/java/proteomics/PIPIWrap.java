@@ -24,7 +24,6 @@ import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
 import ProteomicsLibrary.Binomial;
 import proteomics.Search.CalSubscores;
-import proteomics.Search.Search;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.PrepareSpectrum;
 import ProteomicsLibrary.MassTool;
@@ -55,7 +54,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
     private final double minClear;
     private final double maxClear;
     private final ReentrantLock lock;
-    private final String scanId;
+    private final String scanIdF;
     private final int precursorCharge;
     private final double precursorMass;
     private final InferPTM inferPTM;
@@ -70,7 +69,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
 
 
     public PIPIWrap(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
-            , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanId, int precursorCharge
+            , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanIdF, int precursorCharge
             , double precursorMass, InferPTM inferPTM, PrepareSpectrum preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo,  Set<Peptide> ptmOnlyList,  Set<Peptide> ptmFreeList) {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -86,7 +85,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         this.minClear = minClear;
         this.maxClear = maxClear;
         this.lock = lock;
-        this.scanId = scanId;
+        this.scanIdF = scanIdF;
         this.precursorCharge = precursorCharge;
         this.precursorMass = precursorMass;
         this.inferPTM = inferPTM;
@@ -106,24 +105,23 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         try {
             lock.lock();
             // Reading peak list.
-            rawPLMap = spectraParser.getSpectrumById(scanId).getPeakList();
+            rawPLMap = spectraParser.getSpectrumById(scanIdF.split("\\.")[1]).getPeakList();
         } finally {
             lock.unlock();
         }
 
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.
-                preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, PreSpectra.topN);
+        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, PreSpectra.topN);
 
         if (plMap.isEmpty()) {
             return null;
         }
 
         // Coding
-        InferSegment inferSegment = buildIndex.getInferSegment();
-        List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
+//        InferSegment inferSegment = buildIndex.getInferSegment();
+//        List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
         if (true) {
-            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
+//            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
 
 
             SparseVector expProcessedPL;
@@ -148,7 +146,8 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
             for (Peptide peptide : ptmOnlyList) {
                 Peptide0 peptide0 = peptide0Map.get(peptide.getPTMFreePeptide());
 
-                PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr(), peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR, expAaLists);
+                PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr()
+                        , peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
 
                 if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
                     for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {
@@ -203,10 +202,10 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
 
                 Connection sqlConnection = DriverManager.getConnection(sqlPath);
                 Statement sqlStatement = sqlConnection.createStatement();
-                ResultSet sqlResultSet = sqlStatement.executeQuery(String.format(Locale.US, "SELECT scanNum, scanId, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, isDecoy, score FROM spectraTable WHERE scanId='%s'", scanId));
+                ResultSet sqlResultSet = sqlStatement.executeQuery(String.format(Locale.US, "SELECT scanNum, scanIdF, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, isDecoy, score FROM spectraTable WHERE scanIdF='%s'", scanIdF));
                 if (sqlResultSet.next()) {
                     int scanNum = sqlResultSet.getInt("scanNum");
-                    String scanId = sqlResultSet.getString("scanId");
+                    String scanIdF = sqlResultSet.getString("scanIdF");
                     int precursorCharge = sqlResultSet.getInt("precursorCharge");
                     double precursorMass = sqlResultSet.getDouble("precursorMass");
                     String mgfTitle = sqlResultSet.getString("mgfTitle");
@@ -267,13 +266,13 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
                     }
                     isSettled = Math.abs(totalPtmMass-(precursorMass-massTool.calResidueMass(topPeptide.getPTMFreePeptide()) - massTool.H2O)) <= 0.01;
 
-                    Entry entry = new Entry(scanNum, scanId, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), candidatesString, pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand);
+                    Entry entry = new Entry(scanNum, scanIdF, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap()), topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank(), topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn, topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac(), topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), candidatesString, pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand);
 
                     sqlResultSet.close();
                     sqlStatement.close();
                     return entry;
                 } else {
-                    throw new NullPointerException(String.format(Locale.US, "There is no record %s in the spectraTable.", scanId));
+                    throw new NullPointerException(String.format(Locale.US, "There is no record %s in the spectraTable.", scanIdF));
                 }
             } else {
                 return null;
@@ -287,7 +286,7 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
     public class Entry {
 
         final int scanNum;
-        final String scanId;
+        final String scanIdF;
         final int precursorCharge;
         final double precursorMass;
         final String mgfTitle;
@@ -316,9 +315,9 @@ public class PIPIWrap implements Callable<PIPIWrap.Entry> {
         final int isSettled;
         final int shouldPtm;
 
-        Entry(int scanNum, String scanId, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass, String mgfTitle, int isotopeCorrectionNum, double ms1PearsonCorrelationCoefficient, String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac, double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet, int whereIsTopCand) {
+        Entry(int scanNum, String scanIdF, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass, String mgfTitle, int isotopeCorrectionNum, double ms1PearsonCorrelationCoefficient, String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac, double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet, int whereIsTopCand) {
             this.scanNum = scanNum;
-            this.scanId = scanId;
+            this.scanIdF = scanIdF;
             this.shouldPtm = shouldPtm;
             this.hasPTM = hasPTM;
             this.ptmNum = ptmNum;

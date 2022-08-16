@@ -168,7 +168,9 @@ public class InferPTM {
 
 
 
-    public PeptidePTMPattern findPTM(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, char leftFlank, char rightFlank, int globalRank, int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR, List<ThreeExpAA> expAaLists) {
+    public PeptidePTMPattern findPTM(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String ptmFreePeptide, boolean isDecoy,
+                                     double normalizedCrossCorr, char leftFlank, char rightFlank, int globalRank, int precursorCharge, int localMaxMS2Charge,
+                                     double localMS1ToleranceL, double localMS1ToleranceR) {
 //        double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
         PeptidePTMPattern peptidePTMPattern = new PeptidePTMPattern(ptmFreePeptide);
         Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
