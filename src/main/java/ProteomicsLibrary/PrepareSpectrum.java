@@ -25,7 +25,7 @@ public class PrepareSpectrum {
     private static final double defaultIntensity = 1; // DO NOT change. Otherwise, change the whole project accordingly.
     private static final int xcorrOffset = 75;
     private static final double removePrecursorPeakTolerance = 1.5; // this equals the isolation window.
-
+    private static final int maxPlNum = 200;
     private final MassTool massTool;
 
     public PrepareSpectrum(MassTool massTool) {
@@ -41,7 +41,10 @@ public class PrepareSpectrum {
 //        Collections.sort(checkPlList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
 
         TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
+//        NavigableMap<Double,Double> a =  outputPL.descendingMap();
         List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
+        Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getValue));
+        plList = plList.subList(Math.max(plList.size()-maxPlNum, 0), plList.size());
         Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
         //my deiso
 //        System.out.print("lsssssssss");

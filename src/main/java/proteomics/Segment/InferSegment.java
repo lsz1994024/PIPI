@@ -350,8 +350,10 @@ public class InferSegment {
             for (int j = i + 1; j < mzArray.length; ++j) {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
+                if ( (intensity1 + intensity2)/2 < 0.5) continue;
+
                 String aa = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
-                if (aa != null) {
+                if (aa != null ) {
                     Pair<Integer, Integer> edge = new Pair<>(i,j);
                     edgeSet.add(edge);
                     nodeSet.add(i);
