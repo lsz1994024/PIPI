@@ -317,7 +317,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
                 for (ThreeExpAA longTag : allLongTagList.subList(0, Math.min(validTagNum, allLongTagList.size()))) {
                     //            for (ThreeExpAA longTag : allLongTagList) {
-                    if (longTag.getTotalIntensity() < longTag.size() * 0.8 + 0.8) continue;
+                    if (longTag.getTotalIntensity() < longTag.size() * 0.8 + 0.8 && longTag.size() < 10) continue;
 
                     List<Double> intensityList = new ArrayList<>();
                     for (double inte : longTag.intensityArray) {

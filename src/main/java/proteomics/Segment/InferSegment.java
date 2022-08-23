@@ -54,7 +54,7 @@ public class InferSegment {
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
         Map<Character, Double> massTable = massTool.getMassTable();
 
-        char[] standardAaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'I', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W', 'U', 'O'};
+        char[] standardAaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'I', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
 
         Map<Double, Character> massAaMap = new HashMap<>(25, 1);
         for (char aa : standardAaArray) {

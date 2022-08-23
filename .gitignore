@@ -26,3 +26,6 @@ target
 *.mgf
 *.pep.xml
 *.mzXML
+src/main/resources/log.txt
+catProt.txt
+*.TD.fasta

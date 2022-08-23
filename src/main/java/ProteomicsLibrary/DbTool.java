@@ -66,7 +66,7 @@ public class DbTool {
             Matcher headMatcher = headerPattern.matcher(line);
             if (headMatcher.matches()) {
                 // This line is a header
-                if (!newPro) {
+                if (!newPro && !sequence.toString().contains("O") && !sequence.toString().contains("U")) {
                     // This isn't the first protein
                     proteinSequenceMap.put(id, sequence.toString());
                 }
@@ -91,6 +91,11 @@ public class DbTool {
         }
         dbReader.close();
         // Last protein
+        proteinSequenceMap.put(id, sequence.toString());
+        if (!sequence.toString().contains("O") && !sequence.toString().contains("U")) {
+             proteinSequenceMap.put(id, sequence.toString());
+        }
+
         proteinSequenceMap.put(id, sequence.toString());
     }
 

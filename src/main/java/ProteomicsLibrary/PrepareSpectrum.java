@@ -25,7 +25,7 @@ public class PrepareSpectrum {
     private static final double defaultIntensity = 1; // DO NOT change. Otherwise, change the whole project accordingly.
     private static final int xcorrOffset = 75;
     private static final double removePrecursorPeakTolerance = 1.5; // this equals the isolation window.
-    private static final int maxPlNum = 200;
+    private static final int maxPlNum = 300;
     private final MassTool massTool;
 
     public PrepareSpectrum(MassTool massTool) {
@@ -58,7 +58,31 @@ public class PrepareSpectrum {
                 double previousIntes = plList.get(j).getValue();
                 if (curMz - previousMz - massTool.PROTON > 0.01) break;
 
-                if (Math.abs(curMz - previousMz - massTool.PROTON/2) <= 0.01) {
+                if (Math.abs(curMz - previousMz - massTool.PROTON/5) <= 0.01) {
+                    if (previousIntes > 0.5 *curIntes) {
+                        shouldDrop.add(i);
+                    }
+                    if (!shouldDrop.contains(j)) {
+                        extraPeaks.put(previousMz*5-massTool.PROTON, previousIntes);
+                    }
+                    continue;
+                }else if (Math.abs(curMz - previousMz - massTool.PROTON/4) <= 0.01) {
+                    if (previousIntes > 0.5 *curIntes) {
+                        shouldDrop.add(i);
+                    }
+                    if (!shouldDrop.contains(j)) {
+                        extraPeaks.put(previousMz*4-massTool.PROTON, previousIntes);
+                    }
+                    continue;
+                }else if (Math.abs(curMz - previousMz - massTool.PROTON/3) <= 0.01) {
+                    if (previousIntes > 0.5 *curIntes) {
+                        shouldDrop.add(i);
+                    }
+                    if (!shouldDrop.contains(j)) {
+                        extraPeaks.put(previousMz*3-massTool.PROTON, previousIntes);
+                    }
+                    continue;
+                }else if (Math.abs(curMz - previousMz - massTool.PROTON/2) <= 0.01) {
                     if (previousIntes > 0.5 *curIntes) {
                         shouldDrop.add(i);
                     }
