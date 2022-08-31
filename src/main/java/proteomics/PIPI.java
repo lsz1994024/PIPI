@@ -403,22 +403,43 @@ public class PIPI {
         }
 //        Set<String> protHardSet = omProts;
 
-//        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
-//        Iterator<Map.Entry<String, Peptide0>> iter = peptide0Map.entrySet().iterator();
-//        while (iter.hasNext()) {
-//            boolean shouldKeep = false;
-//            for (String prot : iter.next().getValue().proteins) {
-//                if (protHardSet.contains(prot)){
-//                    shouldKeep = true;
-//                    break;
-//                }
-//            }
-//            if (!shouldKeep) {
-//                iter.remove();
-//            }
-//        }
-//        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
+        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
+        Iterator<Map.Entry<String, Peptide0>> iter = peptide0Map.entrySet().iterator();
+        while (iter.hasNext()) {
+            boolean shouldKeep = false;
+            for (String prot : iter.next().getValue().proteins) {
+                if (prot.contains("DECOY_")) prot = prot.substring(6);
+                if (protHardSet.contains(prot)){
+                    shouldKeep = true;
+                    break;
+                }
+            }
+            if (!shouldKeep) {
+                iter.remove();
+            }
+        }
+        System.out.println("reduced massPepMap size," + peptide0Map.size());
 
+        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
+        for (double mass : massPeptideMap.keySet()) {
+            Set<String> pepSet = massPeptideMap.get(mass);
+            Iterator<String> iterPep = pepSet.iterator();
+            while (iterPep.hasNext()) {
+                if (!peptide0Map.containsKey(iterPep.next())) {
+                    iterPep.remove();
+                }
+            }
+        }
+        System.out.println("reduced massPepMap size," + massPeptideMap.size());
+        int numTargetPep = 0, numDecoyPep = 0;
+        for (Peptide0 pep : peptide0Map.values()){
+            if (pep.isTarget) {
+                numTargetPep++;
+            }else {
+                numDecoyPep++;
+            }
+        }
+        System.out.println("Reduced db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
 
         System.out.println("prot Db," + protScoreLongList.size()+","+protHardSet.size());
 
