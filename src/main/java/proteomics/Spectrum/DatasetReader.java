@@ -32,16 +32,16 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.*;
 
-public class PreSpectra {
+public class DatasetReader {
 
-    private static final Logger logger = LoggerFactory.getLogger(PreSpectra.class);
+    private static final Logger logger = LoggerFactory.getLogger(DatasetReader.class);
     public static final int topN = 14;
 
     private final IsotopeDistribution isotopeDistribution;
 
     private int usefulSpectraNum = 0;
 
-    public PreSpectra(JMzReader spectraParser, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath) throws Exception {
+    public DatasetReader(JMzReader spectraParser, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath) throws Exception {
         isotopeDistribution = new IsotopeDistribution(massTool.getElementTable(), 0, massTool.getLabelling());
 
         // prepare SQL database
@@ -163,7 +163,7 @@ public class PreSpectra {
         logger.info("Useful MS/MS spectra number: {}.", usefulSpectraNum);
     }
 
-    public PreSpectra(JMzReader[] spectraParserArray, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath) throws Exception {
+    public DatasetReader(JMzReader[] spectraParserArray, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath) throws Exception {
         isotopeDistribution = new IsotopeDistribution(massTool.getElementTable(), 0, massTool.getLabelling());
 
         // prepare SQL database
@@ -171,10 +171,10 @@ public class PreSpectra {
         Statement sqlStatement = sqlConnection.createStatement();
         sqlStatement.executeUpdate("PRAGMA journal_mode=WAL");
         sqlStatement.executeUpdate("DROP TABLE IF EXISTS spectraTable");
-        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanIdF TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, globalRank INTEGER, normalizedCorrelationCoefficient REAL, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, candidates TEXT, peptideSet TEXT, whereIsTopCand INTEGER, shouldPtm INTEGER, hasPTM INTEGER, ptmNum INTEGER, isSettled INTEGER, precursorScanNo INTEGER)");
+        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanName TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, globalRank INTEGER, normalizedCorrelationCoefficient REAL, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, candidates TEXT, peptideSet TEXT, whereIsTopCand INTEGER, shouldPtm INTEGER, hasPTM INTEGER, ptmNum INTEGER, isSettled INTEGER, precursorScanNo INTEGER)");
         sqlStatement.close();
 
-        PreparedStatement sqlPrepareStatement = sqlConnection.prepareStatement("INSERT INTO spectraTable (scanNum, scanIdF, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, precursorScanNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPrepareStatement = sqlConnection.prepareStatement("INSERT INTO spectraTable (scanNum, scanName, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, precursorScanNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConnection.setAutoCommit(false);
 
         for (int i = 0; i < spectraParserArray.length; i++) {
@@ -184,6 +184,8 @@ public class PreSpectra {
             String parentId = null;
             int lastMs1ScanNo = 1;
             int lastScanNo = 1;
+            Map<Integer,Integer> scanNumRepeatsMap = new HashMap<>();
+
             while (spectrumIterator.hasNext()) {
                 try {
                     Spectrum spectrum = spectrumIterator.next();
@@ -267,8 +269,13 @@ public class PreSpectra {
                         }
                     }
 
+                    if (scanNumRepeatsMap.containsKey(scanNum)) {
+                        scanNumRepeatsMap.put(scanNum, scanNumRepeatsMap.get(scanNum) + 1);
+                    } else {
+                        scanNumRepeatsMap.put(scanNum, 0);
+                    }
                     sqlPrepareStatement.setInt(1, scanNum);
-                    sqlPrepareStatement.setString(2, i+"."+spectrum.getId()+"."+scanNum);
+                    sqlPrepareStatement.setString(2, i+"."+spectrum.getId()+"."+scanNum+"."+scanNumRepeatsMap.get(scanNum)); //fileId.scanId.scanNum.coId
                     sqlPrepareStatement.setInt(3, precursorCharge);
                     sqlPrepareStatement.setDouble(4, precursorMass);
                     sqlPrepareStatement.setString(5, mgfTitle);

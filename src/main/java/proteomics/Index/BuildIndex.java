@@ -45,20 +45,23 @@ public class BuildIndex {
     private final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
     public Map<String, Integer> protLengthMap = new HashMap<>();
-    public FMIndex fmIndex = null;
-    public int[] dotPosArr = null;
+    public FMIndex fmIndex;
+    public int[] dotPosArr;
     public Map<Integer, String> posProtMap = new HashMap<>();
     public Map<String, String> proteinPeptideMap;
 
-    public BuildIndex(Map<String, String> parameterMap, String labelling, boolean needCoding, boolean addDecoy, boolean addContaminant) throws Exception {
+    public BuildIndex(Map<String, String> parameterMap) throws Exception {
         // initialize parameters
+        boolean needCoding = true;
+        boolean addDecoy = parameterMap.get("add_decoy").contentEquals("1");
+        boolean addContaminant = parameterMap.get("add_contaminant").contentEquals("1");
         int minPeptideLength = Math.max(5, Integer.valueOf(parameterMap.get("min_peptide_length")));
         int maxPeptideLength = Integer.valueOf(parameterMap.get("max_peptide_length"));
         String dbPath = parameterMap.get("db");
         int missedCleavage = Integer.valueOf(parameterMap.get("missed_cleavage"));
         double ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
         double oneMinusBinOffset = 1 - Double.valueOf(parameterMap.get("mz_bin_offset"));
-        this.labelling = labelling;
+        this.labelling = parameterMap.get("15N").trim().contentEquals("1") ? "N15" : "N14";
 
         // Read fix modification
         fixModMap.put('G', Double.valueOf(parameterMap.get("G")));
@@ -204,18 +207,6 @@ public class BuildIndex {
         char[] text = loadFile("catProt.txt", true);
         fmIndex = new FMIndex(text);
 
-//        char[] P = "FHNLQGEK".toCharArray();
-//        SearchInterval searchInterval = fmIndex.backwardSearch(P);
-//        int patternsCount = searchInterval.ep - searchInterval.sp + 1;
-//        int[] firstIndexValues = new int[patternsCount];
-//        int[] secondIndexValues = new int[patternsCount];
-//        int count = 0;
-//        for (int i = searchInterval.sp; i <= searchInterval.ep; i++) {
-//            firstIndexValues[count] = fmIndex.SA[i];
-//            secondIndexValues[count] = fmIndex.SA[i] + P.length - 1;
-//            count++;
-//        }
-
         if (addDecoy) {
             // writer concatenated fasta
             Map<String, String> proteinAnnotationMap;
@@ -266,7 +257,7 @@ public class BuildIndex {
                 numDecoyPep++;
             }
         }
-        int a = 1;
+        System.out.println("Db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
     }
 
     public static char[] loadFile(String file, boolean appendTerminalCharacter) throws IOException{

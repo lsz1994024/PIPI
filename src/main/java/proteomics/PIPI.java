@@ -16,17 +16,17 @@
 
 package proteomics;
 
+import ProteomicsLibrary.Types.SparseVector;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import proteomics.Output.WritePepXml;
 import proteomics.PTM.InferPTM;
 import ProteomicsLibrary.Binomial;
-import ProteomicsLibrary.PrepareSpectrum;
+import ProteomicsLibrary.SpecProcessor;
 import proteomics.Types.*;
 import proteomics.Index.BuildIndex;
 import proteomics.Parameter.Parameter;
-import proteomics.Spectrum.PreSpectra;
+import proteomics.Spectrum.DatasetReader;
 import ProteomicsLibrary.MassTool;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 import uk.ac.ebi.pride.tools.mgf_parser.MgfFile;
@@ -110,12 +110,6 @@ public class PIPI {
         String percolatorPath = parameterMap.get("percolator_path");
         boolean outputPercolatorInput = (Integer.valueOf(parameterMap.get("output_percolator_input")) == 1);
 
-        // print all the parameters
-//        logger.info("Parameters:");
-//        for (String k : parameterMap.keySet()) {
-//            logger.info("{} = {}", k, parameterMap.get(k));
-//        }
-
         // Check if Percolator can be executed.
         if (!(new File(percolatorPath)).exists()) {
             throw new NullPointerException(String.format(Locale.US, "Cannot find Percolator from %s.", percolatorPath));
@@ -133,39 +127,30 @@ public class PIPI {
 
         String labelling = "N14";
         if (parameterMap.get("15N").trim().contentEquals("1")) {
-//            logger.info("N15 mode is on...");
             labelling = "N15";
         }
 
-        if (parameterMap.get("add_decoy").contentEquals("0")) {
-//            logger.warn("add_decoy = 0. Won't search the decoy sequences and estimate FDR.");
-        }
-
-        if (parameterMap.get("add_contaminant").contentEquals("0")) {
-//            logger.warn("add_contaminant = 0. Won't search the build-in contaminant proteins.");
-        }
-
-        logger.info("Indexing protein database...");
-        BuildIndex buildIndex = new BuildIndex(parameterMap, labelling, true, parameterMap.get("add_decoy").contentEquals("1"), parameterMap.get("add_contaminant").contentEquals("1"));
+        logger.info("Loading parameters and database...");
+        BuildIndex buildIndex = new BuildIndex(parameterMap);
         MassTool massTool = buildIndex.returnMassTool();
         System.out.println("lsz db length "+ buildIndex.getPeptide0Map().size());
         InferPTM inferPTM = buildIndex.getInferPTM();
 
         Set<String> tagPepSize = new HashSet<>();
-        for(Set<String> pepset : buildIndex.getInferSegment().tagPepMap.values()) {
-            tagPepSize.addAll(pepset);
-        }
-        System.out.println("lsz tagMap length "+ tagPepSize.size());
+//        for(Set<String> pepset : buildIndex.getInferSegment().tagPepMap.values()) {
+//            tagPepSize.addAll(pepset);
+//        }
+//        System.out.println("lsz tagMap length "+ tagPepSize.size());
 //        System.out.println(buildIndex.getInferSegment().tagPepMap.keySet());
 
 
         logger.info("Reading spectra...");
         File spectraFile = new File(spectraPath);
-        PreSpectra preSpectra;
+        DatasetReader datasetReader;
         JMzReader[] spectraParserArray;
         String sqlPath = "jdbc:sqlite:" + dbName;
         Class.forName("org.sqlite.JDBC").newInstance();
-
+        Map<Integer, String> fileIdNameMap = new HashMap<>();
         if ((!spectraFile.exists())) {
             throw new FileNotFoundException("The spectra file not found.");
         }
@@ -173,9 +158,7 @@ public class PIPI {
         if ( ! spectraFile.isDirectory()) {
             spectraParserArray = new JMzReader[1];
             JMzReader spectraParser;
-
-            String[] temp = spectraPath.split("\\.");
-            String ext = temp[temp.length - 1];
+            String ext = spectraPath.substring(spectraPath.lastIndexOf(".")+1);
             if (ext.contentEquals("mzXML")) {
                 spectraParser = new MzXMLFile(spectraFile);
             } else if (ext.toLowerCase().contentEquals("mgf")) {
@@ -184,7 +167,8 @@ public class PIPI {
                 throw new Exception(String.format(Locale.US, "Unsupported file format %s. Currently, PIPI only support mzXML and MGF.", ext));
             }
             spectraParserArray[0] = spectraParser;
-            preSpectra = new PreSpectra(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
+            fileIdNameMap.put(0, spectraPath.substring(spectraPath.lastIndexOf("/")+1));
+            datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
         } else {
             String[] fileList = spectraFile.list(new FilenameFilter() {
                 @Override
@@ -195,11 +179,11 @@ public class PIPI {
             spectraParserArray = new JMzReader[fileList.length];
             for (int i = 0; i < fileList.length; i++){
                 spectraParserArray[i] = new MgfFile(new File(spectraPath + fileList[i]));
+                fileIdNameMap.put(i, fileList[i]);
             }
 
-            String[] temp = fileList[0].split("\\.");
-            String ext = temp[temp.length - 1];
-            preSpectra = new PreSpectra(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
+            String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
+            datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
         }
 //        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/PXD004732/pool121/truth.txt"));
         BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
@@ -225,72 +209,71 @@ public class PIPI {
             line1 = line1.trim();
             omProts.add(line1);
         }
-
-
-        logger.info("Pre searching...");
-        int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
-        if (threadNum == 0) {
-            threadNum = 3 + Runtime.getRuntime().availableProcessors();
-        }
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            threadNum = 1;
-        }
-        System.out.println("thread NUM "+ threadNum);
-        ExecutorService threadPool = Executors.newFixedThreadPool(threadNum);
-        PrepareSpectrum preSpectrum = new PrepareSpectrum(massTool);
-        ArrayList<Future<PreSearch.Entry>> taskList = new ArrayList<>(preSpectra.getUsefulSpectraNum() + 10);
-        Connection sqlConnection = DriverManager.getConnection(sqlPath);
-        Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanIdF, scanNum, precursorCharge, precursorMass, precursorScanNo FROM spectraTable");
-        ReentrantLock lock = new ReentrantLock();
-        Map<Integer, String> scanIdMap = new HashMap<>();
+        SpecProcessor specProcessor = new SpecProcessor(massTool);
         Map<String, Integer> precursorChargeMap = new HashMap<>();
         Map<String, Double> precursorMassMap = new HashMap<>();
+        TreeMap<Double, Set<String>> pcMassScanNameMap = new TreeMap<>();
 
-//        Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
-        int submitNum = 0;
-        while (sqlResultSet.next()) {
-            String scanIdF = sqlResultSet.getString("scanIdF");
-            int scanNum = sqlResultSet.getInt("scanNum");
-            int precursorCharge = sqlResultSet.getInt("precursorCharge");
-            int precursorScanNo = sqlResultSet.getInt("precursorScanNo");
-            double precursorMass = sqlResultSet.getDouble("precursorMass");
-//            if (scanNum != 1886) {  //22459
+        logger.info("Scan decoding and protein db reducing...");
+        int threadNum1 = Integer.valueOf(parameterMap.get("thread_num"));
+        if (threadNum1 == 0) {
+            threadNum1 = 3 + Runtime.getRuntime().availableProcessors();
+        }
+        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
+            threadNum1 = 1;
+        }
+        System.out.println("thread NUM "+ threadNum1);
+        ExecutorService threadPoolSpecCoder = Executors.newFixedThreadPool(threadNum1);
+        ArrayList<Future<SpecCoder.Entry>> taskListSpecCoder = new ArrayList<>(datasetReader.getUsefulSpectraNum() + 10);
+        Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
+        Statement sqlStatementSpecCoder = sqlConSpecCoder.createStatement();
+        ResultSet sqlResSetSpecCoder = sqlStatementSpecCoder.executeQuery("SELECT scanName, scanNum, precursorCharge, precursorMass, precursorScanNo FROM spectraTable");
+        ReentrantLock lockSpecCoder = new ReentrantLock();
+
+        int submitNumSpecCoder = 0;
+        while (sqlResSetSpecCoder.next()) {
+            String scanName = sqlResSetSpecCoder.getString("scanName");
+            int scanNum = sqlResSetSpecCoder.getInt("scanNum");
+            int precursorCharge = sqlResSetSpecCoder.getInt("precursorCharge");
+//            int precursorScanNo = sqlResSetSpecCoder.getInt("precursorScanNo");
+            double precursorMass = sqlResSetSpecCoder.getDouble("precursorMass");
+//            if (scanNum != 3) {  //22459
 //                continue;
 //            }
 //            if (!pepTruth.containsKey(scanNum)){
 //                continue;
 //            }
-            scanIdMap.put(scanNum, scanIdF);
-            int fileId = Integer.valueOf( scanIdF.split("\\.")[0] );
-            precursorChargeMap.put(scanIdF, precursorCharge);
-            precursorMassMap.put(scanIdF, precursorMass);
-            submitNum++;
-            taskList.add(threadPool.submit(new PreSearch(scanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
-                    , ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[fileId], minClear, maxClear, lock, scanIdF, precursorCharge, precursorMass, inferPTM, preSpectrum, sqlPath,  precursorScanNo, pepTruth.get(1886))));
+            int fileId = Integer.valueOf( scanName.split("\\.")[0] );
+            precursorChargeMap.put(scanName, precursorCharge);
+            precursorMassMap.put(scanName, precursorMass);
+
+
+
+            submitNumSpecCoder++;
+            taskListSpecCoder.add(threadPoolSpecCoder.submit(new SpecCoder(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockSpecCoder, scanName, precursorCharge
+                    , precursorMass, specProcessor, pepTruth.get(1886))));
         }
-        System.out.println("totalSubmit, "+ submitNum);
+        System.out.println("totalSubmit in SpecCoder, "+ submitNumSpecCoder);
+        sqlResSetSpecCoder.close();
+        sqlStatementSpecCoder.close();
+//        sqlConSpecCoder.close();
 
-        sqlResultSet.close();
-        sqlStatement.close();
-        Map<String, List<Peptide>> ptmOnlyCandiMap = new HashMap<>();
-        Map<String, List<Peptide>> ptmFreeCandiMap = new HashMap<>();
-
-        TreeMap<Double, Set<String>> pcMassScanNoMap = new TreeMap<>();
-        // check progress every minute, record results,and delete finished tasks.
-        int lastProgress = 0;
-        int resultCount = 0;
-        int totalCount = taskList.size();
-        int count = 0;
+//        Map<String, SparseVector> specCodeMap = new HashMap<>();
+        Set<String> validScanSet = new HashSet<>();
+        int lastProgressSpecCoder = 0;
+//        int resultCountSpecCoder = 0;
+        int totalCountSpecCoder = taskListSpecCoder.size();
+        int countSpecCoder = 0;
         Map<String, Map<String, Double>> protTagScoreMapMap = new HashMap<>();
-        while (count < totalCount) {
+        while (countSpecCoder < totalCountSpecCoder) {
             // record search results and delete finished ones.
-            List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count);
-            for (Future<PreSearch.Entry> task : taskList) {
+            List<Future<SpecCoder.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountSpecCoder - countSpecCoder);
+            for (Future<SpecCoder.Entry> task : taskListSpecCoder) {
                 if (task.isDone()) {
                     if (task.get() != null) {
-                        PreSearch.Entry entry = task.get();
+                        SpecCoder.Entry entry = task.get();
+                        validScanSet.add(entry.scanName);
+
                         for (String prot : entry.protTagScoreMap.keySet()){
                             List<Pair<String, Double>> tagScoreList = entry.protTagScoreMap.get(prot);
                             if (protTagScoreMapMap.containsKey(prot)) {
@@ -317,17 +300,14 @@ public class PIPI {
                             }
                         }
 
-                        ptmOnlyCandiMap.put(entry.scanIdF, entry.ptmOnlyList);
-                        ptmFreeCandiMap.put(entry.scanIdF, entry.ptmFreeList);
-                        if (pcMassScanNoMap.containsKey(entry.precursorMass)) {
-                            pcMassScanNoMap.get(entry.precursorMass).add(entry.scanIdF);
-                        }else {
-                            Set<String> scanNumSet = new HashSet<>();
-                            scanNumSet.add(entry.scanIdF);
-                            pcMassScanNoMap.put(entry.precursorMass, scanNumSet);
-                        }
-
-                        ++resultCount;
+//                        specCodeMap.put(entry.scanName, entry.scanCode);
+//                        if (pcMassScanNameMap.containsKey(entry.precursorMass)) {
+//                            pcMassScanNameMap.get(entry.precursorMass).add(entry.scanName);
+//                        }else {
+//                            Set<String> scanNumSet = new HashSet<>();
+//                            scanNumSet.add(entry.scanName);
+//                            pcMassScanNameMap.put(entry.precursorMass, scanNumSet);
+//                        }
                     }
 
                     toBeDeleteTaskList.add(task);
@@ -335,36 +315,34 @@ public class PIPI {
                     toBeDeleteTaskList.add(task);
                 }
             }
-            count += toBeDeleteTaskList.size();
-            taskList.removeAll(toBeDeleteTaskList);
-            taskList.trimToSize();
+            countSpecCoder += toBeDeleteTaskList.size();
+            taskListSpecCoder.removeAll(toBeDeleteTaskList);
+            taskListSpecCoder.trimToSize();
 
-            int progress = count * 20 / totalCount;
-            if (progress != lastProgress) {
-                logger.info("PreSearching {}%...", progress * 5);
-                lastProgress = progress;
+            int progress = countSpecCoder * 20 / totalCountSpecCoder;
+            if (progress != lastProgressSpecCoder) {
+                logger.info("Spectra Coding {}%...", progress * 5);
+                lastProgressSpecCoder = progress;
             }
 
-            if (count == totalCount) {
+            if (countSpecCoder == totalCountSpecCoder) {
                 break;
             }
             Thread.sleep(6000);
         }
-
         // shutdown threads.
-        threadPool.shutdown();
-        if (!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPool.shutdownNow();
-            if (!threadPool.awaitTermination(60, TimeUnit.SECONDS))
+        threadPoolSpecCoder.shutdown();
+        if (!threadPoolSpecCoder.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPoolSpecCoder.shutdownNow();
+            if (!threadPoolSpecCoder.awaitTermination(60, TimeUnit.SECONDS))
                 throw new Exception("Pool did not terminate");
         }
 
-        if (lock.isLocked()) {
-            lock.unlock();
+        if (lockSpecCoder.isLocked()) {
+            lockSpecCoder.unlock();
         }
 
-        System.out.println("resultCount," +resultCount);
-        Map<String , Integer> protLengthMap = buildIndex.protLengthMap;
+        Map<String, Integer> protLengthMap = buildIndex.protLengthMap;
         Map<String, Double> protScoreFinalMap = new HashMap<>();
         Map<String, Integer> tagNumMap = new HashMap<>();
         for (String prot : protTagScoreMapMap.keySet()){
@@ -389,39 +367,151 @@ public class PIPI {
             }
         }
 
-
         List<Pair<String, Double>> protScoreLongList = new ArrayList<>();
         for (String prot : protScoreFinalMap.keySet()){
-
             protScoreLongList.add(new Pair<>(prot, protScoreFinalMap.get(prot)));
         }
         protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
         int num = 0;
         int correct = 0;
         int totalCorrect = 0;
-        for (int i = protScoreLongList.size()-1; i >= 0; i--){
-//            System.out.print(protScoreLongList.get(i).getFirst()+","+(omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0)+","+protScoreLongList.get(i).getSecond() +","
-//                    + protLengthMap.get(protScoreLongList.get(i).getFirst())+","+protTagNumMap.get(protScoreLongList.get(i).getFirst()));
-//            System.out.print("\n");
-            num++;
-            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
-                correct++;
-            }
-            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
-                totalCorrect ++;
-
-            }
+//        for (int i = protScoreLongList.size()-1; i >= 0; i--){
+////            System.out.print(protScoreLongList.get(i).getFirst()+","+(omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0)+","+protScoreLongList.get(i).getSecond() +","
+////                    + protLengthMap.get(protScoreLongList.get(i).getFirst())+","+protTagNumMap.get(protScoreLongList.get(i).getFirst()));
+////            System.out.print("\n");
+//            num++;
+//            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
+//                correct++;
+//            }
+//            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
+//                totalCorrect ++;
+//
+//            }
 //            System.out.println(num+ "," +protScoreLongList.get(i).getSecond() + ","+protLengthMap.get(protScoreLongList.get(i).getFirst() )
 //                    + ","+protScoreLongList.get(i).getFirst() +"," + (omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0));
 //            for (String tag : protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).keySet()){
 //                System.out.println(tag+ "," + protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).get(tag) + "," +tagNumMap.get(tag));
 //            }
 //            System.out.println("==============");
-        }
+//        }
         System.out.println("5300 contains,"+ correct);
         System.out.println("total,"+ num + ","+totalCorrect);
+        Set<String> protHardSet = new HashSet<>();
+        for (Pair<String, Double> pair : protScoreLongList){
+            if (pair.getSecond() < 199) continue;
+            protHardSet.add(pair.getFirst());
+        }
+//        Set<String> protHardSet = omProts;
 
-        System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNoMap.size() + "," + ptmOnlyCandiMap.keySet().size());
+//        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
+//        Iterator<Map.Entry<String, Peptide0>> iter = peptide0Map.entrySet().iterator();
+//        while (iter.hasNext()) {
+//            boolean shouldKeep = false;
+//            for (String prot : iter.next().getValue().proteins) {
+//                if (protHardSet.contains(prot)){
+//                    shouldKeep = true;
+//                    break;
+//                }
+//            }
+//            if (!shouldKeep) {
+//                iter.remove();
+//            }
+//        }
+//        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
+
+
+        System.out.println("prot Db," + protScoreLongList.size()+","+protHardSet.size());
+
+        logger.info("Pre searching...");
+        int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
+        if (threadNum == 0) {
+            threadNum = 3 + Runtime.getRuntime().availableProcessors();
+        }
+        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
+            threadNum = 1;
+        }
+        System.out.println("thread NUM "+ threadNum);
+        ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
+        ArrayList<Future<PreSearch.Entry>> taskListBone = new ArrayList<>(validScanSet.size() + 10);
+        ReentrantLock lockBone = new ReentrantLock();
+        int submitNumBone = 0;
+        for (String scanName : validScanSet) {
+            String[] scanNameStr = scanName.split("\\.");
+
+            int precursorCharge = precursorChargeMap.get(scanName);
+            double precursorMass = precursorMassMap.get(scanName);
+            submitNumBone++;
+            taskListBone.add(threadPoolBone.submit(new PreSearch(Integer.valueOf(scanNameStr[2]), buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+                    , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
+                    , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor, pepTruth.get(1886))));
+        }
+        System.out.println("totalSubmit in Bone, "+ submitNumBone);
+
+        Map<String, List<Peptide>> ptmOnlyCandiMap = new HashMap<>();
+        Map<String, List<Peptide>> ptmFreeCandiMap = new HashMap<>();
+
+        int lastProgressBone = 0;
+        int resultCountBone = 0;
+        int totalCountBone = taskListBone.size();
+        int countBone = 0;
+        while (countBone < totalCountBone) {
+            // record search results and delete finished ones.
+            List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBone - countBone);
+            for (Future<PreSearch.Entry> task : taskListBone) {
+                if (task.isDone()) {
+                    if (task.get() != null) {
+                        PreSearch.Entry entry = task.get();
+
+                        ptmOnlyCandiMap.put(entry.scanName, entry.ptmOnlyList);
+                        ptmFreeCandiMap.put(entry.scanName, entry.ptmFreeList);
+                        if (pcMassScanNameMap.containsKey(entry.precursorMass)) {
+                            pcMassScanNameMap.get(entry.precursorMass).add(entry.scanName);
+                        }else {
+                            Set<String> scanNumSet = new HashSet<>();
+                            scanNumSet.add(entry.scanName);
+                            pcMassScanNameMap.put(entry.precursorMass, scanNumSet);
+                        }
+
+                        ++resultCountBone;
+                    }
+
+                    toBeDeleteTaskList.add(task);
+                } else if (task.isCancelled()) {
+                    toBeDeleteTaskList.add(task);
+                }
+            }
+            countBone += toBeDeleteTaskList.size();
+            taskListBone.removeAll(toBeDeleteTaskList);
+            taskListBone.trimToSize();
+
+            int progress = countBone * 20 / totalCountBone;
+            if (progress != lastProgressBone) {
+                logger.info("PreSearching {}%...", progress * 5);
+                lastProgressBone = progress;
+            }
+
+            if (countBone == totalCountBone) {
+                break;
+            }
+            Thread.sleep(6000);
+        }
+
+        // shutdown threads.
+        threadPoolBone.shutdown();
+        if (!threadPoolBone.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPoolBone.shutdownNow();
+            if (!threadPoolBone.awaitTermination(60, TimeUnit.SECONDS))
+                throw new Exception("Pool did not terminate");
+        }
+
+        if (lockBone.isLocked()) {
+            lockBone.unlock();
+        }
+
+        System.out.println("resultCount," +resultCountBone);
+
+
+        System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNameMap.size() + "," + ptmOnlyCandiMap.keySet().size());
         logger.info("Start searching...");
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
@@ -429,27 +519,21 @@ public class PIPI {
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             threadNum = 1;
         }
-        ExecutorService threadPool2 = Executors.newFixedThreadPool(threadNum);
-        ArrayList<Future<PIPIWrap.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
-        ReentrantLock lock2 = new ReentrantLock();
+        ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
+        ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
+        ReentrantLock lockPtm = new ReentrantLock();
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
-        int submitTimes = 0;
-        Set<String> protHardSet = new HashSet<>();
-        for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 199) continue;
-            protHardSet.add(pair.getFirst());
-        }
-//        Set<String> protHardSet = omProts;
-        System.out.println("prot Db," + protScoreLongList.size()+","+protHardSet.size());
+        int submitTimePtm = 0;
+
 
         Map<String, Peptide0> pep0Map = buildIndex.getPeptide0Map();
-        for (double mass : pcMassScanNoMap.keySet()) {
-            for (String thisScanIdF : pcMassScanNoMap.get(mass)){
-                int thisScanNum = Integer.valueOf( thisScanIdF.split("\\.")[2] );
-                int thisFileId = Integer.valueOf( thisScanIdF.split("\\.")[0] );
+        for (double mass : pcMassScanNameMap.keySet()) {
+            for (String thisScanName : pcMassScanNameMap.get(mass)){
+                int thisScanNum = Integer.valueOf( thisScanName.split("\\.")[2] );
+                int thisFileId = Integer.valueOf( thisScanName.split("\\.")[0] );
                 Set<Peptide> realPtmOnlyList = new HashSet<>();
                 Set<Peptide> realPtmFreeList = new HashSet<>();
-                for (Peptide pep : ptmOnlyCandiMap.get(thisScanIdF)) {
+                for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
                     for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
                         if (prot.contains("DECOY_")) prot = prot.substring(6);
 
@@ -459,7 +543,7 @@ public class PIPI {
                         }
                     }
                 }
-                for (Peptide pep : ptmFreeCandiMap.get(thisScanIdF)) {
+                for (Peptide pep : ptmFreeCandiMap.get(thisScanName)) {
                     for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
                         if (prot.contains("DECOY_")) prot = prot.substring(6);
                         if (protHardSet.contains(prot)) {
@@ -469,232 +553,70 @@ public class PIPI {
                     }
                 }
 //                System.out.println(thisScanNum+","+ptmOnlyCandiMap.get(thisScanNum).size()+","+ptmFreeCandiMap.get(thisScanNum).size()+"," + realPtmOnlyList.size()+","+realPtmFreeList.size());
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass - 0.02, true, mass + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
+                for (int i = -3; i <= 3; i++) {
+//                    if (i == 0) continue;
 
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
+                    for (Set<String> otherScanNameSet : pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - 0.02, true, mass + i*MassTool.PROTON + 0.02, true).values()) {
+                        for (String otherScanName : otherScanNameSet) {
+                            int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
+                            int otherFileId = Integer.valueOf( otherScanName.split("\\.")[0] );
+                            if (otherFileId != thisFileId) continue;
+
+                            if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
+                                for (Peptide pep : ptmOnlyCandiMap.get(otherScanName)) {
+                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
+                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
+                                        if (protHardSet.contains(prot)) {
+                                            realPtmOnlyList.add(pep.clone());
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
+                                for (Peptide pep : ptmFreeCandiMap.get(otherScanName)) {
+                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
+                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
+                                        if (protHardSet.contains(prot)) {
+                                            realPtmFreeList.add(pep.clone());
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass -MassTool.PROTON- 0.02, true, mass -MassTool.PROTON + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
 
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass +MassTool.PROTON- 0.02, true, mass +MassTool.PROTON + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
-
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass -2*MassTool.PROTON- 0.02, true, mass -2*MassTool.PROTON + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
-
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass +2*MassTool.PROTON- 0.02, true, mass +2*MassTool.PROTON + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
-
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass -3*MassTool.PROTON- 0.02, true, mass -3*MassTool.PROTON + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
-
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                for (Set<String> otherScanIdFSet : pcMassScanNoMap.subMap(mass +3*MassTool.PROTON- 0.02, true, mass +3*MassTool.PROTON + 0.02, true).values()) {
-                    for (String otherScanIdF : otherScanIdFSet) {
-                        int otherScanNum = Integer.valueOf( otherScanIdF.split("\\.")[2] );
-                        int otherFileId = Integer.valueOf( otherScanIdF.split("\\.")[0] );
-                        if (otherFileId != thisFileId) continue;
-
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            for (Peptide pep : ptmOnlyCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmOnlyList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                            for (Peptide pep : ptmFreeCandiMap.get(otherScanIdF)) {
-                                for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                    if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                    if (protHardSet.contains(prot)) {
-                                        realPtmFreeList.add(pep.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 //                String scanId = scanIdMap.get(thisScanNum);
-                int precursorCharge = precursorChargeMap.get(thisScanIdF);
+                int precursorCharge = precursorChargeMap.get(thisScanName);
                 int precursorScanNo = 0;
-                double precursorMass = precursorMassMap.get(thisScanIdF);
-                submitTimes++;
+                double precursorMass = precursorMassMap.get(thisScanName);
+                submitTimePtm++;
 //                System.out.println(thisScanNum+","+realPtmOnlyList.size()+","+realPtmFreeList.size());
-                taskListPTM.add(threadPool2.submit(new PIPIWrap(thisScanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance, inferPTM.getMinPtmMass()
-                        , inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParserArray[thisFileId], minClear, maxClear, lock2, thisScanIdF, precursorCharge, precursorMass, inferPTM, preSpectrum
+                taskListPTM.add(threadPoolPtm.submit(new PtmSearch(thisScanNum, buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance
+                        , inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3), spectraParserArray[thisFileId], minClear, maxClear
+                        , lockPtm, thisScanName, precursorCharge, precursorMass, inferPTM, specProcessor
                         , sqlPath, binomial, precursorScanNo, realPtmOnlyList, realPtmFreeList)));
 //                }
             }
         }
-        System.out.println("lsz submit times " + submitTimes);
+        System.out.println("submit times in Ptm" + submitTimePtm);
         // check progress every minute, record results,and delete finished tasks.
-        PreparedStatement sqlPreparedStatement = sqlConnection.prepareStatement("REPLACE INTO spectraTable (scanNum, scanIdF,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        sqlConnection.setAutoCommit(false);
-        lastProgress = 0;
-        resultCount = 0;
-        totalCount = taskListPTM.size();
-        int count2 = 0;
+        PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        sqlConSpecCoder.setAutoCommit(false);
+        int lastProgressPtm = 0;
+        int resultCountPtm = 0;
+        int totalCountPtm = taskListPTM.size();
+        int countPtm = 0;
 //        System.out.println("lsz totalCount, " + totalCount);
-        while (count2 < totalCount) {
+        while (countPtm < totalCountPtm) {
             // record search results and delete finished ones.
-            List<Future<PIPIWrap.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCount - count2);
-            for (Future<PIPIWrap.Entry> task : taskListPTM) {
+            List<Future<PtmSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountPtm - countPtm);
+            for (Future<PtmSearch.Entry> task : taskListPTM) {
                 if (task.isDone()) {
                     if (task.get() != null) {
-                        PIPIWrap.Entry entry = task.get();
+                        PtmSearch.Entry entry = task.get();
                         sqlPreparedStatement.setInt(1, entry.scanNum);
-                        sqlPreparedStatement.setString(2, entry.scanIdF);
+                        sqlPreparedStatement.setString(2, entry.scanName);
                         sqlPreparedStatement.setInt(3, entry.precursorCharge);
                         sqlPreparedStatement.setDouble(4, entry.precursorMass);
                         sqlPreparedStatement.setString(5, entry.mgfTitle);
@@ -723,7 +645,7 @@ public class PIPI {
                         sqlPreparedStatement.setInt(28, entry.ptmNum);
                         sqlPreparedStatement.setInt(29, entry.isSettled);
                         sqlPreparedStatement.executeUpdate();
-                        ++resultCount;
+                        ++resultCountPtm;
                     }
 
                     toBeDeleteTaskList.add(task);
@@ -731,41 +653,41 @@ public class PIPI {
                     toBeDeleteTaskList.add(task);
                 }
             }
-            count2 += toBeDeleteTaskList.size();
+            countPtm += toBeDeleteTaskList.size();
             taskListPTM.removeAll(toBeDeleteTaskList);
             taskListPTM.trimToSize();
 
-            sqlConnection.commit();
+            sqlConSpecCoder.commit();
 
-            int progress = count2 * 20 / totalCount;
-            if (progress != lastProgress) {
+            int progress = countPtm * 20 / totalCountPtm;
+            if (progress != lastProgressPtm) {
                 logger.info("Searching {}%...", progress * 5);
 //                System.out.println(toBeDeleteTaskList.size()+ ","+ taskListPTM.size() +"," + count2 + ", " + totalCount + "," + lastProgress);
-                lastProgress = progress;
+                lastProgressPtm = progress;
             }
 
-            if (count == totalCount) {
+            if (countPtm == totalCountPtm) {
                 break;
             }
             Thread.sleep(6000);
         }
 
         // shutdown threads.
-        threadPool2.shutdown();
-        if (!threadPool2.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPool2.shutdownNow();
-            if (!threadPool2.awaitTermination(60, TimeUnit.SECONDS))
+        threadPoolPtm.shutdown();
+        if (!threadPoolPtm.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPoolPtm.shutdownNow();
+            if (!threadPoolPtm.awaitTermination(60, TimeUnit.SECONDS))
                 throw new Exception("Pool did not terminate");
         }
 
-        sqlConnection.commit();
-        sqlConnection.setAutoCommit(true);
-        sqlConnection.close();
-        if (lock.isLocked()) {
-            lock.unlock();
+        sqlConSpecCoder.commit();
+        sqlConSpecCoder.setAutoCommit(true);
+        sqlConSpecCoder.close();
+        if (lockPtm.isLocked()) {
+            lockPtm.unlock();
         }
 
-        if (resultCount == 0) {
+        if (resultCountPtm == 0) {
             throw new Exception("There is no useful results.");
         }
 
@@ -816,7 +738,7 @@ public class PIPI {
         writer.write("id\tlabel\tscannr\texpmass\tcalcmass\tscore\tdelta_c_n\tdelta_L_c_n\tnormalized_cross_corr\tglobal_search_rank\tabs_ppm\tion_frac\tmatched_high_peak_frac\tcharge1\tcharge2\tcharge3\tcharge4\tcharge5\tcharge6\texplained_aa_frac\tpeptide\tprotein\n");
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, scanIdF, precursorCharge, precursorMass, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac FROM spectraTable");
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, scanName, precursorCharge, precursorMass, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac FROM spectraTable");
         while (sqlResultSet.next()) {
             String peptide = sqlResultSet.getString("peptide");
             if (!sqlResultSet.wasNull()) {
@@ -841,7 +763,7 @@ public class PIPI {
                     sb.append("\t");
                 }
 
-                String scanIdF = sqlResultSet.getString("scanIdF");
+                String scanName = sqlResultSet.getString("scanName");
                 int scanNum = sqlResultSet.getInt("scanNum");
                 int isDecoy = sqlResultSet.getInt("isDecoy");
                 int globalRank = sqlResultSet.getInt("globalRank");
@@ -854,9 +776,9 @@ public class PIPI {
                 double explainedAaFrac = sqlResultSet.getDouble("explainedAaFrac");
 
                 if (isDecoy == 1) {
-                    writer.write(scanIdF + "\t-1\t" + scanNum + "\t" + expMass + "\t" + theoMass + "\t" + score + "\t" + deltaCn + "\t" + deltaLCn + "\t" + normalizedCorrelationCoefficient + "\t" + globalRank + "\t" + Math.abs(massDiff * 1e6 / theoMass) + "\t" + ionFrac + "\t" + matchedHighestIntensityFrac + "\t" + sb.toString() + explainedAaFrac + "\t" + peptide0.leftFlank + "." + peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+                    writer.write(scanName + "\t-1\t" + scanNum + "\t" + expMass + "\t" + theoMass + "\t" + score + "\t" + deltaCn + "\t" + deltaLCn + "\t" + normalizedCorrelationCoefficient + "\t" + globalRank + "\t" + Math.abs(massDiff * 1e6 / theoMass) + "\t" + ionFrac + "\t" + matchedHighestIntensityFrac + "\t" + sb.toString() + explainedAaFrac + "\t" + peptide0.leftFlank + "." + peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
                 } else {
-                    writer.write(scanIdF + "\t1\t" + scanNum + "\t" + expMass + "\t" + theoMass + "\t" + score + "\t" + deltaCn + "\t" + deltaLCn + "\t" + normalizedCorrelationCoefficient + "\t" + globalRank + "\t" + Math.abs(massDiff * 1e6 / theoMass) + "\t" + ionFrac + "\t" + matchedHighestIntensityFrac + "\t" + sb.toString() + explainedAaFrac + "\t" + peptide0.leftFlank + "." + peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+                    writer.write(scanName + "\t1\t" + scanNum + "\t" + expMass + "\t" + theoMass + "\t" + score + "\t" + deltaCn + "\t" + deltaLCn + "\t" + normalizedCorrelationCoefficient + "\t" + globalRank + "\t" + Math.abs(massDiff * 1e6 / theoMass) + "\t" + ionFrac + "\t" + matchedHighestIntensityFrac + "\t" + sb.toString() + explainedAaFrac + "\t" + peptide0.leftFlank + "." + peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
                 }
             }
         }
@@ -1027,16 +949,16 @@ public class PIPI {
 
         BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath));
         if (percolatorResultMap == null) {
-            writer.write("scanIdF,scan_num,peptide,isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
+            writer.write("scanName,scan_num,peptide,isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
                     "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac, other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
         } else {
-            writer.write("scanIdF,scan_num,peptide, isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
+            writer.write("scanName,scan_num,peptide, isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
                     "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,q_value,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
         }
 
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanIdF,scanNum, shouldPtm, hasPTM, ptmNum, isSettled, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, " +
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanName,scanNum, shouldPtm, hasPTM, ptmNum, isSettled, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, " +
                 "labelling, peptide, theoMass, isDecoy, score, otherPtmPatterns, aScore, deltaCn,deltaLCn, isDecoy, globalRank, normalizedCorrelationCoefficient, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac FROM spectraTable");
         int numScansQ001 = 0;
 
@@ -1044,7 +966,7 @@ public class PIPI {
             int isDecoy = sqlResultSet.getInt("isDecoy");
             if (!sqlResultSet.wasNull()) {
                 if (isDecoy == 0) {
-                    String scanIdF = sqlResultSet.getString("scanIdF");
+                    String scanName = sqlResultSet.getString("scanName");
                     int scanNum = sqlResultSet.getInt("scanNum");
                     double expMass = sqlResultSet.getDouble("precursorMass");
                     String peptide = sqlResultSet.getString("peptide");
@@ -1077,7 +999,7 @@ public class PIPI {
                     if (percolatorResultMap == null) {
 //                        double score = sqlResultSet.getDouble("score");
                         String str = String.format(Locale.US, "%s,%d,%s,%d,%d,%d,%d,%d,%d,%f,%f,%f,%s,%s,%f,%f,%f,%d,%f,%f,%f,%f,%s,\"%s\",%s,%d,%f\n"
-                                , scanIdF,scanNum, peptide,isDecoy, sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled")
+                                , scanName,scanNum, peptide,isDecoy, sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled")
                                 , sqlResultSet.getInt("precursorCharge"), theoMass, expMass, ppm, aScore, String.join(";", proteinIdSet).replaceAll(",", "~"), score
                                 , sqlResultSet.getDouble("deltaCn"),deltaLCn,globalRank,cosScore, ionFrac, matchedHighestIntensityFrac,explainedAaFrac
                                 , sqlResultSet.getString("otherPtmPatterns"), sqlResultSet.getString("mgfTitle")
@@ -1091,21 +1013,21 @@ public class PIPI {
                             tempMap.put(score, tempList);
                         }
                     } else {
-                        PercolatorEntry percolatorEntry = percolatorResultMap.get(scanIdF);
+                        PercolatorEntry percolatorEntry = percolatorResultMap.get(scanName);
                         if (Double.valueOf(percolatorEntry.qValue) <= 0.01) numScansQ001++;
                         String str = String.format(Locale.US, "%s, %d,%s,%d,%d,%d,%d,%d,%d,%f,%f,%f,%s,%s,%f,%f,%f,%d,%f,%f,%f,%f,%f,%s,%s,%s,\"%s\",%s,%d,%f\n"
-                                , scanIdF, scanNum, peptide,isDecoy, sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled")
+                                , scanName, scanNum, peptide,isDecoy, sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled")
                                 , sqlResultSet.getInt("precursorCharge"), theoMass, expMass, ppm, aScore, String.join(";", proteinIdSet).replaceAll(",", "~"), score
                                 , sqlResultSet.getDouble("deltaCn"),deltaLCn,globalRank,cosScore, ionFrac, matchedHighestIntensityFrac,explainedAaFrac, percolatorEntry.percolatorScore, percolatorEntry.PEP, percolatorEntry.qValue
                                 , sqlResultSet.getString("otherPtmPatterns"), sqlResultSet.getString("mgfTitle")
                                 , sqlResultSet.getString("labelling"), sqlResultSet.getInt("isotopeCorrectionNum"), sqlResultSet.getDouble("ms1PearsonCorrelationCoefficient"));
 
-                        if (tempMap.containsKey(percolatorResultMap.get(scanIdF).percolatorScore)) {
-                            tempMap.get(percolatorResultMap.get(scanIdF).percolatorScore).add(str);
+                        if (tempMap.containsKey(percolatorResultMap.get(scanName).percolatorScore)) {
+                            tempMap.get(percolatorResultMap.get(scanName).percolatorScore).add(str);
                         } else {
                             List<String> tempList = new LinkedList<>();
                             tempList.add(str);
-                            tempMap.put(percolatorResultMap.get(scanIdF).percolatorScore, tempList);
+                            tempMap.put(percolatorResultMap.get(scanName).percolatorScore, tempList);
                         }
                     }
 

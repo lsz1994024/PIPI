@@ -20,7 +20,7 @@ import ProteomicsLibrary.Types.SparseVector;
 
 import java.util.*;
 
-public class PrepareSpectrum {
+public class SpecProcessor {
 
     private static final double defaultIntensity = 1; // DO NOT change. Otherwise, change the whole project accordingly.
     private static final int xcorrOffset = 75;
@@ -28,7 +28,7 @@ public class PrepareSpectrum {
     private static final int maxPlNum = 300;
     private final MassTool massTool;
 
-    public PrepareSpectrum(MassTool massTool) {
+    public SpecProcessor(MassTool massTool) {
         this.massTool = massTool;
     }
 

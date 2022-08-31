@@ -19,7 +19,7 @@ package proteomics.Search;
 
 import ProteomicsLibrary.Binomial;
 import ProteomicsLibrary.Score;
-import proteomics.Spectrum.PreSpectra;
+import proteomics.Spectrum.DatasetReader;
 import proteomics.Types.Peptide;
 
 import java.util.*;
@@ -34,7 +34,7 @@ public class CalSubscores {
         // calculate A score
         if (peptide.hasVarPTM()) {
             Peptide[] tempArray = ptmPatterns.toArray(new Peptide[0]);
-            peptide.setaScore(String.valueOf(Score.calAScore(plMap, PreSpectra.topN, binomial, peptide.getVarPTMs(), peptide.getIonMatrix(), tempArray.length > 1 ? tempArray[1].getVarPTMs() : null, tempArray.length > 1 ? tempArray[1].getIonMatrix() : null, ms2Tolerance, peptide.length())));
+            peptide.setaScore(String.valueOf(Score.calAScore(plMap, DatasetReader.topN, binomial, peptide.getVarPTMs(), peptide.getIonMatrix(), tempArray.length > 1 ? tempArray[1].getVarPTMs() : null, tempArray.length > 1 ? tempArray[1].getIonMatrix() : null, ms2Tolerance, peptide.length())));
         }
     }
 }

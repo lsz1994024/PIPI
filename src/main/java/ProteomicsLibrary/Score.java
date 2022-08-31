@@ -111,7 +111,7 @@ public class Score {
     public static double calBinomialScorePValue(TreeMap<Double, Double> plMap, int topN, Binomial binomial, int localMaxMs2Charge, double[][] ionMatrix, double ms2Tolerance, int peptideLengthWithNC) throws Exception { // calculate a p-value as Andromeda.s
         double finalPValue = 2;
         for (int localTopN = 1; localTopN <= topN; ++localTopN) {
-            TreeMap<Double, Double> localPLMap = PrepareSpectrum.topNStyleNormalization(plMap, localTopN);
+            TreeMap<Double, Double> localPLMap = SpecProcessor.topNStyleNormalization(plMap, localTopN);
             double pValue = calBinomialScorePValueSub(localPLMap, localTopN, binomial, localMaxMs2Charge, ionMatrix, ms2Tolerance, peptideLengthWithNC);
             if (pValue < finalPValue) {
                 finalPValue = pValue;
@@ -128,7 +128,7 @@ public class Score {
     public static double calAScore(TreeMap<Double, Double> plMap, int topN, Binomial binomial, TreeMap<Coordinate, Double> varPTMMap1, double[][] ionMatrix1, TreeMap<Coordinate, Double> varPTMMap2, double[][] ionMatrix2, double ms2Tolerance, int peptideLengthWithNC) throws Exception {
         double finalAScore = -9999;
         for (int localTopN = 1; localTopN <= topN; ++localTopN) {
-            TreeMap<Double, Double> localPLMap = PrepareSpectrum.topNStyleNormalization(plMap, localTopN);
+            TreeMap<Double, Double> localPLMap = SpecProcessor.topNStyleNormalization(plMap, localTopN);
             double aScore = calAScoreSub(localPLMap, localTopN, binomial, varPTMMap1, ionMatrix1, varPTMMap2, ionMatrix2, ms2Tolerance, peptideLengthWithNC);
             if (aScore > finalAScore) {
                 finalAScore = aScore;

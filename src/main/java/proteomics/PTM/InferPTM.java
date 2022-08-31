@@ -21,7 +21,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
-import proteomics.OutputPeff;
+//import proteomics.OutputPeff;
 import proteomics.Types.*;
 
 import java.io.*;
@@ -550,35 +550,35 @@ public class InferPTM {
         return new DividedZone(keptZone, freeZone, ptmMass);
     }
 
-    public static Multimap<Character, ModEntry> readUnimodAndGenerateAAS(double minPtmMass, double maxPtmMass) throws IOException {
-        Multimap<Character, ModEntry> siteModMap = HashMultimap.create();
-        InputStream inputStream = OutputPeff.class.getClassLoader().getResourceAsStream("unimod.xml.tsv");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            line = line.trim();
-            if (!line.isEmpty() && !line.startsWith("accession")) {
-                String[] parts = line.split("\t");
-                if (!parts[6].contentEquals("Isotopic label") && !parts[6].contentEquals("AA substitution")) { // We don't consider isotopic label and amino acid substitution..
-                    char site = parts[1].charAt(0);
-                    if (parts[1].trim().contentEquals("N-term")) {
-                        site = 'n';
-                    } else if (parts[1].trim().contentEquals("C-term")) {
-                        site = 'c';
-                    }
-                    if (site != 'n' && site != 'c') { // We don't consider peptide terminal modifications
-                        double ptmDeltaMass =  Double.valueOf(parts[4].trim());
-                        if (ptmDeltaMass >= minPtmMass && ptmDeltaMass <= maxPtmMass) { // only record the PTM within the delta mass range
-                            siteModMap.put(site, new ModEntry("UNIMOD:" + parts[0].trim(), parts[2].trim().contentEquals("null") ? parts[3].trim() : parts[2].trim(), ptmDeltaMass)); // if there is no PSI-MS name, use the internal name in the Unimod
-                        }
-                    }
-                }
-            }
-        }
-        reader.close();
-
-        return siteModMap;
-    }
+//    public static Multimap<Character, ModEntry> readUnimodAndGenerateAAS(double minPtmMass, double maxPtmMass) throws IOException {
+//        Multimap<Character, ModEntry> siteModMap = HashMultimap.create();
+//        InputStream inputStream = OutputPeff.class.getClassLoader().getResourceAsStream("unimod.xml.tsv");
+//        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+//        String line;
+//        while ((line = reader.readLine()) != null) {
+//            line = line.trim();
+//            if (!line.isEmpty() && !line.startsWith("accession")) {
+//                String[] parts = line.split("\t");
+//                if (!parts[6].contentEquals("Isotopic label") && !parts[6].contentEquals("AA substitution")) { // We don't consider isotopic label and amino acid substitution..
+//                    char site = parts[1].charAt(0);
+//                    if (parts[1].trim().contentEquals("N-term")) {
+//                        site = 'n';
+//                    } else if (parts[1].trim().contentEquals("C-term")) {
+//                        site = 'c';
+//                    }
+//                    if (site != 'n' && site != 'c') { // We don't consider peptide terminal modifications
+//                        double ptmDeltaMass =  Double.valueOf(parts[4].trim());
+//                        if (ptmDeltaMass >= minPtmMass && ptmDeltaMass <= maxPtmMass) { // only record the PTM within the delta mass range
+//                            siteModMap.put(site, new ModEntry("UNIMOD:" + parts[0].trim(), parts[2].trim().contentEquals("null") ? parts[3].trim() : parts[2].trim(), ptmDeltaMass)); // if there is no PSI-MS name, use the internal name in the Unimod
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        reader.close();
+//
+//        return siteModMap;
+//    }
 
     public Multimap<Character, ModEntry> getSiteModMap() {
         return siteModMap;
