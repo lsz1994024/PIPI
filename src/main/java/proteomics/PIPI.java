@@ -375,25 +375,25 @@ public class PIPI {
         int num = 0;
         int correct = 0;
         int totalCorrect = 0;
-//        for (int i = protScoreLongList.size()-1; i >= 0; i--){
-////            System.out.print(protScoreLongList.get(i).getFirst()+","+(omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0)+","+protScoreLongList.get(i).getSecond() +","
-////                    + protLengthMap.get(protScoreLongList.get(i).getFirst())+","+protTagNumMap.get(protScoreLongList.get(i).getFirst()));
-////            System.out.print("\n");
-//            num++;
-//            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
-//                correct++;
-//            }
-//            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
-//                totalCorrect ++;
-//
-//            }
-//            System.out.println(num+ "," +protScoreLongList.get(i).getSecond() + ","+protLengthMap.get(protScoreLongList.get(i).getFirst() )
-//                    + ","+protScoreLongList.get(i).getFirst() +"," + (omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0));
-//            for (String tag : protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).keySet()){
-//                System.out.println(tag+ "," + protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).get(tag) + "," +tagNumMap.get(tag));
-//            }
-//            System.out.println("==============");
-//        }
+        for (int i = protScoreLongList.size()-1; i >= 0; i--){
+//            System.out.print(protScoreLongList.get(i).getFirst()+","+(omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0)+","+protScoreLongList.get(i).getSecond() +","
+//                    + protLengthMap.get(protScoreLongList.get(i).getFirst())+","+protTagNumMap.get(protScoreLongList.get(i).getFirst()));
+//            System.out.print("\n");
+            num++;
+            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
+                correct++;
+            }
+            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
+                totalCorrect ++;
+
+            }
+            System.out.println(num+ "," +protScoreLongList.get(i).getSecond() + ","+protLengthMap.get(protScoreLongList.get(i).getFirst() )
+                    + ","+protScoreLongList.get(i).getFirst() +"," + (omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0));
+            for (String tag : protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).keySet()){
+                System.out.println(tag+ "," + protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).get(tag) + "," +tagNumMap.get(tag));
+            }
+            System.out.println("==============");
+        }
         System.out.println("5300 contains,"+ correct);
         System.out.println("total,"+ num + ","+totalCorrect);
         Set<String> protHardSet = new HashSet<>();
@@ -555,23 +555,23 @@ public class PIPI {
                 Set<Peptide> realPtmOnlyList = new HashSet<>();
                 Set<Peptide> realPtmFreeList = new HashSet<>();
                 for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
-                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-
-                        if (protHardSet.contains(prot)) {
+//                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
+//                        if (prot.contains("DECOY_")) prot = prot.substring(6);
+//
+//                        if (protHardSet.contains(prot)) {
                             realPtmOnlyList.add(pep.clone());
-                            break;
-                        }
-                    }
+//                            break;
+//                        }
+//                    }
                 }
                 for (Peptide pep : ptmFreeCandiMap.get(thisScanName)) {
-                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-                        if (protHardSet.contains(prot)) {
+//                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
+//                        if (prot.contains("DECOY_")) prot = prot.substring(6);
+//                        if (protHardSet.contains(prot)) {
                             realPtmFreeList.add(pep.clone());
-                            break;
-                        }
-                    }
+//                            break;
+//                        }
+//                    }
                 }
 //                System.out.println(thisScanNum+","+ptmOnlyCandiMap.get(thisScanNum).size()+","+ptmFreeCandiMap.get(thisScanNum).size()+"," + realPtmOnlyList.size()+","+realPtmFreeList.size());
                 for (int i = -3; i <= 3; i++) {
@@ -585,22 +585,22 @@ public class PIPI {
 
                             if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                                 for (Peptide pep : ptmOnlyCandiMap.get(otherScanName)) {
-                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                        if (protHardSet.contains(prot)) {
+//                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
+//                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
+//                                        if (protHardSet.contains(prot)) {
                                             realPtmOnlyList.add(pep.clone());
-                                            break;
-                                        }
-                                    }
+//                                            break;
+//                                        }
+//                                    }
                                 }
                                 for (Peptide pep : ptmFreeCandiMap.get(otherScanName)) {
-                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-                                        if (protHardSet.contains(prot)) {
+//                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
+//                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
+//                                        if (protHardSet.contains(prot)) {
                                             realPtmFreeList.add(pep.clone());
-                                            break;
-                                        }
-                                    }
+//                                            break;
+//                                        }
+//                                    }
                                 }
                             }
                         }
