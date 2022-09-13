@@ -32,86 +32,152 @@ public class SpecProcessor {
         this.massTool = massTool;
     }
 
-    public TreeMap<Double, Double> preSpectrumTopNStyle (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, int topN) {
-
-
-
-
-//        List<Map.Entry<Double, Double>> checkPlList = new ArrayList<>(newInputPL.entrySet());
-//        Collections.sort(checkPlList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
+    public TreeMap<Double, Double> preSpectrumTopNStyleCommon (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, int topN) {
 
         TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
-//        NavigableMap<Double,Double> a =  outputPL.descendingMap();
         List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
         Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getValue));
         plList = plList.subList(Math.max(plList.size()-maxPlNum, 0), plList.size());
         Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
+
         //my deiso
-//        System.out.print("lsssssssss");
-        Set<Integer> shouldDrop = new HashSet<>();
-        Map<Double, Double> extraPeaks = new HashMap<>();
-        for(int i = 1; i < plList.size(); i++) {
+        Map<Integer, TreeSet<Integer>> isoAbility = new HashMap<>();
+        for(int i = 0; i < plList.size(); i++) {
+            isoAbility.put(i, (TreeSet<Integer>) (new TreeSet<>(Arrays.asList(5,4,3,2,1))).descendingSet());
+        }
+        TreeMap<Double, Double> newPlMap = new TreeMap<>();
+
+        for(int i = 0; i < plList.size()-1; i++) {
             double curMz = plList.get(i).getKey();
             double curIntes = plList.get(i).getValue();
-            for (int j = i-1; j > 0; j--){
-                double previousMz = plList.get(j).getKey();
-                double previousIntes = plList.get(j).getValue();
-                if (curMz - previousMz - massTool.PROTON > 0.01) break;
 
-                if (Math.abs(curMz - previousMz - massTool.PROTON/5) <= 0.01) {
-                    if (previousIntes > 0.5 *curIntes) {
-                        shouldDrop.add(i);
+            boolean foundWithAnyCharge = false;
+
+            if (i == 140){
+                int a = 1;
+            }
+            Set<Integer> nextIdUsed = new HashSet<>();
+
+            for (int charge : isoAbility.get(i)) {
+                double mzDiff = MassTool.PROTON/charge;
+                boolean foundWithThisCharge = false;
+
+                isoIdLoop:
+                for (int isoId = 1; isoId <= 5; isoId++) {
+                    double thisMzDiff = isoId*mzDiff;
+                    for (int j = i + 1; j < plList.size(); j++) {
+                        if (nextIdUsed.contains(j)) continue;
+
+                        double nextMz = plList.get(j).getKey();
+                        double nextIntes = plList.get(j).getValue();
+                        if (nextMz < curMz + thisMzDiff - 0.015 || curIntes < 0.1*nextIntes) continue;
+                        if (nextMz > curMz + thisMzDiff + 0.015) break isoIdLoop; // at most 5 iso peaks in a cluster
+
+                        if (nextMz > curMz + thisMzDiff - 0.015 && nextMz < curMz + thisMzDiff + 0.015) {
+                            nextIdUsed.add(j);
+                            foundWithThisCharge = true;
+                            isoAbility.get(j).remove(charge);
+                            break;
+                        } else {
+                            break isoIdLoop;
+                        }
                     }
-                    if (!shouldDrop.contains(j)) {
-                        extraPeaks.put(previousMz*5-massTool.PROTON, previousIntes);
+                }
+
+                if (foundWithThisCharge) {
+                    foundWithAnyCharge = true;
+                    newPlMap.put(curMz*charge-massTool.PROTON*(charge-1), curIntes);
+                    if (curMz*charge-massTool.PROTON*(charge-1) > 3000){
+                        int a = 1;
                     }
-                    continue;
-                }else if (Math.abs(curMz - previousMz - massTool.PROTON/4) <= 0.01) {
-                    if (previousIntes > 0.5 *curIntes) {
-                        shouldDrop.add(i);
-                    }
-                    if (!shouldDrop.contains(j)) {
-                        extraPeaks.put(previousMz*4-massTool.PROTON, previousIntes);
-                    }
-                    continue;
-                }else if (Math.abs(curMz - previousMz - massTool.PROTON/3) <= 0.01) {
-                    if (previousIntes > 0.5 *curIntes) {
-                        shouldDrop.add(i);
-                    }
-                    if (!shouldDrop.contains(j)) {
-                        extraPeaks.put(previousMz*3-massTool.PROTON, previousIntes);
-                    }
-                    continue;
-                }else if (Math.abs(curMz - previousMz - massTool.PROTON/2) <= 0.01) {
-                    if (previousIntes > 0.5 *curIntes) {
-                        shouldDrop.add(i);
-                    }
-                    if (!shouldDrop.contains(j)) {
-                        extraPeaks.put(previousMz*2-massTool.PROTON, previousIntes);
-                    }
-                    continue;
-                } else if (Math.abs(curMz - previousMz - massTool.PROTON) <= 0.01) {
-                    if (previousIntes > 0.5 *curIntes) {
-                        shouldDrop.add(i);
-                    }
-                } else {
-                    continue;
+//                    break;
                 }
             }
-        }
 
-
-        TreeMap<Double, Double> newOutputPL = new TreeMap<>(extraPeaks);
-        for(int i = 1; i < plList.size(); i++) {
-            if (!shouldDrop.contains(i)) {
-                newOutputPL.put(plList.get(i).getKey(), plList.get(i).getValue());
+            if (!foundWithAnyCharge && isoAbility.get(i).size() == 5) {
+                newPlMap.put(curMz, curIntes);
             }
+
         }
 
-        if (newOutputPL.subMap(0d, precursorMass).isEmpty()) {
+        if (newPlMap.subMap(0d, precursorMass).isEmpty()) {
             return new TreeMap<>();
         } else {
-            return topNStyleNormalization(sqrtPL(new TreeMap<>(newOutputPL.subMap(0d, precursorMass))), topN);
+            return topNStyleNormalization(sqrtPL(new TreeMap<>(newPlMap.subMap(0d, precursorMass))), topN);
+        }
+    }
+
+    public TreeMap<Double, Double> preSpectrumTopNStyleWithChargeLimit (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, int topN) {
+
+        TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
+        List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
+        Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getValue));
+        plList = plList.subList(Math.max(plList.size()-maxPlNum, 0), plList.size());
+        Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
+
+        //my deiso
+        Map<Integer, TreeSet<Integer>> isoAbility = new HashMap<>();
+        for(int i = 0; i < plList.size(); i++) {
+            isoAbility.put(i, (TreeSet<Integer>) (new TreeSet<>(Arrays.asList(5,4,3,2,1))).descendingSet());
+        }
+        TreeMap<Double, Double> newPlMap = new TreeMap<>();
+
+        for(int i = 0; i < plList.size()-1; i++) {
+            double curMz = plList.get(i).getKey();
+            double curIntes = plList.get(i).getValue();
+
+            boolean foundWithAnyCharge = false;
+
+            if (i == 140){
+                int a = 1;
+            }
+            Set<Integer> nextIdUsed = new HashSet<>();
+
+            for (int charge : isoAbility.get(i)) {
+                double mzDiff = MassTool.PROTON/charge;
+                boolean foundWithThisCharge = false;
+//                int thisCharge = 0;
+                isoIdLoop:
+                for (int isoId = 1; isoId <= 5; isoId++) {
+                    double thisMzDiff = isoId*mzDiff;
+                    for (int j = i + 1; j < plList.size(); j++) {
+                        if (nextIdUsed.contains(j)) continue;
+
+                        double nextMz = plList.get(j).getKey();
+                        double nextIntes = plList.get(j).getValue();
+                        if (nextMz < curMz + thisMzDiff - 0.015 || curIntes < 0.1*nextIntes) continue;
+                        if (nextMz > curMz + thisMzDiff + 0.015) break isoIdLoop; // at most 5 iso peaks in a cluster
+
+                        if (nextMz > curMz + thisMzDiff - 0.015 && nextMz < curMz + thisMzDiff + 0.015) {
+                            nextIdUsed.add(j);
+                            foundWithThisCharge = true;
+//                            thisCharge = charge;
+                            isoAbility.get(j).remove(charge);
+                            break;
+                        } else {
+                            break isoIdLoop;
+                        }
+                    }
+                }
+
+                if (foundWithThisCharge) {
+                    foundWithAnyCharge = true;
+                    if (precursorCharge > charge) {
+                        newPlMap.put(curMz*charge-massTool.PROTON*(charge-1), curIntes);
+                    }
+                }
+            }
+
+            if (!foundWithAnyCharge && isoAbility.get(i).size() == 5) {
+                newPlMap.put(curMz, curIntes);
+            }
+
+        }
+
+        if (newPlMap.subMap(0d, precursorMass).isEmpty()) {
+            return new TreeMap<>();
+        } else {
+            return topNStyleNormalization(sqrtPL(new TreeMap<>(newPlMap.subMap(0d, precursorMass))), topN);
         }
     }
 

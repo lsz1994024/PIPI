@@ -76,12 +76,17 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
         } finally {
             lock.unlock();
         }
-        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
+        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleCommon(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
 
         if (plMap.isEmpty()) {
             return null;
         }
-
+        int coId = Integer.valueOf(this.scanName.split("\\.")[3]);
+        if (coId > 0) {
+            Entry entry = new Entry();
+            entry.scanName = this.scanName;
+            return entry;
+        }
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
@@ -109,129 +114,6 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
                     }
                 }
 
-//                Map<Double, Integer> mzIdMap = new HashMap<>();
-//                int i = 0;
-//                for (double mz : finalPlMap.keySet()) {
-//                    mzIdMap.put(mz, i);
-//                    i++;
-//                }
-//                TreeMap<Integer, Double> nodeMap = new TreeMap<>();
-//                Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
-//                Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
-//                for (ThreeExpAA tag : allLongTagList) {
-//                    for (ExpAA aa : tag.getExpAAs()) {
-//                        if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
-//                            continue;
-//                        }
-//                        int n1 = mzIdMap.get(aa.getHeadLocation());
-//                        int n2 = mzIdMap.get(aa.getTailLocation());
-//                        double inte1 = aa.getHeadIntensity();
-//                        double inte2 = aa.getTailIntensity();
-//                        nodeMap.put(n1, inte1);
-//                        nodeMap.put(n2, inte2);
-//                        if (outEdgeMap.containsKey(n1)) {
-//                            outEdgeMap.get(n1).put(n2, 0.5 * (inte1 + inte2));
-//                        } else {
-//                            Map<Integer, Double> temp = new HashMap<>();
-//                            temp.put(n2, 0.5 * (inte1 + inte2));
-//                            outEdgeMap.put(n1, temp);
-//                        }
-//
-//                        if (inEdgeMap.containsKey(n2)) {
-//                            inEdgeMap.get(n2).put(n1, 0.5 * (inte1 + inte2));
-//                        } else {
-//                            Map<Integer, Double> temp = new HashMap<>();
-//                            temp.put(n1, 0.5 * (inte1 + inte2));
-//                            inEdgeMap.put(n2, temp);
-//                        }
-//
-//                    }
-//                }
-//                for (int node : nodeMap.keySet()) {
-//                    if (!inEdgeMap.containsKey(node)) {
-//                        for (int n2 : outEdgeMap.get(node).keySet()) {
-//                            outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + nodeMap.get(node) / 2);
-//                            inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + nodeMap.get(node) / 2);
-//                        }
-//                    }
-//                    if (!outEdgeMap.containsKey(node)) {
-//                        for (int n1 : inEdgeMap.get(node).keySet()) {
-//                            outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + nodeMap.get(node) / 2);
-//                            inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + nodeMap.get(node) / 2);
-//                        }
-//                    }
-//                }
-//                // finish prepare graph
-//
-//                Set<Edge> edgeToDel = new HashSet<>();
-//                Map<Integer, Integer> tempToDel = new HashMap<>();
-//
-//                for (int node : nodeMap.descendingKeySet()) {
-//                    if (outEdgeMap.containsKey(node)) {
-//                        Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
-//                        double maxOut = 0d;
-//                        int maxOutPeak = -1;
-//                        for (int n2 : tempOutMap.keySet()) {
-//                            if (tempOutMap.get(n2) > maxOut) {
-//                                maxOut = tempOutMap.get(n2);
-//                                maxOutPeak = n2;
-//                            }
-//                        }
-//                        for (int n2 : tempOutMap.keySet()) {
-//                            if (n2 != maxOutPeak) {
-//                                edgeToDel.add(new Edge(node, n2));
-//                                tempToDel.put(node, n2);
-//
-//                            }
-//                        }
-//                        if (inEdgeMap.containsKey(node)) {
-//
-//                            for (int n1 : inEdgeMap.get(node).keySet()) {
-//                                outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOut);
-//                                inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOut);
-//
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                for (int n1 : tempToDel.keySet()) {
-//                    int n2 = tempToDel.get(n1);
-//                    inEdgeMap.get(n2).remove(n1);
-//                    outEdgeMap.get(n1).remove(n2);
-//                }
-//                for (int node : nodeMap.keySet()) {
-//                    if (inEdgeMap.containsKey(node)) {
-//                        Map<Integer, Double> tempInMap = inEdgeMap.get(node);
-//                        double maxIn = 0d;
-//                        int maxInPeak = -1;
-//                        for (int n1 : tempInMap.keySet()) {
-//                            if (tempInMap.get(n1) > maxIn) {
-//                                maxIn = tempInMap.get(n1);
-//                                maxInPeak = n1;
-//                            }
-//                        }
-//                        for (int n1 : tempInMap.keySet()) {
-//                            if (n1 != maxInPeak) {
-//                                edgeToDel.add(new Edge(n1, node));
-//
-//                            }
-//                        }
-//                        if (outEdgeMap.containsKey(node)) {
-//
-//                            for (int n2 : outEdgeMap.get(node).keySet()) {
-//                                outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
-//                                inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
-//
-//                            }
-//                        }
-//                    }
-//                }
-//                Set<Pair<Integer, Integer>> pairToDel = new HashSet<>();
-//                for (Edge e : edgeToDel) {
-//                    pairToDel.add(new Pair(e.n1, e.n2));
-//                }
-//                //        List<ThreeExpAA> allLongDenoisedTagList = inferSegment.getLongDenoisedTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, pairToDel);
                 FMIndex fmIndex = buildIndex.fmIndex;
 
                 ArrayList<Pair<Integer, Double>> posScoreList = new ArrayList<>();
@@ -279,9 +161,6 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
                         }
                     }
 
-//                    if (ptnForwardCount > 0 && ptnBackwardCount > 0) {
-//                        int a = 1;
-//                    }
 
                     if (ptnForwardCount + ptnBackwardCount > 0) {
                         Set<String> thisRoundProts = new HashSet<>();
@@ -398,18 +277,10 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
                 }
 
 
-                //            entry.candidateList = tagSeqList;
-//                Map<String, Double> top1Pep = new HashMap<>();
-//                for (String prot : protScoreMap.keySet()) {
-//                    if (protScoreMap.get(prot) > highestScore * 0.9) {
-//                        top1Pep.put(prot, protScoreMap.get(prot));
-//                    }
-//                }
-//                entry.protScoreMap = top1Pep;
                 entry.protTagScoreMap = protTagScoreMap;
             }
 
-            entry.scanCode = inferSegment.generateSegmentIntensityVector(tag3List);
+//            entry.scanCode = inferSegment.generateSegmentIntensityVector(tag3List);
             entry.scanName = this.scanName;
             return entry;
         } else {

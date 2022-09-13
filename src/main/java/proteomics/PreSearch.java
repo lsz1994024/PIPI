@@ -89,12 +89,15 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         } finally {
             lock.unlock();
         }
-        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
+        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
 
         if (plMap.isEmpty()) {
             return null;
         }
 
+        if (scanNum == 2270) {
+            int a = 1;
+        }
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
@@ -108,17 +111,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             List<ThreeExpAA> ncTags = new ArrayList<>();
             Map<String, Set<String>> tagPepMap = buildIndex.getInferSegment().tagPepMap;
             Set<String> candiSet = new HashSet<>();
-//            for (ThreeExpAA tagInfo: tag4List) {
-//                String tag = tagInfo.getPtmFreeAAString().replace('#','L');
-//                String revTag = new StringBuilder(tag).reverse().toString();
-//                int compareResult = tag.compareTo(revTag);
-//                if (compareResult > 0) {
-//                    tag = revTag;
-//                }
-//                if (tagPepMap.containsKey(tag)) {
-//                    candiSet.addAll(tagPepMap.get(tag));
-//                }
-//            }
             SparseVector scanCode = inferSegment.generateSegmentIntensityVector(tag3List);
 
 //            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
@@ -128,7 +120,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             entry.scanName = this.scanName;
             return entry;
         } else {
-//            System.out.println("nullLsz, "+ scanNum);
+//            System.out.println("nullLsz, "+ scanNum);entry = {PreSearch$Entry@2739}
             return null;
         }
     }

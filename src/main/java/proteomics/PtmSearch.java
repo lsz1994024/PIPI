@@ -110,19 +110,14 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         }
 
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyle(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
+        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
 
         if (plMap.isEmpty()) {
             return null;
         }
 
         // Coding
-//        InferSegment inferSegment = buildIndex.getInferSegment();
-//        List<ThreeExpAA> expAaLists = inferSegment.inferSegmentLocationFromSpectrum(precursorMass, plMap, scanNum);
         if (true) {
-//            SparseVector scanCode = inferSegment.generateSegmentIntensityVector(expAaLists);
-
-
             SparseVector expProcessedPL;
             if (PIPI.useXcorr) {
                 expProcessedPL = preSpectrum.prepareXCorr(plMap, false);

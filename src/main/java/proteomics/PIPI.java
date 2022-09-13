@@ -237,7 +237,10 @@ public class PIPI {
             int precursorCharge = sqlResSetSpecCoder.getInt("precursorCharge");
 //            int precursorScanNo = sqlResSetSpecCoder.getInt("precursorScanNo");
             double precursorMass = sqlResSetSpecCoder.getDouble("precursorMass");
-//            if (scanNum != 3) {  //22459
+//            if (scanNum != 2270) {  //22459
+//                continue;
+//            }
+//            if (scanName.split("\\.")[1].contentEquals("25") ) {  //22459
 //                continue;
 //            }
 //            if (!pepTruth.containsKey(scanNum)){
@@ -247,7 +250,7 @@ public class PIPI {
             precursorChargeMap.put(scanName, precursorCharge);
             precursorMassMap.put(scanName, precursorMass);
 
-
+//            System.out.println(scanName + ","+ precursorMass);
 
             submitNumSpecCoder++;
             taskListSpecCoder.add(threadPoolSpecCoder.submit(new SpecCoder(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockSpecCoder, scanName, precursorCharge
@@ -270,9 +273,16 @@ public class PIPI {
             List<Future<SpecCoder.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountSpecCoder - countSpecCoder);
             for (Future<SpecCoder.Entry> task : taskListSpecCoder) {
                 if (task.isDone()) {
-                    if (task.get() != null) {
+                    if (task.get() != null ) {
                         SpecCoder.Entry entry = task.get();
                         validScanSet.add(entry.scanName);
+
+                        int coId = Integer.valueOf(entry.scanName.split("\\.")[3]);
+                        if (coId > 0) {
+                            toBeDeleteTaskList.add(task);
+                            continue;
+                        }
+
 
                         for (String prot : entry.protTagScoreMap.keySet()){
                             List<Pair<String, Double>> tagScoreList = entry.protTagScoreMap.get(prot);
@@ -449,7 +459,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            threadNum = 1;
+//            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
