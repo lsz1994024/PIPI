@@ -87,10 +87,6 @@ public class SpecProcessor {
                 if (foundWithThisCharge) {
                     foundWithAnyCharge = true;
                     newPlMap.put(curMz*charge-massTool.PROTON*(charge-1), curIntes);
-                    if (curMz*charge-massTool.PROTON*(charge-1) > 3000){
-                        int a = 1;
-                    }
-//                    break;
                 }
             }
 

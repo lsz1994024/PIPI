@@ -118,6 +118,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
             entry.scanName = this.scanName;
+
             return entry;
         } else {
 //            System.out.println("nullLsz, "+ scanNum);entry = {PreSearch$Entry@2739}
@@ -151,6 +152,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         public int scanNum = PreSearch.this.scanNum;
         public double precursorMass = PreSearch.this.precursorMass;
+        public int precursorCharge = PreSearch.this.precursorCharge;
         public List<Peptide> ptmOnlyList = new ArrayList<>();
         public List<Peptide> ptmFreeList = new ArrayList<>();
 
