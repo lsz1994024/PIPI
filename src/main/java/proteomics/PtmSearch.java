@@ -315,7 +315,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                         , pep.getExplainedAaFrac(), extraOtherPtmPatterns, pep.getaScore(), ""
                         , extraPepSetString.substring(0,extraPepSetString.length()-1), whereIsTopCand));
 
-                if (!pep.shouldPTM) break;
+                if (!extraShouldPtm) break;
             }
             return entry;
 

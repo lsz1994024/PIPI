@@ -220,7 +220,7 @@ public class PIPI {
             threadNum1 = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            threadNum1 = 1;
+//            threadNum1 = 1;
         }
         System.out.println("thread NUM "+ threadNum1);
 
@@ -248,7 +248,7 @@ public class PIPI {
             isotopeCorrectionNumMap.put(scanName, sqlResSetSpecCoder.getInt("isotopeCorrectionNum"));
             ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetSpecCoder.getDouble("ms1PearsonCorrelationCoefficient"));
 
-//            if (scanNum > 1950) {  //22459
+//            if (scanNum > 2500) {  //22459
 //                continue;
 //            }
 //            if (scanName.split("\\.")[1].contentEquals("25") ) {  //22459
@@ -406,7 +406,7 @@ public class PIPI {
         System.out.println("total,"+ num + ","+totalCorrect);
         Set<String> protHardSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 160) continue;
+            if (pair.getSecond() < 59) continue;
             protHardSet.add(pair.getFirst());
         }
 //        Set<String> protHardSet = omProts;
@@ -457,7 +457,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            threadNum = 1;
+//            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
@@ -601,7 +601,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            threadNum = 1;
+//            threadNum = 1;
         }
         ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
         ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
@@ -938,7 +938,7 @@ public class PIPI {
 
                 String[] scanNameStr = scanName.split("\\.");
                 int fileId = Integer.valueOf(scanNameStr[0]);
-                boolean hasCo = fileIdScanNumToChargeScanNameMap.containsKey(fileId+"."+scanNum);
+                boolean hasCo = fileIdScanNumToChargeScanNameMap.containsKey(fileId+"."+scanNum) && fileIdScanNumToChargeScanNameMap.get(fileId+"."+scanNum).containsKey(charge);
                 if (!hasCo) {
                     if (isDecoy == 1) {
                         writer.write(scanName + "\t-1\t" + scanNum + "\t" + expMass + "\t" + theoMass + "\t" + score + "\t" + deltaCn + "\t" + deltaLCn + "\t" + normalizedCorrelationCoefficient + "\t" + globalRank + "\t" + Math.abs(massDiff * 1e6 / theoMass) + "\t" + ionFrac + "\t" + matchedHighestIntensityFrac + "\t" + sb.toString() + explainedAaFrac + "\t" + peptide0.leftFlank + "." + peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
@@ -948,35 +948,45 @@ public class PIPI {
                 }
             }
         }
+
         for (String fileIdScanNum : fileIdScanNumToChargeScanNameMap.keySet()) {
+            if (fileIdScanNum.contentEquals("0.2407")) {
+                int a = 1;
+            }
             Map<Integer, Set<String>> chargeScanNameMap = fileIdScanNumToChargeScanNameMap.get(fileIdScanNum);
             for (int charge : chargeScanNameMap.keySet()) {
                 Map<String, Double> seqScoreMap = new HashMap<>();
                 Set<String> scanNameSet = chargeScanNameMap.get(charge);
-                for (String scanName : scanNameSet) {
-                    if (!exResForScanNameMap.containsKey(scanName)) continue;
-
-                    for (ExRes res : exResForScanNameMap.get(scanName)) {
-                        seqScoreMap.put(res.peptide, Math.max(seqScoreMap.getOrDefault(res.peptide, 0d), res.score));
+                Iterator<String> scanNameIter = scanNameSet.iterator();
+                while (scanNameIter.hasNext()) {
+                    if (!exResForScanNameMap.containsKey(scanNameIter.next())) {
+                        scanNameIter.remove();
                     }
                 }
-                for (String scanName : scanNameSet) {
-                    if (!exResForScanNameMap.containsKey(scanName)) continue;
 
-                    Iterator<ExRes> iter = exResForScanNameMap.get(scanName).iterator();
-                    while (iter.hasNext()){
-                        ExRes res = iter.next();
-                        if (res.score < seqScoreMap.get(res.peptide)) {
-                            iter.remove();
+                Set<String> selectedPep = new HashSet<>();
+                while (0 < scanNameSet.size()) {
+                    String bestPep = "";
+                    String bestScanName = "";
+                    double bestScore = 0d;
+
+                    for (String scanName : scanNameSet) {
+                        for (ExRes res : exResForScanNameMap.get(scanName)) {
+                            if (res.score > bestScore && !selectedPep.contains(res.peptide)) {
+                                bestScore = res.score;
+                                bestPep = res.peptide;
+                                bestScanName = scanName;
+                            }
                         }
                     }
-                }
-                for (String scanName : scanNameSet) {
-                    if (!exResForScanNameMap.containsKey(scanName)) continue;
 
-                    if (exResForScanNameMap.get(scanName).isEmpty()) continue;
-                    ExRes bestRes = exResForScanNameMap.get(scanName).get(0);
-
+                    if (exResForScanNameMap.get(bestScanName) == null) {
+                        int a = 1;
+                    }
+                    if (bestScanName.contentEquals("")) {
+                        break;
+                    }
+                    ExRes bestRes = exResForScanNameMap.get(bestScanName).get(0);
                     StringBuilder sb = new StringBuilder(20);
                     for (int i = 0; i < 6; ++i) {
                         if (i == bestRes.precursorCharge - 1) {
@@ -986,20 +996,80 @@ public class PIPI {
                         }
                         sb.append("\t");
                     }
-
                     double massDiff = getMassDiff(bestRes.precursorMass, bestRes.theoMass, MassTool.C13_DIFF);
                     Peptide0 peptide0 = peptide0Map.get(bestRes.peptide.replaceAll("[^ncA-Z]+", ""));
                     TreeSet<String> proteinIdSet = new TreeSet<>();
                     for (String protein : peptide0.proteins) {
                         proteinIdSet.add(protein.trim());
                     }
-
                     if (bestRes.isDecoy == 1) {
-                        writer.write(scanName + "\t-1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+                        writer.write(bestScanName + "\t-1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
                     } else {
-                        writer.write(scanName + "\t1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+                        writer.write(bestScanName + "\t1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
                     }
+                    scanNameSet.remove(bestScanName);
+                    selectedPep.add(bestPep);
+
                 }
+//                for (String scanName : scanNameSet) {
+//                    if (!exResForScanNameMap.containsKey(scanName)) continue;
+//
+//                    for (ExRes res : exResForScanNameMap.get(scanName)) {
+//                        if (res.score > bestScore) {
+//                            bestScore = res.score;
+//                            bestPep = res.peptide;
+//                            bestScanName = scanName;
+//                        }
+////                        if (seqScoreMap.containsKey(res.peptide) && seqScoreMap.get(res.peptide) == res.score) {
+////                            res.score -= 0.00001;
+////                        }
+////                        seqScoreMap.put(res.peptide, Math.max(seqScoreMap.getOrDefault(res.peptide, 0d), res.score));
+//                    }
+//                }
+//                for (String scanName : scanNameSet) {
+//                    if (!exResForScanNameMap.containsKey(scanName)) continue;
+//
+//                    Iterator<ExRes> iter = exResForScanNameMap.get(scanName).iterator();
+//                    while (iter.hasNext()){
+//                        ExRes res = iter.next();
+//                        if (res.score < seqScoreMap.get(res.peptide)) {
+//                            iter.remove();
+//                        }
+//                    }
+//                }
+
+//                Set<String> usedScanNameSet = new HashSet<>();
+//                for (String scanName : scanNameSet) {
+//                    if (!exResForScanNameMap.containsKey(scanName)) continue;
+//
+//                    if (exResForScanNameMap.get(scanName).isEmpty()) continue;
+//                    ExRes bestRes = exResForScanNameMap.get(scanName).get(0);
+//
+//                    StringBuilder sb = new StringBuilder(20);
+//                    for (int i = 0; i < 6; ++i) {
+//                        if (i == bestRes.precursorCharge - 1) {
+//                            sb.append(1);
+//                        } else {
+//                            sb.append(0);
+//                        }
+//                        sb.append("\t");
+//                    }
+//
+//                    double massDiff = getMassDiff(bestRes.precursorMass, bestRes.theoMass, MassTool.C13_DIFF);
+//                    Peptide0 peptide0 = peptide0Map.get(bestRes.peptide.replaceAll("[^ncA-Z]+", ""));
+//                    TreeSet<String> proteinIdSet = new TreeSet<>();
+//                    for (String protein : peptide0.proteins) {
+//                        proteinIdSet.add(protein.trim());
+//                    }
+//
+//
+//                    if (bestRes.isDecoy == 1) {
+//                        writer.write(scanName + "\t-1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+//                    } else {
+//                        writer.write(scanName + "\t1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+//                    }
+////                    usedPepThisCharge.add(p)
+//                }
             }
         }
 
@@ -1235,7 +1305,7 @@ public class PIPI {
                         }
                     } else {
                         if (!percolatorResultMap.containsKey(scanName)) {
-                            System.out.println("!percolatorResultMap.containsKey(scanName), "+ scanName);
+                            continue; // this is temp way to avoid that the isDecoy of a scanName can change and be different from sql because of losing competition against other co-spectra
                         }
                         PercolatorEntry percolatorEntry = percolatorResultMap.get(scanName);
 
