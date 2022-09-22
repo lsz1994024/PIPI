@@ -248,9 +248,12 @@ public class PIPI {
             isotopeCorrectionNumMap.put(scanName, sqlResSetSpecCoder.getInt("isotopeCorrectionNum"));
             ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetSpecCoder.getDouble("ms1PearsonCorrelationCoefficient"));
 
-//            if (scanNum > 2500) {  //22459
+            if (scanNum > 2000) {  //22459
+                continue;
+            }
+//            if (scanNum != 1882 && scanNum != 1886) {  //22459
 //                continue;
-//            }l
+//            }
 //            if (scanName.split("\\.")[1].contentEquals("25") ) {  //22459
 //                continue;
 //            }
@@ -411,45 +414,45 @@ public class PIPI {
         }
 //        Set<String> protHardSet = omProts;
 
-        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
-        Iterator<Map.Entry<String, Peptide0>> iter = peptide0Map.entrySet().iterator();
-        while (iter.hasNext()) {
-            boolean shouldKeep = false;
-            for (String prot : iter.next().getValue().proteins) {
-                if (prot.contains("DECOY_")) prot = prot.substring(6);
-                if (protHardSet.contains(prot)){
-                    shouldKeep = true;
-                    break;
-                }
-            }
-            if (!shouldKeep) {
-                iter.remove();
-            }
-        }
-        System.out.println("reduced massPepMap size," + peptide0Map.size());
-
-        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
-        for (double mass : massPeptideMap.keySet()) {
-            Set<String> pepSet = massPeptideMap.get(mass);
-            Iterator<String> iterPep = pepSet.iterator();
-            while (iterPep.hasNext()) {
-                if (!peptide0Map.containsKey(iterPep.next())) {
-                    iterPep.remove();
-                }
-            }
-        }
-        System.out.println("reduced massPepMap size," + massPeptideMap.size());
-        int numTargetPep = 0, numDecoyPep = 0;
-        for (Peptide0 pep : peptide0Map.values()){
-            if (pep.isTarget) {
-                numTargetPep++;
-            }else {
-                numDecoyPep++;
-            }
-        }
-        System.out.println("Reduced db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
-
-        System.out.println("prot Db," + protScoreLongList.size()+","+protHardSet.size());
+//        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
+//        Iterator<Map.Entry<String, Peptide0>> iter = peptide0Map.entrySet().iterator();
+//        while (iter.hasNext()) {
+//            boolean shouldKeep = false;
+//            for (String prot : iter.next().getValue().proteins) {
+//                if (prot.contains("DECOY_")) prot = prot.substring(6);
+//                if (protHardSet.contains(prot)){
+//                    shouldKeep = true;
+//                    break;
+//                }
+//            }
+//            if (!shouldKeep) {
+//                iter.remove();
+//            }
+//        }
+//        System.out.println("reduced massPepMap size," + peptide0Map.size());
+//
+//        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
+//        for (double mass : massPeptideMap.keySet()) {
+//            Set<String> pepSet = massPeptideMap.get(mass);
+//            Iterator<String> iterPep = pepSet.iterator();
+//            while (iterPep.hasNext()) {
+//                if (!peptide0Map.containsKey(iterPep.next())) {
+//                    iterPep.remove();
+//                }
+//            }
+//        }
+//        System.out.println("reduced massPepMap size," + massPeptideMap.size());
+//        int numTargetPep = 0, numDecoyPep = 0;
+//        for (Peptide0 pep : peptide0Map.values()){
+//            if (pep.isTarget) {
+//                numTargetPep++;
+//            }else {
+//                numDecoyPep++;
+//            }
+//        }
+//        System.out.println("Reduced db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
+//
+//        System.out.println("prot Db," + protScoreLongList.size()+","+protHardSet.size());
 
         logger.info("Pre searching...");
         int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
@@ -479,12 +482,7 @@ public class PIPI {
         Map<String, List<Peptide>> ptmOnlyCandiMap = new HashMap<>();
         Map<String, List<Peptide>> ptmFreeCandiMap = new HashMap<>();
 
-        Map<Integer, Map<Integer, Set<Integer>>> coGroupsMap = new HashMap<>();
-        Map<Integer, Map<Integer, Map<Integer, Integer>>> fileIdScanNumChargeTimeMap = new HashMap<>();
-        for (int fileId = 0; fileId < fileIdNameMap.size(); fileId++) {
-            fileIdScanNumChargeTimeMap.put(fileId, new HashMap<>());
-        }
-        Map<String, Map<Integer, Set<String>>> fileIdScanNumToChargeScanNameMap = new HashMap<>(); //key: fileId.scanNum, value: fileId.scanId.scanNum.coId
+        Map<String, Set<String>> fileIdScanNumToScanNameMap = new HashMap<>(); //key: fileId.scanNum, value: fileId.scanId.scanNum.coId  // keep all scans not only co with same charge
         int lastProgressBone = 0;
         int resultCountBone = 0;
         int totalCountBone = taskListBone.size();
@@ -507,28 +505,14 @@ public class PIPI {
                             pcMassScanNameMap.put(entry.precursorMass, scanNumSet);
                         }
 
-                        int charge = precursorChargeMap.get(entry.scanName);
                         String[] scanNameStr = entry.scanName.split("\\.");
                         String fileIdScanNum = scanNameStr[0] + "." + scanNameStr[2];
-                        if (fileIdScanNumToChargeScanNameMap.containsKey(fileIdScanNum)) {
-                            Map<Integer, Set<String>> chargeScanNameMap = fileIdScanNumToChargeScanNameMap.get(fileIdScanNum);
-                            if (chargeScanNameMap.containsKey(charge)){
-                                chargeScanNameMap.get(charge).add(entry.scanName);
-                            } else {
-                                Set<String> scanNameSet = new HashSet<>();
-                                scanNameSet.add(entry.scanName);
-                                chargeScanNameMap.put(charge,scanNameSet);
-                            }
+                        if (fileIdScanNumToScanNameMap.containsKey(fileIdScanNum)) {
+                            fileIdScanNumToScanNameMap.get(fileIdScanNum).add(entry.scanName);
                         } else {
-                            Map<Integer, Set<String>> chargeScanNameMap = new HashMap<>();
-                            if (chargeScanNameMap.containsKey(charge)){
-                                chargeScanNameMap.get(charge).add(entry.scanName);
-                            } else {
-                                Set<String> scanNameSet = new HashSet<>();
-                                scanNameSet.add(entry.scanName);
-                                chargeScanNameMap.put(charge,scanNameSet);
-                            }
-                            fileIdScanNumToChargeScanNameMap.put(fileIdScanNum, chargeScanNameMap);
+                            Set<String> scanNameSet = new HashSet<>();
+                            scanNameSet.add(entry.scanName);
+                            fileIdScanNumToScanNameMap.put(fileIdScanNum, scanNameSet);
                         }
 
                         ++resultCountBone;
@@ -570,27 +554,33 @@ public class PIPI {
         System.out.println("resultCount," +resultCountBone);
 
 
-        Iterator<Map.Entry<String, Map<Integer, Set<String>>>> iter1 = fileIdScanNumToChargeScanNameMap.entrySet().iterator();
-        while (iter1.hasNext()) {
-            Map<Integer, Set<String>> chargeScanNameMap = iter1.next().getValue();
-            Iterator<Map.Entry<Integer, Set<String>>> iter2 = chargeScanNameMap.entrySet().iterator();
+//        Iterator<Map.Entry<String, Map<Integer, Set<String>>>> iter1 = fileIdScanNumToChargeScanNameMap.entrySet().iterator();
+//        while (iter1.hasNext()) {
+//            Map<Integer, Set<String>> chargeScanNameMap = iter1.next().getValue();
+//            Iterator<Map.Entry<Integer, Set<String>>> iter2 = chargeScanNameMap.entrySet().iterator();
+//
+//            while (iter2.hasNext()) {
+//                if (iter2.next().getValue().size() <= 1) {
+//                    iter2.remove();
+//                }
+//            }
+//            if (chargeScanNameMap.isEmpty()) {
+//                iter1.remove();
+//            }
+//        }     //dont remove the scans with no close mass brothers, keep all
 
-            while (iter2.hasNext()) {
-                if (iter2.next().getValue().size() <= 1) {
-                    iter2.remove();
-                }
-            }
-            if (chargeScanNameMap.isEmpty()) {
+        Iterator<Map.Entry<String, Set<String>>> iter1 = fileIdScanNumToScanNameMap.entrySet().iterator();
+        while (iter1.hasNext()) {
+            Set<String> scanNameSet = iter1.next().getValue();
+            if (scanNameSet.size() == 1) {
                 iter1.remove();
             }
-        }
+        }     //dont remove the scans with no close mass brothers, keep all
 
         int numScanNamesToCo = 0;
-        for (String fileIdScanNum : fileIdScanNumToChargeScanNameMap.keySet()){
-            Map<Integer, Set<String>> chargeScanNameMap = fileIdScanNumToChargeScanNameMap.get(fileIdScanNum);
-            for (int charge : chargeScanNameMap.keySet()) {
-                numScanNamesToCo += chargeScanNameMap.get(charge).size();
-            }
+        for (String fileIdScanNum : fileIdScanNumToScanNameMap.keySet()){
+            Set<String> scanNameSet = fileIdScanNumToScanNameMap.get(fileIdScanNum);
+            numScanNamesToCo += scanNameSet.size();
         }
         System.out.println("numScanNamesToCo +" + numScanNamesToCo);
 
@@ -601,7 +591,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-//            threadNum = 1;
+            threadNum = 1;
         }
         ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
         ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
@@ -618,23 +608,10 @@ public class PIPI {
                 Set<Peptide> realPtmOnlyList = new HashSet<>();
                 Set<Peptide> realPtmFreeList = new HashSet<>();
                 for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
-//                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-//                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-//
-//                        if (protHardSet.contains(prot)) {
                             realPtmOnlyList.add(pep.clone());
-//                            break;
-//                        }
-//                    }
                 }
                 for (Peptide pep : ptmFreeCandiMap.get(thisScanName)) {
-//                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-//                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-//                        if (protHardSet.contains(prot)) {
                             realPtmFreeList.add(pep.clone());
-//                            break;
-//                        }
-//                    }
                 }
 //                System.out.println(thisScanNum+","+ptmOnlyCandiMap.get(thisScanNum).size()+","+ptmFreeCandiMap.get(thisScanNum).size()+"," + realPtmOnlyList.size()+","+realPtmFreeList.size());
                 for (int i = -3; i <= 3; i++) {
@@ -648,22 +625,10 @@ public class PIPI {
 
                             if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
                                 for (Peptide pep : ptmOnlyCandiMap.get(otherScanName)) {
-//                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-//                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-//                                        if (protHardSet.contains(prot)) {
                                             realPtmOnlyList.add(pep.clone());
-//                                            break;
-//                                        }
-//                                    }
                                 }
                                 for (Peptide pep : ptmFreeCandiMap.get(otherScanName)) {
-//                                    for (String prot : pep0Map.get(pep.getPTMFreePeptide()).proteins) {
-//                                        if (prot.contains("DECOY_")) prot = prot.substring(6);
-//                                        if (protHardSet.contains(prot)) {
                                             realPtmFreeList.add(pep.clone());
-//                                            break;
-//                                        }
-//                                    }
                                 }
                             }
                         }
@@ -675,7 +640,7 @@ public class PIPI {
                 double precursorMass = precursorMassMap.get(thisScanName);
                 submitTimePtm++;
                 boolean hasExtra = false;
-                if (fileIdScanNumToChargeScanNameMap.containsKey(thisFileId + "."+ thisScanNum) && fileIdScanNumToChargeScanNameMap.get(thisFileId + "."+ thisScanNum).containsKey(precursorCharge)) {
+                if (fileIdScanNumToScanNameMap.containsKey(thisFileId + "."+ thisScanNum)) {
                     hasExtra = true;
                 }
                 taskListPTM.add(threadPoolPtm.submit(new PtmSearch(thisScanNum, buildIndex, massTool, ms1Tolerance
@@ -820,7 +785,7 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        writePercolator(percolatorInputFileName, buildIndex.getPeptide0Map(), sqlPath, fileIdScanNumToChargeScanNameMap, exResForScanNameMap);
+        writePercolator(percolatorInputFileName, buildIndex.getPeptide0Map(), sqlPath, fileIdScanNumToScanNameMap, exResForScanNameMap);
         Map<String, PercolatorEntry> percolatorResultMap = null;
 
         if (parameterMap.get("add_decoy").contentEquals("0")) {
@@ -849,7 +814,42 @@ public class PIPI {
 //        new WritePepXml(spectraPath + "." + labelling + ".pipi.pep.xml", spectraPath, parameterMap, massTool.getMassTable(), percolatorResultMap, buildIndex.getPeptide0Map(), buildIndex.returnFixModMap(), sqlPath);
     }
 
-    class ExRes {
+    class ExRes implements Cloneable{
+        public ExRes clone() throws CloneNotSupportedException {
+            super.clone();
+            ExRes other = new ExRes();
+            other.scanNum = scanNum;
+            other.scanName = scanName;
+            other.precursorCharge = precursorCharge;
+            other.precursorMass = precursorMass;
+            other.mgfTitle = mgfTitle;
+            other.isotopeCorrectionNum = isotopeCorrectionNum;
+            other.ms1PearsonCorrelationCoefficient = ms1PearsonCorrelationCoefficient;
+            other.labelling = labelling;
+            other.peptide = peptide;
+            other.theoMass = theoMass;
+            other.isDecoy = isDecoy;
+            other.globalRank = globalRank;
+            other.normalizedCorrelationCoefficient = normalizedCorrelationCoefficient;
+            other.score = score;
+            other.deltaLCn = deltaLCn;
+            other.deltaCn = deltaCn;
+            other.matchedPeakNum = matchedPeakNum;
+            other.ionFrac = ionFrac;
+            other.matchedHighestIntensityFrac = matchedHighestIntensityFrac;
+            other.explainedAaFrac = explainedAaFrac;
+            other.otherPtmPatterns = otherPtmPatterns;
+            other.aScore = aScore;
+            other.candidates = candidates;
+            other.peptideSet = peptideSet;
+            other.whereIsTopCand = whereIsTopCand;
+            other.shouldPtm = shouldPtm;
+            other.hasPTM = hasPTM;
+            other.ptmNum = ptmNum;
+            other.isSettled = isSettled;
+
+            return other;
+        }
         ExRes (){};
         public int scanNum = 0;
         public String scanName = "";
@@ -880,6 +880,7 @@ public class PIPI {
         public int hasPTM = 0;
         public int ptmNum = 0;
         public int isSettled = 0;
+        public double getScore() {return score;}
     }
     private static void help() {
         String helpStr = "PIPI version " + versionStr + "\r\n"
@@ -893,7 +894,25 @@ public class PIPI {
         System.out.print(helpStr);
         System.exit(1);
     }
-    private void writePercolator(String resultPath, Map<String, Peptide0> peptide0Map, String sqlPath, Map<String, Map<Integer, Set<String>>> fileIdScanNumToChargeScanNameMap, Map<String, List<ExRes>> exResForScanNameMap) throws IOException, SQLException {
+
+    private boolean isHomo(ExRes r1, ExRes r2, Map<String, Peptide0> peptide0Map) {
+        if (!peptide0Map.containsKey(r1.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)","")) || !peptide0Map.containsKey(r2.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)",""))) {
+            int  cc = 1;
+        }
+        Peptide0 pep01 = peptide0Map.get(r1.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)",""));
+        Peptide0 pep02 = peptide0Map.get(r2.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)",""));
+
+        String[] prots1 = pep01.proteins;
+        String[] prots2 = pep02.proteins;
+
+        HashSet<String> set = new HashSet<>(Arrays.asList(prots1));
+        set.retainAll(Arrays.asList(prots2));
+        if (set.isEmpty()) return false;
+
+        return pep01.code.dot(pep02.code) > 0.3*Math.min(r1.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)","").length(), r2.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)","").length());
+    }
+    private void writePercolator(String resultPath, Map<String, Peptide0> peptide0Map, String sqlPath, Map<String, Set<String>> fileIdScanNumToScanNameMap
+            , Map<String, List<ExRes>> exResForScanNameMap) throws IOException, SQLException , CloneNotSupportedException{
         BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath));
         writer.write("id\tlabel\tscannr\texpmass\tcalcmass\tscore\tdelta_c_n\tdelta_L_c_n\tnormalized_cross_corr\tglobal_search_rank\tabs_ppm\tion_frac\tmatched_high_peak_frac\tcharge1\tcharge2\tcharge3\tcharge4\tcharge5\tcharge6\texplained_aa_frac\tpeptide\tprotein\n");
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
@@ -938,7 +957,7 @@ public class PIPI {
 
                 String[] scanNameStr = scanName.split("\\.");
                 int fileId = Integer.valueOf(scanNameStr[0]);
-                boolean hasCo = fileIdScanNumToChargeScanNameMap.containsKey(fileId+"."+scanNum) && fileIdScanNumToChargeScanNameMap.get(fileId+"."+scanNum).containsKey(charge);
+                boolean hasCo = fileIdScanNumToScanNameMap.containsKey(fileId+"."+scanNum);
                 if (!hasCo) {
                     if (isDecoy == 1) {
                         writer.write(scanName + "\t-1\t" + scanNum + "\t" + expMass + "\t" + theoMass + "\t" + score + "\t" + deltaCn + "\t" + deltaLCn + "\t" + normalizedCorrelationCoefficient + "\t" + globalRank + "\t" + Math.abs(massDiff * 1e6 / theoMass) + "\t" + ionFrac + "\t" + matchedHighestIntensityFrac + "\t" + sb.toString() + explainedAaFrac + "\t" + peptide0.leftFlank + "." + peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
@@ -958,104 +977,98 @@ public class PIPI {
                 ", otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand" +
                 ", shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConnection.setAutoCommit(false);
-        for (String fileIdScanNum : fileIdScanNumToChargeScanNameMap.keySet()) {
-            if (fileIdScanNum.contentEquals("0.1972")) {
+        for (String fileIdScanNum : fileIdScanNumToScanNameMap.keySet()) {
+            if (fileIdScanNum.contentEquals("0.1905")) {
                 int a = 1;
             }
-            Map<Integer, Set<String>> chargeScanNameMap = fileIdScanNumToChargeScanNameMap.get(fileIdScanNum);
-            for (int charge : chargeScanNameMap.keySet()) {
-                Map<String, Double> seqScoreMap = new HashMap<>();
-                Set<String> scanNameSet = chargeScanNameMap.get(charge);
-                Iterator<String> scanNameIter = scanNameSet.iterator();
-                while (scanNameIter.hasNext()) {
-                    if (!exResForScanNameMap.containsKey(scanNameIter.next())) {
-                        scanNameIter.remove();
-                    }
-                }
-
-                Set<String> selectedPep = new HashSet<>();
-                while (0 < scanNameSet.size()) {
-                    String bestPep = "";
-                    String bestScanName = "";
-                    double bestScore = 0d;
-
-                    for (String scanName : scanNameSet) {
-                        for (ExRes res : exResForScanNameMap.get(scanName)) {
-                            if (res.score > bestScore && !selectedPep.contains(res.peptide)) {
-                                bestScore = res.score;
-                                bestPep = res.peptide;
-                                bestScanName = scanName;
-                            }
-                        }
-                    }
-
-                    if (exResForScanNameMap.get(bestScanName) == null) {
-                        int a = 1;
-                    }
-                    if (bestScanName.contentEquals("")) {
-                        break;
-                    }
-                    ExRes bestRes = exResForScanNameMap.get(bestScanName).get(0);
-                    for (ExRes res : exResForScanNameMap.get(bestScanName)) {
-                        if (res.peptide.contentEquals(bestPep)) {
-                            bestRes = res;
-                        }
-                    }
-                    StringBuilder sb = new StringBuilder(20);
-                    for (int i = 0; i < 6; ++i) {
-                        if (i == bestRes.precursorCharge - 1) {
-                            sb.append(1);
-                        } else {
-                            sb.append(0);
-                        }
-                        sb.append("\t");
-                    }
-                    double massDiff = getMassDiff(bestRes.precursorMass, bestRes.theoMass, MassTool.C13_DIFF);
-                    Peptide0 peptide0 = peptide0Map.get(bestRes.peptide.replaceAll("[^ncA-Z]+", ""));
-                    TreeSet<String> proteinIdSet = new TreeSet<>();
-                    for (String protein : peptide0.proteins) {
-                        proteinIdSet.add(protein.trim());
-                    }
-                    if (bestRes.isDecoy == 1) {
-                        writer.write(bestScanName + "\t-1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
-                    } else {
-                        writer.write(bestScanName + "\t1\t" + bestRes.scanNum + "\t" + bestRes.precursorMass + "\t" + bestRes.theoMass + "\t" + bestRes.score + "\t" + bestRes.deltaCn + "\t" + bestRes.deltaLCn + "\t" + bestRes.normalizedCorrelationCoefficient + "\t" + bestRes.globalRank + "\t" + Math.abs(massDiff * 1e6 / bestRes.theoMass) + "\t" + bestRes.ionFrac + "\t" + bestRes.matchedHighestIntensityFrac + "\t" + sb.toString() + bestRes.explainedAaFrac + "\t" + peptide0.leftFlank + "." + bestRes.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
-                    }
-                    scanNameSet.remove(bestScanName);
-                    selectedPep.add(bestPep);
-                    sqlUpdateCo.setInt(1, bestRes.scanNum);
-                    sqlUpdateCo.setString(2, bestRes.scanName);
-                    sqlUpdateCo.setInt(3, bestRes.precursorCharge);
-                    sqlUpdateCo.setDouble(4, bestRes.precursorMass);
-                    sqlUpdateCo.setString(5, "fakeMgfTitle");
-                    sqlUpdateCo.setInt(6, -99);
-                    sqlUpdateCo.setDouble(7, -99.9);
-                    sqlUpdateCo.setString(8, bestRes.labelling);
-                    sqlUpdateCo.setString(9, bestRes.peptide);
-                    sqlUpdateCo.setDouble(10, bestRes.theoMass);
-                    sqlUpdateCo.setInt(11, bestRes.isDecoy);
-                    sqlUpdateCo.setInt(12, bestRes.globalRank);
-                    sqlUpdateCo.setDouble(13, bestRes.normalizedCorrelationCoefficient);
-                    sqlUpdateCo.setDouble(14, bestRes.score);
-                    sqlUpdateCo.setDouble(15, bestRes.deltaLCn);
-                    sqlUpdateCo.setDouble(16, bestRes.deltaCn);
-                    sqlUpdateCo.setInt(17, bestRes.matchedPeakNum);
-                    sqlUpdateCo.setDouble(18, bestRes.ionFrac);
-                    sqlUpdateCo.setDouble(19, bestRes.matchedHighestIntensityFrac);
-                    sqlUpdateCo.setDouble(20, bestRes.explainedAaFrac);
-                    sqlUpdateCo.setString(21, bestRes.otherPtmPatterns);
-                    sqlUpdateCo.setString(22, bestRes.aScore);
-                    sqlUpdateCo.setString(23, bestRes.candidates);
-                    sqlUpdateCo.setString(24, bestRes.peptideSet);
-                    sqlUpdateCo.setInt(25, bestRes.whereIsTopCand);
-                    sqlUpdateCo.setInt(26, bestRes.shouldPtm);
-                    sqlUpdateCo.setInt(27, bestRes.hasPTM);
-                    sqlUpdateCo.setInt(28, bestRes.ptmNum);
-                    sqlUpdateCo.setInt(29, bestRes.isSettled);
-
-                    sqlUpdateCo.executeUpdate();
+            Set<String> scanNameSet = fileIdScanNumToScanNameMap.get(fileIdScanNum);
+            Iterator<String> scanNameIter = scanNameSet.iterator();
+            while (scanNameIter.hasNext()) {
+                if (!exResForScanNameMap.containsKey(scanNameIter.next())) {
+                    scanNameIter.remove();
                 }
             }
+
+            List<ExRes> combinedResList = new ArrayList<>();
+
+            for (String scanName : scanNameSet) {
+                for (ExRes res : exResForScanNameMap.get(scanName)) {
+                    combinedResList.add(res.clone());
+                }
+            }
+
+            combinedResList.sort(Comparator.comparingDouble(ExRes::getScore).reversed());
+
+            for (int j = combinedResList.size()-1; j >= 1; j--) {
+//                boolean shouldDrop = false;
+                for (int i = 0; i < j; i++) {
+                    if (isHomo(combinedResList.get(i), combinedResList.get(j), peptide0Map)) {
+//                        shouldDrop = true;
+                        combinedResList.remove(j);
+                        break;
+                    }
+                }
+            }
+
+            Set<String> assignedScanName = new HashSet<>();
+            for (int i = 0; i < combinedResList.size(); i++) {
+                ExRes res = combinedResList.get(i);
+                if (assignedScanName.contains(res.scanName)) continue;
+
+                StringBuilder sb = new StringBuilder(20);
+                for (int ii = 0; ii < 6; ++ii) {
+                    if (ii == res.precursorCharge - 1) {
+                        sb.append(1);
+                    } else {
+                        sb.append(0);
+                    }
+                    sb.append("\t");
+                }
+                double massDiff = getMassDiff(res.precursorMass, res.theoMass, MassTool.C13_DIFF);
+                Peptide0 peptide0 = peptide0Map.get(res.peptide.replaceAll("[^ncA-Z]+", ""));
+                TreeSet<String> proteinIdSet = new TreeSet<>();
+                for (String protein : peptide0.proteins) {
+                    proteinIdSet.add(protein.trim());
+                }
+                if (res.isDecoy == 1) {
+                    writer.write(res.scanName + "\t-1\t" + res.scanNum + "\t" + res.precursorMass + "\t" + res.theoMass + "\t" + res.score + "\t" + res.deltaCn + "\t" + res.deltaLCn + "\t" + res.normalizedCorrelationCoefficient + "\t" + res.globalRank + "\t" + Math.abs(massDiff * 1e6 / res.theoMass) + "\t" + res.ionFrac + "\t" + res.matchedHighestIntensityFrac + "\t" + sb.toString() + res.explainedAaFrac + "\t" + peptide0.leftFlank + "." + res.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+                } else {
+                    writer.write(res.scanName + "\t1\t" + res.scanNum + "\t" + res.precursorMass + "\t" + res.theoMass + "\t" + res.score + "\t" + res.deltaCn + "\t" + res.deltaLCn + "\t" + res.normalizedCorrelationCoefficient + "\t" + res.globalRank + "\t" + Math.abs(massDiff * 1e6 / res.theoMass) + "\t" + res.ionFrac + "\t" + res.matchedHighestIntensityFrac + "\t" + sb.toString() + res.explainedAaFrac + "\t" + peptide0.leftFlank + "." + res.peptide.replaceAll("\\(", "[").replaceAll("\\)", "]") + "." + peptide0.rightFlank + "\t" + String.join("\t", proteinIdSet) + "\n"); // Percolator only recognize "[]".
+                }
+                assignedScanName.add(res.scanName);
+                sqlUpdateCo.setInt(1, res.scanNum);
+                sqlUpdateCo.setString(2, res.scanName);
+                sqlUpdateCo.setInt(3, res.precursorCharge);
+                sqlUpdateCo.setDouble(4, res.precursorMass);
+                sqlUpdateCo.setString(5, "fakeMgfTitle");
+                sqlUpdateCo.setInt(6, -99);
+                sqlUpdateCo.setDouble(7, -99.9);
+                sqlUpdateCo.setString(8, res.labelling);
+                sqlUpdateCo.setString(9, res.peptide);
+                sqlUpdateCo.setDouble(10, res.theoMass);
+                sqlUpdateCo.setInt(11, res.isDecoy);
+                sqlUpdateCo.setInt(12, res.globalRank);
+                sqlUpdateCo.setDouble(13, res.normalizedCorrelationCoefficient);
+                sqlUpdateCo.setDouble(14, res.score);
+                sqlUpdateCo.setDouble(15, res.deltaLCn);
+                sqlUpdateCo.setDouble(16, res.deltaCn);
+                sqlUpdateCo.setInt(17, res.matchedPeakNum);
+                sqlUpdateCo.setDouble(18, res.ionFrac);
+                sqlUpdateCo.setDouble(19, res.matchedHighestIntensityFrac);
+                sqlUpdateCo.setDouble(20, res.explainedAaFrac);
+                sqlUpdateCo.setString(21, res.otherPtmPatterns);
+                sqlUpdateCo.setString(22, res.aScore);
+                sqlUpdateCo.setString(23, res.candidates);
+                sqlUpdateCo.setString(24, res.peptideSet);
+                sqlUpdateCo.setInt(25, res.whereIsTopCand);
+                sqlUpdateCo.setInt(26, res.shouldPtm);
+                sqlUpdateCo.setInt(27, res.hasPTM);
+                sqlUpdateCo.setInt(28, res.ptmNum);
+                sqlUpdateCo.setInt(29, res.isSettled);
+
+                sqlUpdateCo.executeUpdate();
+            }
+
         }
         sqlConnection.commit();
         sqlConnection.setAutoCommit(true);

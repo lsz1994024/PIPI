@@ -175,6 +175,7 @@ public class InferPTM {
         PeptidePTMPattern peptidePTMPattern = new PeptidePTMPattern(ptmFreePeptide);
         Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         double totalDeltaMass = precursorMass - peptide.getTheoMass();
+        peptide.absDeltaMass = totalDeltaMass;
         if (Math.abs(totalDeltaMass) < 0.01 ) {
             return peptidePTMPattern;
         }

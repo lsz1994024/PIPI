@@ -68,6 +68,17 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
     private boolean hasExtra = false;
 
 
+    private boolean isHomo(Peptide p1, Peptide p2) {
+        String[] prots1 = peptide0Map.get(p1.getPTMFreePeptide()).proteins;
+        String[] prots2 = peptide0Map.get(p2.getPTMFreePeptide()).proteins;
+
+        HashSet<String> set = new HashSet<>(Arrays.asList(prots1));
+        set.retainAll(Arrays.asList(prots2));
+        if (set.isEmpty()) return false;
+//        peptide0Map.get(p1.getPTMFreePeptide()).code.
+        return peptide0Map.get(p1.getPTMFreePeptide()).code.dot(peptide0Map.get(p2.getPTMFreePeptide()).code) > 0.3*Math.min(p1.getPTMFreePeptide().length(), p2.getPTMFreePeptide().length());
+    }
+
     public PtmSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
             , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
             , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo, Set<Peptide> ptmOnlyList, Set<Peptide> ptmFreeList, boolean hasExtra)  {
@@ -118,6 +129,9 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             return null;
         }
 
+        if (this.scanNum == 1905) {
+            int a = 1;
+        }
         // Coding
         if (true) {
             SparseVector expProcessedPL;
@@ -184,8 +198,28 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 return null;
             }
 
+            if (scanNum == 1905  ) {
+                int a = 1;
+            }
+//            Peptide0 p0 = peptide0Map.get("nKPGRGTPSGKc").code.dot(peptide0Map.get("nPGRGTPSGKKc").code);
+//
+            List<Peptide> pepList = new ArrayList<>(peptideSet);
 
-            Peptide[] peptideArray = peptideSet.toArray(new Peptide[0]);
+
+            for (int j = pepList.size()-1; j >= 1; j--) {
+//                boolean shouldDrop = false;
+                for (int i = 0; i < j; i++) {
+                    if (isHomo(pepList.get(i), pepList.get(j))) {
+//                        shouldDrop = true;
+                        pepList.remove(j);
+                        break;
+                    }
+                }
+            }
+
+//            peptide0Map.get(pepList.get(i).getPTMFreePeptide()).proteins
+
+            Peptide[] peptideArray = pepList.toArray(new Peptide[0]);
 
             Peptide topPep = peptideArray[0];
             Entry entry;
@@ -398,7 +432,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             return null;
         }
     }
-
     public class ExtraEntry {
 
         final int scanNum;
