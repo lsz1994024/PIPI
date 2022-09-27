@@ -108,7 +108,7 @@ public class SpecProcessor {
         TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
         List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
         Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getValue));
-        plList = plList.subList(Math.max(plList.size()-maxPlNum, 0), plList.size());
+        plList = plList.subList(Math.max(plList.size()-600, 0), plList.size());
         Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
 
         //my deiso

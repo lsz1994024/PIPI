@@ -21,10 +21,11 @@ public class PercolatorEntry {
     public final double percolatorScore;
     public final String qValue;
     public final String PEP;
-
-    public PercolatorEntry(double percolatorScore, String qValue, String PEP) {
+    public final boolean isDecoy;
+    public PercolatorEntry(double percolatorScore, String qValue, String PEP, boolean isDecoy) {
         this.percolatorScore = percolatorScore;
         this.qValue = qValue;
         this.PEP = PEP;
+        this.isDecoy = isDecoy;
     }
 }

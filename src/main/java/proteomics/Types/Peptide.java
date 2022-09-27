@@ -415,6 +415,4 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             }
         }
     }
-
-
 }

@@ -148,7 +148,7 @@ public class Search {
         if (!subMassPeptideMap.isEmpty()) {
             for (double mass : subMassPeptideMap.keySet()) {
                 for (String sequence : massPeptideMap.get(mass)) {
-                    if(sequence.contentEquals("nQRLQEDEMRRc")) {
+                    if(sequence.contentEquals("nGGRGRGGSGGGGGGGGGGYNRc") || sequence.contentEquals("nZZZZAAVTPGKKc")) {
                         int a = 1;
                     }
                     Peptide0 peptide0 = peptide0Map.get(sequence);
@@ -157,21 +157,8 @@ public class Search {
                     if (temp1 > 1e-6) {
                         score = peptide0.code.dot(scanCode) / temp1;
                     }
-//                    double extraScore = 0.0;
-//                    for (ThreeExpAA tag : ncTags) {
-//                        if (tag.getPtmFreeAAString().contentEquals(sequence.substring(1, 4))) {
-//                            if (tag.ncTag == ThreeExpAA.NC.N) {
-//                                score += 0.1;
-//                            }
-//                        }
-//
-//                        if (tag.getPtmFreeAAString().contentEquals(new StringBuilder(sequence.substring(sequence.length()-4, sequence.length()-1)).reverse().toString() ) ) {
-//                            if (tag.ncTag == ThreeExpAA.NC.C) {
-//                                score += 0.1;
-//                            }
-//                        }
-//                    }
-                    // check NC tag for extra score
+//                    SparseBooleanVector aaa = new SparseBooleanVector(new HashSet<>(Arrays.asList(4305,2435,4339,2421,2635,2556,2541,2429,2430)));
+//                    double sss = aaa.dot(scanCode)/temp1;
 
                     double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 

@@ -129,7 +129,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             return null;
         }
 
-        if (this.scanNum == 1905) {
+        if (this.scanNum == 1976 || this.scanNum == 1977) {
             int a = 1;
         }
         // Coding
