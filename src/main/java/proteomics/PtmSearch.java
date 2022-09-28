@@ -36,6 +36,8 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static proteomics.PIPI.lszDebugScanNum;
+
 public class PtmSearch implements Callable<PtmSearch.Entry> {
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
@@ -129,7 +131,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             return null;
         }
 
-        if (this.scanNum == 1976 || this.scanNum == 1977) {
+        if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
         }
         // Coding

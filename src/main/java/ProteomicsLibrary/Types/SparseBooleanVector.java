@@ -50,10 +50,15 @@ public class SparseBooleanVector {
         return output;
     }
 
-    public double dot(SparseBooleanVector other) {
+    public int dot(SparseBooleanVector other) {
         Set<Integer> intersectedKeys = new HashSet<>(sparseVector);
         intersectedKeys.retainAll(other.sparseVector);
         return intersectedKeys.size();
+    }
+    public int union(SparseBooleanVector other) {
+        Set<Integer> unionKeys = new HashSet<>(sparseVector);
+        unionKeys.addAll(other.sparseVector);
+        return unionKeys.size();
     }
 
     public SparseBooleanVector deepCopy() {

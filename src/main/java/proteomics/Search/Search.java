@@ -23,6 +23,8 @@ import proteomics.Types.*;
 import proteomics.PreSearch.Entry;
 import java.util.*;
 
+import static proteomics.PIPI.lszDebugScanNum;
+
 public class Search {
 
     private static final int rankNum = 5;
@@ -121,7 +123,7 @@ public class Search {
         }
     }
 
-    public Search(Entry entry, String scanName, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
+    public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
             , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
 
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
@@ -148,8 +150,10 @@ public class Search {
         if (!subMassPeptideMap.isEmpty()) {
             for (double mass : subMassPeptideMap.keySet()) {
                 for (String sequence : massPeptideMap.get(mass)) {
-                    if(sequence.contentEquals("nGGRGRGGSGGGGGGGGGGYNRc") || sequence.contentEquals("nZZZZAAVTPGKKc")) {
-                        int a = 1;
+                    if (lszDebugScanNum.contains(scanNum)) {
+                        if(sequence.contentEquals("nLPPPPPPPLPRc") || sequence.contentEquals("nIPPPPLPPPPRc")) {
+                            int a = 1;
+                        }
                     }
                     Peptide0 peptide0 = peptide0Map.get(sequence);
                     double score = 0;

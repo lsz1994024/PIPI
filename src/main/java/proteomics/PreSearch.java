@@ -31,6 +31,8 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static proteomics.PIPI.lszDebugScanNum;
+
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
@@ -89,7 +91,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         } finally {
             lock.unlock();
         }
-        if (this.scanNum == 1976 || this.scanNum == 1977) {
+        if (lszDebugScanNum.contains(this.scanNum)) {
             int a = 1;
         }
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
@@ -261,7 +263,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
 //            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
 //                    , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, candiSet, "n"+truth+"c");
-            Search search = new Search(entry, scanName, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+            Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
 
 
