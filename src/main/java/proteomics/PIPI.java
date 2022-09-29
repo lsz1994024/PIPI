@@ -256,13 +256,7 @@ public class PIPI {
                     shouldRun = true;
                 }
             }
-            if (!shouldRun) {  //22459
-                continue;
-            }
-//            if (scanNum != 1882 && scanNum != 1886) {  //22459
-//                continue;
-//            }
-//            if (scanName.split("\\.")[1].contentEquals("25") ) {  //22459
+//            if (!shouldRun) {  //22459
 //                continue;
 //            }
             int fileId = Integer.valueOf( scanName.split("\\.")[0] );
@@ -941,7 +935,7 @@ public class PIPI {
         Peptide0 pep01 = peptide0Map.get(r1.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)",""));
         Peptide0 pep02 = peptide0Map.get(r2.peptide.replaceAll("\\(-?(\\d+)(\\.\\d+)\\)",""));
 
-        return pep01.code.dot(pep02.code) > 0.5*pep01.code.union(pep02.code);
+        return pep01.code.dot(pep02.code) > 0.2*pep01.code.union(pep02.code);
     }
     private void writePercolator(String resultPath, Map<String, Peptide0> peptide0Map, String sqlPath, Map<String, Set<String>> fileIdScanNumToScanNameMap
             , Map<String, List<ExRes>> exResForScanNameMap) throws IOException, SQLException , CloneNotSupportedException{
