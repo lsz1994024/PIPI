@@ -72,7 +72,7 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
         Map<Double, Double> rawPLMap;
         try {
             lock.lock();
-            rawPLMap = spectraParser.getSpectrumById(scanName.split("\\.")[1]).getPeakList();//fileId.scanId.scanNum.coId
+            rawPLMap = spectraParser.getSpectrumById(scanName.split("\\.")[1]).getPeakList();//fileId.scanId.scanNum
         } finally {
             lock.unlock();
         }
@@ -81,12 +81,7 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
         if (plMap.isEmpty()) {
             return null;
         }
-        int coId = Integer.valueOf(this.scanName.split("\\.")[3]);
-        if (coId > 0) {
-            Entry entry = new Entry();
-            entry.scanName = this.scanName;
-            return entry;
-        }
+
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);

@@ -97,7 +97,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
 
         if (plMap.isEmpty()) {
-            return null;
+            return null;l
         }
 
 

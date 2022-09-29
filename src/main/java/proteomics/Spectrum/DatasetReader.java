@@ -184,7 +184,6 @@ public class DatasetReader {
             String parentId = null;
             int lastMs1ScanNo = 1;
             int lastScanNo = 1;
-            Map<Integer,Integer> scanNumRepeatsMap = new HashMap<>();
 
             while (spectrumIterator.hasNext()) {
                 try {
@@ -269,13 +268,8 @@ public class DatasetReader {
                         }
                     }
 
-                    if (scanNumRepeatsMap.containsKey(scanNum)) {
-                        scanNumRepeatsMap.put(scanNum, scanNumRepeatsMap.get(scanNum) + 1);
-                    } else {
-                        scanNumRepeatsMap.put(scanNum, 0);
-                    }
                     sqlPrepareStatement.setInt(1, scanNum);
-                    sqlPrepareStatement.setString(2, i+"."+spectrum.getId()+"."+scanNum+"."+scanNumRepeatsMap.get(scanNum)); //fileId.scanId.scanNum.coId
+                    sqlPrepareStatement.setString(2, i+"."+spectrum.getId()+"."+scanNum); //fileId.scanId.scanNum
                     sqlPrepareStatement.setInt(3, precursorCharge);
                     sqlPrepareStatement.setDouble(4, precursorMass);
                     sqlPrepareStatement.setString(5, mgfTitle);

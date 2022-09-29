@@ -67,8 +67,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
     private final Set<Peptide> ptmOnlyList;
     private final Set<Peptide> ptmFreeList;
 
-    private boolean hasExtra = false;
-
 
     private boolean isHomo(Peptide p1, Peptide p2) {
         String[] prots1 = peptide0Map.get(p1.getPTMFreePeptide()).proteins;
@@ -83,7 +81,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
 
     public PtmSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
             , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
-            , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo, Set<Peptide> ptmOnlyList, Set<Peptide> ptmFreeList, boolean hasExtra)  {
+            , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo, Set<Peptide> ptmOnlyList, Set<Peptide> ptmFreeList)  {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
@@ -110,7 +108,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         this.precursorScanNo = precursorScanNo;
         this.ptmOnlyList = ptmOnlyList;
         this.ptmFreeList = ptmFreeList;
-        this.hasExtra = hasExtra;
     }
 
     @Override
@@ -200,26 +197,17 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 return null;
             }
 
-            if (scanNum == 1905  ) {
-                int a = 1;
-            }
-//            Peptide0 p0 = peptide0Map.get("nKPGRGTPSGKc").code.dot(peptide0Map.get("nPGRGTPSGKKc").code);
-//
             List<Peptide> pepList = new ArrayList<>(peptideSet);
 
-
             for (int j = pepList.size()-1; j >= 1; j--) {
-//                boolean shouldDrop = false;
                 for (int i = 0; i < j; i++) {
-                    if (isHomo(pepList.get(i), pepList.get(j))) {
-//                        shouldDrop = true;
+                    if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
                         pepList.remove(j);
                         break;
                     }
                 }
             }
 
-//            peptide0Map.get(pepList.get(i).getPTMFreePeptide()).proteins
 
             Peptide[] peptideArray = pepList.toArray(new Peptide[0]);
 
@@ -287,7 +275,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                     , pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand, extraEntryList);
 
 
-            if (!hasExtra) return entry;
 
             for (int ii = 0; ii < peptideArray.length; ii++) { // ii starts from 0 is to include the top peptide as well
                 Peptide pep = peptideArray[ii];
@@ -354,82 +341,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 if (!extraShouldPtm) break;
             }
             return entry;
-
-//            if (!peptideSet.isEmpty()) {
-//                Peptide[] peptideArray = peptideSet.toArray(new Peptide[0]);
-//                Peptide topPeptide = peptideArray[0];
-//                TreeSet<Peptide> ptmPatterns = null;
-//                if (topPeptide.hasVarPTM()) {
-//                    ptmPatterns = modSequences.get(topPeptide.getPTMFreePeptide());
-//                }
-//                new CalSubscores(topPeptide, ms2Tolerance, plMap, precursorCharge, ptmPatterns, binomial);
-//
-//
-//                double deltaLCn = 1; // L means the last?
-//                if (peptideArray.length > candisNum - 1) {
-//                    deltaLCn = (peptideArray[0].getScore() - peptideArray[candisNum - 1].getScore()) / peptideArray[0].getScore();
-//                }
-//                double deltaCn = 1;
-//                if (peptideArray.length > 1) {
-//                    for(int i = 0; i < peptideArray.length; i++) {
-//                        if (peptideArray[i].getScore() != peptideArray[0].getScore()){
-//                            deltaCn = (peptideArray[0].getScore() - peptideArray[i].getScore()) / peptideArray[0].getScore();
-//                            break;
-//                        }
-//                    }
-//                }
-//
-//                String otherPtmPatterns = "-";
-//                if (ptmPatterns != null) {
-//                    List<String> tempList = new LinkedList<>();
-//                    Iterator<Peptide> ptmPatternsIterator = ptmPatterns.iterator();
-//                    ptmPatternsIterator.next();
-//                    while (ptmPatternsIterator.hasNext()) {
-//                        Peptide temp = ptmPatternsIterator.next();
-//                        tempList.add(String.format(Locale.US, "%s-%.4f", temp.getPtmContainingSeq(buildIndex.returnFixModMap()), temp.getScore())); // Using 4 decimal here because it is write the the result file for checking. It is not used in scoring or other purpose.
-//                    }
-//                    otherPtmPatterns = String.join(";", tempList);
-//                }
-//                String pepSetString = "";
-//                for (Peptide peptide : peptideArray){
-//                    Peptide0 pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
-//                    pepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + "," + peptide.isDecoy() + "," + peptide.hasVarPTM() + "," + String.join("_", pep0.proteins) +",";
-//                }
-//                List<PepWithScore> candidatesList = new ArrayList<>();
-//
-//                boolean shouldPtm = Math.abs(precursorMass-massTool.calResidueMass(topPeptide.getPTMFreePeptide()) - massTool.H2O) > 0.01;
-//                boolean hasPTM = topPeptide.hasVarPTM();
-//                int ptmNum = 0;
-//                boolean isSettled = true;
-//                double totalPtmMass = 0;
-//                if (hasPTM) {
-//                    ptmNum = topPeptide.getVarPTMs().size();
-//                    for (double mass : topPeptide.getVarPTMs().values()){
-//                        totalPtmMass += mass;
-//                    }
-//                }
-//                isSettled = Math.abs(totalPtmMass-(precursorMass-massTool.calResidueMass(topPeptide.getPTMFreePeptide()) - massTool.H2O)) <= 0.01;
-//
-//                Entry entry = new Entry(scanNum, scanName, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0
-//                        , precursorCharge, precursorMass
-//                        , buildIndex.getLabelling(), topPeptide.getPtmContainingSeq(buildIndex.returnFixModMap())
-//                        , topPeptide.getTheoMass(), topPeptide.isDecoy() ? 1 : 0, topPeptide.getGlobalRank()
-//                        , topPeptide.getNormalizedCrossCorr(), topPeptide.getScore(), deltaLCn, deltaCn
-//                        , topPeptide.getMatchedPeakNum(), topPeptide.getIonFrac(), topPeptide.getMatchedHighestIntensityFrac()
-//                        , topPeptide.getExplainedAaFrac(), otherPtmPatterns, topPeptide.getaScore(), ""
-//                        , pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand);
-//
-//                return entry;
-//            } else {
-//                return null;
-//            }
-
-
-
-
-
-
-
         } else {
             return null;
         }
