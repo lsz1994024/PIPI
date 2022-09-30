@@ -48,7 +48,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList( 18220));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList( 47753));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -212,7 +212,7 @@ public class PIPI {
             threadNum1 = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            //change thread
+            //change thread 1
 //            threadNum1 = 1;
         }
         System.out.println("thread NUM "+ threadNum1);
@@ -450,7 +450,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            // change thread
+            // change thread 2
 //            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
@@ -550,7 +550,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-//            change thread
+//            change thread 3
 //            threadNum = 1;
         }
         ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
@@ -1222,12 +1222,13 @@ public class PIPI {
         TreeMap<Double, List<String>> tempMap = new TreeMap<>();
 
         BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath));
+
         if (percolatorResultMap == null) {
             writer.write("scanName,scan_num,peptide,isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
                     "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac, other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
         } else {
-            writer.write("scanName,scan_num,peptide, isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
-                    "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,q_value,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
+            writer.write("scanName,scan_num,peptide, isDecoy, q_value, score,delta_C_n, theo_mass,exp_mass,abs_ppm,shouldPtm, hasPTM, ptmNum, isSettled,charge,A_score,protein_ID,deltaLCn,globalRank, " +
+                    "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
         }
 
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
@@ -1263,13 +1264,8 @@ public class PIPI {
 
                     String aScore = sqlResultSet.getString("aScore");
 
-//                    if (percolatorResultMap == null) {
-//                        writer.write("scan_num,peptide,isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
-//                                "cosScore,matchedPeakNum,ionFrac,matchedHighestIntensityFrac,explainedAaFrac, other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
-//                    } else {
-//                        writer.write("scan_num,peptide, isDecoy, shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,score,delta_C_n,deltaLCn,globalRank, " +
-//                                "cosScore, matchedPeakNum,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,q_value,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
-//                    }
+
+
                     if (percolatorResultMap == null) {
 //                        double score = sqlResultSet.getDouble("score");
                         String str = String.format(Locale.US, "%s,%d,%s,%d,%d,%d,%d,%d,%d,%f,%f,%f,%s,%s,%f,%f,%f,%d,%f,%f,%f,%f,%s,\"%s\",%s,%d,%f\n"
@@ -1296,11 +1292,20 @@ public class PIPI {
                         if ((isDecoy == 0 && percolatorEntry.isDecoy) || (isDecoy == 1 && !percolatorEntry.isDecoy)){
                             System.out.println("wrong isDecoy" + scanName);
                         }
-                        String str = String.format(Locale.US, "%s, %d,%s,%d,%d,%d,%d,%d,%d,%f,%f,%f,%s,%s,%f,%f,%f,%d,%f,%f,%f,%f,%f,%s,%s,%s,\"%s\",%s,%d,%f\n"
-                                , scanName, scanNum, peptide,percolatorEntry.isDecoy ? 1 : 0, sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled")
-                                , sqlResultSet.getInt("precursorCharge"), theoMass, expMass, ppm, aScore, String.join(";", proteinIdSet).replaceAll(",", "~"), score
-                                , sqlResultSet.getDouble("deltaCn"),deltaLCn,globalRank,cosScore, ionFrac, matchedHighestIntensityFrac,explainedAaFrac, percolatorEntry.percolatorScore, percolatorEntry.PEP, percolatorEntry.qValue
-                                , sqlResultSet.getString("otherPtmPatterns"), sqlResultSet.getString("mgfTitle")
+
+
+//                        writer.write("scanName,scan_num,peptide, isDecoy, q_value,score,delta_C_n,shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,deltaLCn,globalRank, " +
+//                                "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
+//                    }
+//                            writer.write("scanName,scan_num,peptide, isDecoy, q_value, score,delta_C_n, theo_mass,exp_mass,abs_ppm,shouldPtm, hasPTM, ptmNum, isSettled,charge,A_score,protein_ID,deltaLCn,globalRank, " +
+//                                    "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
+//                        }
+
+                        String str = String.format(Locale.US, "%s, %d,%s,%d,%s,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%s,%s,%f,%d,%f,%f,%f,%f,%f,%s,%s,\"%s\",%s,%d,%f\n"
+                                , scanName, scanNum, peptide,percolatorEntry.isDecoy ? 1 : 0, percolatorEntry.qValue, score, sqlResultSet.getDouble("deltaCn"),theoMass, expMass, ppm
+                                , sqlResultSet.getInt("shouldPtm"),sqlResultSet.getInt("hasPTM"),sqlResultSet.getInt("ptmNum"),sqlResultSet.getInt("isSettled")
+                                , sqlResultSet.getInt("precursorCharge"),  aScore, String.join(";", proteinIdSet).replaceAll(",", "~"), deltaLCn,globalRank,cosScore, ionFrac, matchedHighestIntensityFrac,explainedAaFrac
+                                , percolatorEntry.percolatorScore, percolatorEntry.PEP, sqlResultSet.getString("otherPtmPatterns"), sqlResultSet.getString("mgfTitle")
                                 , sqlResultSet.getString("labelling"), sqlResultSet.getInt("isotopeCorrectionNum"), sqlResultSet.getDouble("ms1PearsonCorrelationCoefficient"));
 
                         if (tempMap.containsKey(percolatorResultMap.get(scanName).percolatorScore)) {

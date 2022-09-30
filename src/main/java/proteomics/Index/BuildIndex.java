@@ -51,7 +51,6 @@ public class BuildIndex {
     public Map<String, String> proteinPeptideMap;
 
     public BuildIndex(Map<String, String> parameterMap) throws Exception {
-        // initialize parameters
         boolean needCoding = true;
         boolean addDecoy = parameterMap.get("add_decoy").contentEquals("1");
         boolean addContaminant = parameterMap.get("add_contaminant").contentEquals("1");
@@ -63,7 +62,6 @@ public class BuildIndex {
         double oneMinusBinOffset = 1 - Double.valueOf(parameterMap.get("mz_bin_offset"));
         this.labelling = parameterMap.get("15N").trim().contentEquals("1") ? "N15" : "N14";
 
-        // Read fix modification
         fixModMap.put('G', Double.valueOf(parameterMap.get("G")));
         fixModMap.put('A', Double.valueOf(parameterMap.get("A")));
         fixModMap.put('S', Double.valueOf(parameterMap.get("S")));
@@ -123,19 +121,25 @@ public class BuildIndex {
         for (String proId : proteinPeptideMap.keySet()) {
             dotPosArr[dotNum] = dotPos;
             posProtMap.put(dotNum, proId);
-            String proSeq = proteinPeptideMap.get(proId);
-            writerProt.write("." + proSeq.replace('I', 'L'));
+            String proSeq = proteinPeptideMap.get(proId).replace('L', 'I');
+            writerProt.write("." + proSeq.replace('L', 'I'));
             dotNum++;
             dotPos += proSeq.length()+1;
 //            dotPosArr[dotNum] = dotPos;
             int numOfTags = inferSegment.generateSegmentBooleanVectorForProt(proSeq);
             protLengthMap.put(proId, numOfTags);
             Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
+
+            if (proId.contentEquals("sp|P86452|ZBED6_HUMAN") || proId.contentEquals("sp|Q9UNZ5|L10K_HUMAN")) {
+                int a = 1;
+            }
+
             for (String peptide : peptideSet) {
                 if (MassTool.containsNonAAAndNC(peptide)) {
                     continue;
                 }
-                if (peptide.contentEquals("nVGGSGGGGHGGGGGGGSSNAGGGGGGASGGGANSKc")) {
+
+                if (peptide.contentEquals("nKIAIIKc") || peptide.contentEquals("nKIIAIKc")) {
                     int a = 1;
                 }
 
@@ -173,12 +177,16 @@ public class BuildIndex {
 
             if (addDecoy) {
                 // decoy sequence
-                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('L', 'I'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
                 peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
 
                 for (String peptide : peptideSet) {
                     if (MassTool.containsNonAAAndNC(peptide)) {
                         continue;
+                    }
+
+                    if (peptide.contentEquals("nKIAIIKc") || peptide.contentEquals("nKIIAIKc")) {
+                        int a = 1;
                     }
 
                     if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
@@ -227,6 +235,9 @@ public class BuildIndex {
 
         Map<String, Peptide0> tempMap = new HashMap<>();
         for (String peptide : peptideMassMap.keySet()) {
+            if (peptide.contentEquals("nKIAIIKc")) {
+                int a = 1;
+            }
             SparseBooleanVector code = null;
             if (needCoding) {
                 code = inferSegment.generateSegmentBooleanVector(peptide, peptideProteinMap.get(peptide).toArray(new String[0]));

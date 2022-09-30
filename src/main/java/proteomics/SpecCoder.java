@@ -125,7 +125,7 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
                     for (double inte : longTag.intensityArray) {
                         intensityList.add(inte);
                     }
-                    String oriTagStr = longTag.getPtmFreeAAString().replace('#', 'L');
+                    String oriTagStr = longTag.getPtmFreeAAString().replace('#', 'I');
                     tagIntesIdRangeMap.put(oriTagStr, intensityList);
                     tagQueue.offer(new Pair<>(oriTagStr, longTag.getTotalIntensity()));
                 }
