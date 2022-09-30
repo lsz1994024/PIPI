@@ -48,7 +48,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList( 47753));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(15668));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -243,13 +243,15 @@ public class PIPI {
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 500) {
+                if (Math.abs(scanNum-debugScanNum) < 200) {
                     shouldRun = true;
                 }
             }
-//            if (!shouldRun) {  //22459   comment this if block, if run all scans
-//                continue;
-//            }
+            if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
+                if (!shouldRun) {  //22459   comment this if block, if run all scans
+                    continue;
+                }
+            }
 
             int fileId = Integer.valueOf( scanName.split("\\.")[0] );
 

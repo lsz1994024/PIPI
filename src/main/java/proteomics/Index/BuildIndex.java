@@ -121,8 +121,8 @@ public class BuildIndex {
         for (String proId : proteinPeptideMap.keySet()) {
             dotPosArr[dotNum] = dotPos;
             posProtMap.put(dotNum, proId);
-            String proSeq = proteinPeptideMap.get(proId).replace('L', 'I');
-            writerProt.write("." + proSeq.replace('L', 'I'));
+            String proSeq = proteinPeptideMap.get(proId).replace('I', 'L');
+            writerProt.write("." + proSeq.replace('I', 'L'));
             dotNum++;
             dotPos += proSeq.length()+1;
 //            dotPosArr[dotNum] = dotPos;
@@ -144,32 +144,14 @@ public class BuildIndex {
                 }
 
                 if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
-                    if (!forCheckDuplicate.contains(peptide.replace('L', 'I'))) { // don't record duplicate peptide sequences
-                        // Add the sequence to the check set for duplicate check
-                        forCheckDuplicate.add(peptide.replace('L', 'I'));
 
+                    if (!peptideMassMap.containsKey(peptide)) { // don't record duplicate peptide sequences
                         double mass = massTool.calResidueMass(peptide) + massTool.H2O;
-                        // recode min and max peptide mass
-                        if (mass < minPeptideMass) {
-                            minPeptideMass = mass;
-                        }
-                        if (mass > maxPeptideMass) {
-                            maxPeptideMass = mass;
-                        }
-
+                        if (mass < minPeptideMass) minPeptideMass = mass;
+                        if (mass > maxPeptideMass) maxPeptideMass = mass;
                         peptideMassMap.put(peptide, mass);
-                        peptideProteinMap.put(peptide, proId);
-                    } else if (peptideProteinMap.containsKey(peptide)) {
-                        // Considering the case that the sequence has multiple proteins. In the above if block, such a protein ID wasn't recorded. If there are decoy IDs, replace it with the current target ID since the target ID has a higher priority.
-                        Set<String> proteinSet = new HashSet<>(peptideProteinMap.get(peptide));
-                        peptideProteinMap.get(peptide).clear();
-                        for (String protein : proteinSet) {
-                            if (!protein.startsWith("DECOY_")) {
-                                peptideProteinMap.put(peptide, protein);
-                            }
-                        }
-                        peptideProteinMap.put(peptide, proId);
                     }
+                    peptideProteinMap.put(peptide, proId);
                 }
             }
 
@@ -177,7 +159,7 @@ public class BuildIndex {
 
             if (addDecoy) {
                 // decoy sequence
-                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('L', 'I'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
                 peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
 
                 for (String peptide : peptideSet) {
@@ -190,22 +172,13 @@ public class BuildIndex {
                     }
 
                     if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
-                        if (!forCheckDuplicate.contains(peptide.replace('L', 'I'))) { // don't record duplicate peptide sequences
-                            // Add the sequence to the check set for duplicate check
-                            forCheckDuplicate.add(peptide.replace('L', 'I'));
-
+                        if (!peptideMassMap.containsKey(peptide)) {
                             double mass = massTool.calResidueMass(peptide) + massTool.H2O;
-                            // recode min and max peptide mass
-                            if (mass < minPeptideMass) {
-                                minPeptideMass = mass;
-                            }
-                            if (mass > maxPeptideMass) {
-                                maxPeptideMass = mass;
-                            }
-
+                            if (mass < minPeptideMass) minPeptideMass = mass;
+                            if (mass > maxPeptideMass) maxPeptideMass = mass;
                             peptideMassMap.put(peptide, mass);
-                            peptideProteinMap.put(peptide, "DECOY_" + proId);
                         }
+                        peptideProteinMap.put(peptide, "DECOY_" + proId);
                     }
                 }
                 targetDecoyProteinSequenceMap.put("DECOY_" + proId, decoyProSeq);
@@ -235,7 +208,7 @@ public class BuildIndex {
 
         Map<String, Peptide0> tempMap = new HashMap<>();
         for (String peptide : peptideMassMap.keySet()) {
-            if (peptide.contentEquals("nKIAIIKc")) {
+            if (peptide.contentEquals("nLLVQPTKc")) {
                 int a = 1;
             }
             SparseBooleanVector code = null;
@@ -248,8 +221,43 @@ public class BuildIndex {
                 leftRightFlank = DbTool.getLeftRightFlank(peptide, peptideProteinMap, targetDecoyProteinSequenceMap, parameterMap.get("cleavage_site_2"), parameterMap.get("protection_site_2"), parameterMap.get("is_from_C_term_2").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
             }
             if (leftRightFlank != null) {
-                tempMap.put(peptide, new Peptide0(code, isTarget(peptideProteinMap.get(peptide)), peptideProteinMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
+                boolean isTarget = isTarget(peptideProteinMap.get(peptide));
+                if (!isTarget) { //decoy pep is only from one decoy protein
+                    int ptnForwardCount = 0;
+                    int ptnBackwardCount = 0;
+                    SearchInterval searchForward = null;
+                    SearchInterval searchBackward = null;
+                    char[] pepChar = peptide.substring(1,peptide.length()-1).toCharArray();
+                    searchForward = fmIndex.fmSearch(pepChar);
+                    if (searchForward != null) {
+                        ptnForwardCount = searchForward.ep - searchForward.sp + 1;
+                    }
 
+                    String revPep = new StringBuilder(peptide.substring(1,peptide.length()-1)).reverse().toString();
+                    char[] revTagChar = revPep.toCharArray();
+                    searchBackward = fmIndex.fmSearch(revTagChar);
+                    if (searchBackward != null) {
+                        ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
+                    }
+                    if (ptnForwardCount + ptnBackwardCount > 0) {
+                        isTarget = true;
+                        if (ptnForwardCount > 0) {
+                            for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
+                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
+                                peptideProteinMap.put(peptide, posProtMap.get(-res - 2));
+                            }
+                        }
+                        if (ptnBackwardCount > 0) {
+                            for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
+                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
+                                peptideProteinMap.put(peptide, posProtMap.get(-res - 2));
+                            }
+                        }
+                    }
+                }
+                tempMap.put(peptide, new Peptide0(code, isTarget, peptideProteinMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
+
+                // for every decoy db peptide is found (using fmindex)
                 if (massPeptideMap.containsKey(peptideMassMap.get(peptide))) {
                     massPeptideMap.get(peptideMassMap.get(peptide)).add(peptide);
                 } else {
@@ -341,10 +349,10 @@ public class BuildIndex {
 
     private boolean isTarget(Collection<String> proteinIds) {
         for (String protein : proteinIds) {
-            if (protein.startsWith("DECOY_")) { //????? why one decoy means it is not target
-                return false;
+            if (!protein.startsWith("DECOY_")) {
+                return true;
             }
         }
-        return true;
+        return false;
     }
 }
