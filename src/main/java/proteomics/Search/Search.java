@@ -151,7 +151,7 @@ public class Search {
             for (double mass : subMassPeptideMap.keySet()) {
                 for (String sequence : massPeptideMap.get(mass)) {
                     if (lszDebugScanNum.contains(scanNum)) {
-                        if(sequence.contentEquals("nLPPPPPPPLPRc") || sequence.contentEquals("nIPPPPLPPPPRc")) {
+                        if(sequence.contentEquals("nGSKLDGTLKGRc") || sequence.contentEquals("nRKLGFADLLERc")) {
                             int a = 1;
                         }
                     }
@@ -225,6 +225,10 @@ public class Search {
                     }
                 }
             }
+        }
+
+        if (lszDebugScanNum.contains(scanNum)) {
+            int a = 1;
         }
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
             mergeResult(ptmFreeQueue, ptmOnlyQueue, peptide0Map);

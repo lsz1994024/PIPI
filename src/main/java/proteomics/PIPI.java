@@ -48,7 +48,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(15668));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(9406));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -409,7 +409,11 @@ public class PIPI {
             Iterator<Map.Entry<String, Peptide0>> iter = peptide0Map.entrySet().iterator();
             while (iter.hasNext()) {
                 boolean shouldKeep = false;
+
                 for (String prot : iter.next().getValue().proteins) {
+                    if (prot.contentEquals("DECOY_sp|O00443|P3C2A_HUMAN")) {
+                        int a = 1;
+                    }
                     if (prot.contains("DECOY_")) prot = prot.substring(6);
                     if (protHardSet.contains(prot)){
                         shouldKeep = true;

@@ -24,13 +24,33 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class DbTool {
-
+    private static Map<Character, Character> nextAaMap = new HashMap<>();
     private static final Random random = new Random();
 
     private Map<String, String> proteinSequenceMap = new HashMap<>();
     private Map<String, String> proteinAnnotateMap = new HashMap<>();
 
     public DbTool(String dbName, String databaseType) throws IOException {
+        nextAaMap.put('A', 'C');
+        nextAaMap.put('C', 'D');
+        nextAaMap.put('D', 'E');
+        nextAaMap.put('E', 'F');
+        nextAaMap.put('F', 'G');
+        nextAaMap.put('G', 'H');
+        nextAaMap.put('H', 'L');
+        nextAaMap.put('L', 'M');
+        nextAaMap.put('M', 'N');
+        nextAaMap.put('N', 'P');
+        nextAaMap.put('P', 'Q');
+        nextAaMap.put('Q', 'R');
+        nextAaMap.put('R', 'S');
+        nextAaMap.put('S', 'T');
+        nextAaMap.put('T', 'V');
+        nextAaMap.put('V', 'W');
+        nextAaMap.put('W', 'Y');
+        nextAaMap.put('Y', 'A');
+
+
         String id = "";
         String annotate;
         StringBuilder sequence = new StringBuilder(99999);
@@ -131,6 +151,46 @@ public class DbTool {
                 tempArray[idx] = tempArray[idx + 1];
                 tempArray[idx + 1] = temp;
                 idx += 2;
+            } else {
+                ++idx;
+            }
+        }
+
+        if (sequence.startsWith("M")) {
+            return "M" + String.valueOf(tempArray);
+        } else {
+            return String.valueOf(tempArray);
+        }
+    }
+
+    public static String shuffleSeqTest(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
+        // todo: A protection site may be shuffled, which may result in "non-existing" peptides after digestion.
+        // todo: A "potential" protection site may also be shuffled to the side of a cleavage site so that it prevents a peptide from being digested.
+        String sequenceToBeShuffled;
+        if (sequence.startsWith("M")) {  // don't shuffle the first "M" because it has a special meaning.
+            sequenceToBeShuffled = sequence.substring(1);
+        } else {
+            sequenceToBeShuffled = sequence;
+        }
+
+        Pattern digestSitePattern = MassTool.getDigestSitePattern(cleavageSite, protectionSite, cleavageFromCTerm);
+        Set<Integer> cutSiteSet = new HashSet<>();
+        Matcher matcher = digestSitePattern.matcher(sequenceToBeShuffled);
+        while (matcher.find()) {
+            cutSiteSet.add(matcher.start());
+        }
+        char[] tempArray = sequenceToBeShuffled.toCharArray();
+        int idx = 0;
+        while (idx < tempArray.length - 1) {
+            if (!cutSiteSet.contains(idx) && !cutSiteSet.contains(idx + 1)) {
+                if (tempArray[idx] != tempArray[idx+1]) {
+                    char temp = tempArray[idx];
+                    tempArray[idx] = tempArray[idx + 1];
+                    tempArray[idx + 1] = temp;
+                    idx += 2;
+                } else {
+                    tempArray[idx] = nextAaMap.get(tempArray[idx]);
+                }
             } else {
                 ++idx;
             }

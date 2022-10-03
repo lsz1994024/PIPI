@@ -130,7 +130,7 @@ public class BuildIndex {
             protLengthMap.put(proId, numOfTags);
             Set<String> peptideSet = massTool.buildPeptideSetPnP(proSeq);
 
-            if (proId.contentEquals("sp|P86452|ZBED6_HUMAN") || proId.contentEquals("sp|Q9UNZ5|L10K_HUMAN")) {
+            if (proId.contentEquals("sp|O00443|P3C2A_HUMAN") || proId.contentEquals("sp|Q9UNDSADAZ5|L10K_HUMAN")) {
                 int a = 1;
             }
 
@@ -139,7 +139,7 @@ public class BuildIndex {
                     continue;
                 }
 
-                if (peptide.contentEquals("nKIAIIKc") || peptide.contentEquals("nKIIAIKc")) {
+                if (peptide.contentEquals("nMGEVVLAPDSLTRc") || peptide.contentEquals("nKIIAIDSADZZSAKc")) {
                     int a = 1;
                 }
 
@@ -167,7 +167,7 @@ public class BuildIndex {
                         continue;
                     }
 
-                    if (peptide.contentEquals("nKIAIIKc") || peptide.contentEquals("nKIIAIKc")) {
+                    if (peptide.contentEquals("nMGEVVLAPDSLTRc") || peptide.contentEquals("nKIIAZZZIKc")) {
                         int a = 1;
                     }
 
@@ -208,7 +208,7 @@ public class BuildIndex {
 
         Map<String, Peptide0> tempMap = new HashMap<>();
         for (String peptide : peptideMassMap.keySet()) {
-            if (peptide.contentEquals("nLLVQPTKc")) {
+            if (peptide.contentEquals("nMGEVVLAPDSLTRc")) {
                 int a = 1;
             }
             SparseBooleanVector code = null;
