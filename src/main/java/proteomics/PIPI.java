@@ -189,7 +189,7 @@ public class PIPI {
             if (splitRes.length == 1) {
                 int a = 1;
             }
-            String pepWithMod = splitRes[1].replace('L','#').replace('I', '#');
+            String pepWithMod = splitRes[1].replace('I','L');
             pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
         }
 

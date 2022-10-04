@@ -244,7 +244,6 @@ public class MassTool {
         massTable.put('O', (elementTable.get("C") * 12 + elementTable.get("H") * 21 + elementTable.get("N") * 3 + elementTable.get("O") * 3 + fixModMap.get('O')));
         massTable.put('n', fixModMap.get('n'));
         massTable.put('c', fixModMap.get('c'));
-        massTable.put('#', massTable.get('I')); // for I and L.
         massTable.put('$', (massTable.get('Q') + massTable.get('K')) * 0.5); // for Q and K.
         H2O = elementTable.get("H") * 2 + elementTable.get("O");
         massTable.put('B', 0d);

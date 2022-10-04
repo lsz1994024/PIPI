@@ -181,7 +181,7 @@ public class InferPTM {
         }
         Set<Integer> fixModIdxes = getFixModIdxes(ptmFreePeptide, fixModMap);  // record the indexes of the amino acids with fix mod, e.g. when there is no C, this is empty set.
 
-        String ptmFreePeptideOrdinary = ptmFreePeptide.replaceAll("I","#").replaceAll("L","#");
+        String ptmFreePeptideOrdinary = ptmFreePeptide.replaceAll("I","L");
 
         Map<Integer, Set<VarModParam>> idxVarModMap = getIdxVarModMapNew(ptmFreePeptide, fixModIdxes, leftFlank, rightFlank);
         Map<Integer, VarModParam[]> idxVarModArrayMap = new HashMap<>();

@@ -54,16 +54,13 @@ public class InferSegment {
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
         Map<Character, Double> massTable = massTool.getMassTable();
 
-        char[] standardAaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'I', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
+        char[] standardAaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
 
         Map<Double, Character> massAaMap = new HashMap<>(25, 1);
         for (char aa : standardAaArray) {
             // # = I/L.
-            if (aa == 'I' || aa == 'L') {
-                massAaMap.put(massTable.get(aa), '#');
-            } else {
-                massAaMap.put(massTable.get(aa), aa);
-            }
+            massAaMap.put(massTable.get(aa), aa);
+
         }
 
         Character[] aaArray = massAaMap.values().toArray(new Character[0]);
@@ -100,13 +97,10 @@ public class InferSegment {
                     }
                     if (Math.abs(fixModMap.get(temp[1].charAt(0))) < 0.1) {
                         // fix modification and var modification cannot be coexist
-                        if ((temp[1].charAt(0) == 'I') || (temp[1].charAt(0) == 'L')) {
-                            modifiedAAMap.put(tempMass, temp[1].replace(temp[1].charAt(0), '#'));
-                            modifiedAAMassMap.put(temp[1].replace(temp[1].charAt(0), '#'), Double.valueOf(temp[0]));
-                        } else {
+
                             modifiedAAMap.put(tempMass, temp[1]);
                             modifiedAAMassMap.put(temp[1], Double.valueOf(temp[0]));
-                        }
+
                     }
                 }
             } else if (k.contentEquals("Nterm")) {
@@ -182,16 +176,8 @@ public class InferSegment {
         }
         return new SparseBooleanVector(tempSet);
     }
-//    public SparseBooleanVector generateSegmentBooleanVectorForTag3(String peptide) {
-//        String normalizedPeptide = normalizeSequence(peptide);
-//        Set<Integer> tempSet = new HashSet<>(peptide.length() + 1, 1);
-//        for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
-//            tempSet.add(aaVectorTemplate.get(new Segment(normalizedPeptide.substring(i, i + 3))));
-//        }
-//        return new SparseBooleanVector(tempSet);
-//    }
     public static String normalizeSequence(String seq) {
-        return seq.replaceAll("[IL]", "#");
+        return seq.replaceAll("I", "L");
     }
 
     private List<ThreeExpAA> inferThreeAAFromSpectrum(TreeMap<Double, Double> plMap, double cTermMz) throws Exception {
