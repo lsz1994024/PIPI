@@ -18,7 +18,10 @@ package proteomics.Index;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import proteomics.FM.FMIndex;
@@ -29,6 +32,7 @@ import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.*;
 import ProteomicsLibrary.Types.*;
 import proteomics.Types.Peptide0;
+//import org.apache.commons.langs.ArrayUtils;
 
 import static java.awt.SystemColor.text;
 
@@ -159,7 +163,17 @@ public class BuildIndex {
 
             if (addDecoy) {
                 // decoy sequence
-                String decoyProSeq = DbTool.shuffleSeq(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+
+                //1
+//                List<Character> proSeqAaList = proSeq.chars().mapToObj( c -> (char)c).collect(Collectors.toList());
+//                Collections.shuffle(proSeqAaList);
+//                String decoyProSeq = Joiner.on("").join(proSeqAaList);
+                //2
+                String decoyProSeq = DbTool.shuffleSeqTest(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+
+                //3
+//                String decoyProSeq = DbTool.shuffleSeqTestProtection(proSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+
                 peptideSet = massTool.buildPeptideSetPnP(decoyProSeq);
 
                 for (String peptide : peptideSet) {

@@ -16,12 +16,14 @@
 
 package ProteomicsLibrary;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 
 import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class DbTool {
     private static Map<Character, Character> nextAaMap = new HashMap<>();
@@ -190,6 +192,7 @@ public class DbTool {
                     idx += 2;
                 } else {
                     tempArray[idx] = nextAaMap.get(tempArray[idx]);
+                    tempArray[idx+1] = nextAaMap.get(tempArray[idx]);
                 }
             } else {
                 ++idx;
@@ -200,6 +203,43 @@ public class DbTool {
             return "M" + String.valueOf(tempArray);
         } else {
             return String.valueOf(tempArray);
+        }
+    }
+
+    public static String shuffleSeqTestProtection(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
+        // todo: A protection site may be shuffled, which may result in "non-existing" peptides after digestion.
+        // todo: A "potential" protection site may also be shuffled to the side of a cleavage site so that it prevents a peptide from being digested.
+        StringBuilder seqToBeShuffled;
+        if (sequence.startsWith("M")) {  // don't shuffle the first "M" because it has a special meaning.
+            seqToBeShuffled = new StringBuilder(sequence.substring(1));
+        } else {
+            seqToBeShuffled = new StringBuilder(sequence);;
+        }
+
+        Pattern digestSitePattern = MassTool.getDigestSitePattern(cleavageSite, protectionSite, cleavageFromCTerm);
+        List<Integer> cutSiteList = new ArrayList<>();
+        cutSiteList.add(-1);
+        cutSiteList.add(seqToBeShuffled.length());
+        Matcher matcher = digestSitePattern.matcher(seqToBeShuffled);
+        while (matcher.find()) {
+            cutSiteList.add(matcher.start());
+        }
+        Collections.sort(cutSiteList);
+        int leftIdx = 0;
+        int rightIdx = 0;
+        for (int cutI = 0; cutI < cutSiteList.size()-1; cutI++) {
+            leftIdx = cutSiteList.get(cutI) + 1;
+            rightIdx = cutSiteList.get(cutI+1);
+            List<Character> midSeqAaList = seqToBeShuffled.substring(leftIdx,rightIdx).chars().mapToObj( c -> (char)c).collect(Collectors.toList());
+            Collections.shuffle(midSeqAaList);
+            String shuffledSeq = Joiner.on("").join(midSeqAaList);
+            seqToBeShuffled.replace(leftIdx,rightIdx,shuffledSeq);
+        }
+
+        if (sequence.startsWith("M")) {
+            return "M" + seqToBeShuffled;
+        } else {
+            return seqToBeShuffled.toString();
         }
     }
 

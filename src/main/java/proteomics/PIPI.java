@@ -398,7 +398,7 @@ public class PIPI {
         System.out.println("total,"+ num + ","+totalCorrect);
         Set<String> protHardSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 59) continue;
+            if (pair.getSecond() < 0) continue;
             protHardSet.add(pair.getFirst());
         }
 //        Set<String> protHardSet = omProts;
