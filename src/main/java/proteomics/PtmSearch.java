@@ -249,9 +249,8 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             String pepSetString = "";
             for (Peptide peptide : peptideArray){
                 Peptide0 pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
-                pepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + "," + peptide.isDecoy() + "," + peptide.hasVarPTM() + "," + String.join("_", pep0.proteins) +",";
+                pepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + String.join("_", pep0.proteins) +",";
             }
-            List<PepWithScore> candidatesList = new ArrayList<>();
 
             boolean shouldPtm = Math.abs(precursorMass-massTool.calResidueMass(topPep.getPTMFreePeptide()) - massTool.H2O) > 0.01;
             boolean hasPTM = topPep.hasVarPTM();
@@ -272,9 +271,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                     , topPep.getNormalizedCrossCorr(), topPep.getScore(), deltaLCn, deltaCn
                     , topPep.getMatchedPeakNum(), topPep.getIonFrac(), topPep.getMatchedHighestIntensityFrac()
                     , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore(), ""
-                    , pepSetString.substring(0,pepSetString.length()-1), whereIsTopCand, extraEntryList);
-
-
+                    , pepSetString.substring(0, pepSetString.length()-1), whereIsTopCand, extraEntryList);
 
             for (int ii = 0; ii < peptideArray.length; ii++) { // ii starts from 0 is to include the top peptide as well
                 Peptide pep = peptideArray[ii];
@@ -315,7 +312,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                     Peptide0 pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
                     extraPepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + "," + peptide.isDecoy() + "," + peptide.hasVarPTM() + "," + String.join("_", pep0.proteins) +",";
                 }
-                List<PepWithScore> extraCandidatesList = new ArrayList<>();
 
                 boolean extraShouldPtm = Math.abs(precursorMass-massTool.calResidueMass(pep.getPTMFreePeptide()) - massTool.H2O) > 0.01;
                 boolean extraHasPTM = pep.hasVarPTM();
