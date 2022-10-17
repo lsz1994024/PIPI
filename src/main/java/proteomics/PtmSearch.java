@@ -249,7 +249,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             String pepSetString = "";
             for (Peptide peptide : peptideArray){
                 Peptide0 pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
-                pepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + String.join("_", pep0.proteins) +",";
+                pepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + "," + String.join("_", pep0.proteins) +",";
             }
 
             boolean shouldPtm = Math.abs(precursorMass-massTool.calResidueMass(topPep.getPTMFreePeptide()) - massTool.H2O) > 0.01;

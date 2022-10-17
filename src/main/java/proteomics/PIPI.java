@@ -257,7 +257,7 @@ public class PIPI {
 
             precursorChargeMap.put(scanName, precursorCharge);
             precursorMassMap.put(scanName, precursorMass);
-            System.out.println("starts "+ scanName);
+            logger.info("starts "+ scanName);
             taskListSpecCoder.add(threadPoolSpecCoder.submit(new SpecCoder(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockSpecCoder, scanName, precursorCharge
                     , precursorMass, specProcessor, pepTruth.get(1886))));
         }
@@ -281,7 +281,7 @@ public class PIPI {
                     if (task.get() != null ) {
                         SpecCoder.Entry entry = task.get();
                         validScanSet.add(entry.scanName);
-                        System.out.println("finished "+ entry.scanName);
+                        logger.info("finished "+ entry.scanName);
                         for (String prot : entry.protTagScoreMap.keySet()){
                             List<Pair<String, Double>> tagScoreList = entry.protTagScoreMap.get(prot);
                             if (protTagScoreMapMap.containsKey(prot)) {
@@ -398,7 +398,7 @@ public class PIPI {
         System.out.println("total,"+ num + ","+totalCorrect);
         Set<String> protHardSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 0) continue;
+            if (pair.getSecond() < 300) continue;
             protHardSet.add(pair.getFirst());
         }
 //        Set<String> protHardSet = omProts;

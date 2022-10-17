@@ -19,7 +19,7 @@ ms_level = 2,3 # The searched MS level.
 
 # Tolerance
 ms1_tolerance_unit = 1 # 0: Da; 1: ppm
-ms1_tolerance = 10
+ms1_tolerance = 20
 ms2_tolerance = 0.02 # Unit is Da. e.g. high-resolution MS/MS: 0.01; low-resolution MS/MS: 0.5
 mz_bin_offset = 0 # Offset in digitization the spectrum. e.g. high-resolution MS/MS: 0; low-resolution MS/MS: 0.4
 min_clear_mz = 112.5 # Clear out all peaks in the specified m/z range, mainly for iTRAQ/TMT data.
