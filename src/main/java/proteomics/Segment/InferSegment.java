@@ -153,22 +153,22 @@ public class InferSegment {
         }
     }
 
-    public SparseBooleanVector generateSegmentBooleanVector(String peptide, String[] proteins) {
+    public SparseBooleanVector generateSegmentBooleanVector(String peptide) {
 
         String normalizedPeptide = normalizeSequence(DbTool.getSequenceOnly(peptide));
-        for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
-
-            Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
-            String tag = seg.toString();
-
-            if (tagPepMap.containsKey(tag)) {
-                tagPepMap.get(tag).add(peptide);
-            } else {
-                Set<String> pepSet = new HashSet<>();
-                pepSet.add(peptide);
-                tagPepMap.put(tag, pepSet);
-            }
-        }
+//        for (int i = 0; i <= normalizedPeptide.length() - 4; ++i) {
+//
+//            Segment seg = new Segment(normalizedPeptide.substring(i, i + 4));
+//            String tag = seg.toString();
+//
+//            if (tagPepMap.containsKey(tag)) {
+//                tagPepMap.get(tag).add(peptide);
+//            } else {
+//                Set<String> pepSet = new HashSet<>();
+//                pepSet.add(peptide);
+//                tagPepMap.put(tag, pepSet);
+//            }
+//        }
 
         Set<Integer> tempSet = new HashSet<>(DbTool.getSequenceOnly(peptide).length() + 1, 1);
         for (int i = 0; i <= normalizedPeptide.length() - 3; ++i) {
@@ -449,7 +449,7 @@ public class InferSegment {
         }
         return finalList;
     }
-    public int generateSegmentBooleanVectorForProt(String prot) {
+    public int getLongTagNumForProt(String prot) {
         String normalizedProt = normalizeSequence(DbTool.getSequenceOnly(prot));
         Set<String> tagSet = new HashSet<>();
         for (int i = 0; i <= normalizedProt.length() - 7; ++i) {

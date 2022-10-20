@@ -121,7 +121,7 @@ public class DbTool {
         proteinSequenceMap.put(id, sequence.toString());
     }
 
-    public Map<String, String> getProteinSequenceMap() {
+    public Map<String, String> getProtSeqMap() {
         return proteinSequenceMap;
     }
 
@@ -165,7 +165,7 @@ public class DbTool {
         }
     }
 
-    public static String shuffleSeqTest(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
+    public static String shuffleSwapEveryTwo(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
         // todo: A protection site may be shuffled, which may result in "non-existing" peptides after digestion.
         // todo: A "potential" protection site may also be shuffled to the side of a cleavage site so that it prevents a peptide from being digested.
         String sequenceToBeShuffled;
@@ -206,7 +206,7 @@ public class DbTool {
         }
     }
 
-    public static String shuffleSeqTestProtection(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
+    public static String shuffleProtBetweenKR(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
         // todo: A protection site may be shuffled, which may result in "non-existing" peptides after digestion.
         // todo: A "potential" protection site may also be shuffled to the side of a cleavage site so that it prevents a peptide from being digested.
         StringBuilder seqToBeShuffled;
@@ -240,6 +240,50 @@ public class DbTool {
             return "M" + seqToBeShuffled;
         } else {
             return seqToBeShuffled.toString();
+        }
+    }
+
+    public static String shuffleProtKeepKR(String sequence, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) { // shuffling the protein sequence with without randomness
+        // todo: A protection site may be shuffled, which may result in "non-existing" peptides after digestion.
+        // todo: A "potential" protection site may also be shuffled to the side of a cleavage site so that it prevents a peptide from being digested.
+        StringBuilder seqToBeShuffled;
+        if (sequence.startsWith("M")) {  // don't shuffle the first "M" because it has a special meaning.
+            seqToBeShuffled = new StringBuilder(sequence.substring(1));
+        } else {
+            seqToBeShuffled = new StringBuilder(sequence);;
+        }
+
+        Pattern digestSitePattern = MassTool.getDigestSitePattern(cleavageSite, protectionSite, cleavageFromCTerm);
+        List<Integer> cutSiteList = new ArrayList<>();
+        Matcher matcher = digestSitePattern.matcher(seqToBeShuffled);
+        while (matcher.find()) {
+            cutSiteList.add(matcher.start());
+        }
+        Collections.sort(cutSiteList);
+        LinkedList<Character> aaToShuffleList = new LinkedList<>();
+        LinkedList<Character> krToShuffleList = new LinkedList<>();
+        for (int i = 0; i < seqToBeShuffled.length(); i++){
+            if (cutSiteList.contains(i)) {
+                krToShuffleList.add(seqToBeShuffled.charAt(i));
+            } else {
+                aaToShuffleList.add(seqToBeShuffled.charAt(i));
+            }
+        }
+        Collections.shuffle(krToShuffleList);
+        Collections.shuffle(aaToShuffleList);
+        StringBuilder shuffledSeq = new StringBuilder();
+        for (int i = 0; i < seqToBeShuffled.length(); i++){
+            if (cutSiteList.contains(i)) {
+                shuffledSeq.append(krToShuffleList.poll());
+            } else {
+                shuffledSeq.append(aaToShuffleList.poll());
+            }
+        }
+
+        if (sequence.startsWith("M")) {
+            return "M" + shuffledSeq;
+        } else {
+            return shuffledSeq.toString();
         }
     }
 
@@ -296,10 +340,10 @@ public class DbTool {
         }
     }
 
-    public static Character[] getLeftRightFlank(String peptide, Multimap<String, String> peptideProteinMap, Map<String, String> proteinSequenceMap, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) throws Exception {
+    public static Character[] getLeftRightFlank(String peptide, Multimap<String, String> pepProtsMap, Map<String, String> proteinSequenceMap, String cleavageSite, String protectionSite, boolean cleavageFromCTerm) throws Exception {
         Character[] leftRightFlank = new Character[2];
         String peptideString = DbTool.getSequenceOnly(peptide);
-        for (String proteinId : peptideProteinMap.get(peptide)) {
+        for (String proteinId : pepProtsMap.get(peptide)) {
             String proteinSequence = proteinSequenceMap.get(proteinId);
             int startIdx = proteinSequence.indexOf(peptideString);
             while (startIdx >= 0) {

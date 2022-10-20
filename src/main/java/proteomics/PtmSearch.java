@@ -31,7 +31,6 @@ import proteomics.Spectrum.DatasetReader;
 import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
-import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
@@ -50,7 +49,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
     private final double minPtmMass;
     private final double maxPtmMass;
     private final int localMaxMs2Charge;
-    private final Map<String, Peptide0> peptide0Map;
+    private final Map<String, PepInfo> peptide0Map;
     private final JMzReader spectraParser;
     private final double minClear;
     private final double maxClear;
@@ -103,7 +102,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         this.preSpectrum = preSpectrum;
         this.sqlPath = sqlPath;
         this.binomial = binomial;
-        peptide0Map = buildIndex.getPeptide0Map();
+        peptide0Map = buildIndex.getPepInfoMap();
         this.scanNum = scanNum;
         this.precursorScanNo = precursorScanNo;
         this.ptmOnlyList = ptmOnlyList;
@@ -153,10 +152,10 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             int whereIsTopCand = 0; // 0 for still top, -1 for no PTM pattern, -2 for PTM free but score < 0, other number is the final ranking
             int indexOfPtmContainCandidates = 1;
             for (Peptide peptide : ptmOnlyList) {
-                Peptide0 peptide0 = peptide0Map.get(peptide.getPTMFreePeptide());
+                PepInfo pepInfo = peptide0Map.get(peptide.getPTMFreePeptide());
 
                 PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr()
-                        , peptide0.leftFlank, peptide0.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
+                        , pepInfo.leftFlank, pepInfo.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
 
                 if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
                     for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {
@@ -248,7 +247,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             }
             String pepSetString = "";
             for (Peptide peptide : peptideArray){
-                Peptide0 pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
+                PepInfo pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
                 pepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + "," + String.join("_", pep0.proteins) +",";
             }
 
@@ -309,7 +308,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 }
                 String extraPepSetString = "";
                 for (Peptide peptide : peptideArray){
-                    Peptide0 pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
+                    PepInfo pep0 = peptide0Map.get(peptide.getPTMFreePeptide());
                     extraPepSetString += peptide.getPTMFreePeptide() + "," + peptide.getScore() + "," + peptide.isDecoy() + "," + peptide.hasVarPTM() + "," + String.join("_", pep0.proteins) +",";
                 }
 

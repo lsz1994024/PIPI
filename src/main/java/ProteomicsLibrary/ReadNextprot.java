@@ -37,7 +37,7 @@ public class ReadNextprot {
     public ReadNextprot(String peffPath) throws Exception {
         DbTool dbTool = new DbTool(peffPath, "neXtProt");
         Map<String, String> proteinAnnotationMap = dbTool.getProteinAnnotateMap();
-        Map<String, String> proteinSequenceMap = dbTool.getProteinSequenceMap();
+        Map<String, String> proteinSequenceMap = dbTool.getProtSeqMap();
         for (String id : proteinAnnotationMap.keySet()) {
             Matcher variantMatcher = variantPattern.matcher(proteinAnnotationMap.get(id));
             Matcher psiModMatcher = psiModPattern.matcher(proteinAnnotationMap.get(id));

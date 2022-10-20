@@ -19,7 +19,7 @@ package proteomics.Types;
 
 import ProteomicsLibrary.Types.SparseBooleanVector;
 
-public class Peptide0 {
+public class PepInfo {
 
     public final SparseBooleanVector code;
     public final boolean isTarget;
@@ -27,7 +27,7 @@ public class Peptide0 {
     public final char leftFlank;
     public final char rightFlank;
 
-    public Peptide0(SparseBooleanVector code, boolean isTarget, String[] proteins, char leftFlank, char rightFlank) {
+    public PepInfo(SparseBooleanVector code, boolean isTarget, String[] proteins, char leftFlank, char rightFlank) {
         this.code = code;
         this.isTarget = isTarget;
         this.proteins = proteins;

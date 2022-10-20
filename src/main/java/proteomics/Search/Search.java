@@ -41,22 +41,22 @@ public class Search {
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
         double scanNormSquare = scanCode.norm2square();
 
-        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
+        Map<String, PepInfo> peptide0Map = buildIndex.getPepInfoMap();
 
         boolean containsTruth = false;
         for (String sequence : candiSet) {
-            Peptide0 peptide0 = peptide0Map.get(sequence);
+            PepInfo pepInfo = peptide0Map.get(sequence);
             double score = 0;
-            double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
+            double temp1 = Math.sqrt(pepInfo.code.norm2square() * scanNormSquare);
             if (temp1 > 1e-6) {
-                score = peptide0.code.dot(scanCode) / temp1;
+                score = pepInfo.code.dot(scanCode) / temp1;
             }
             double deltaMass = massTool.calResidueMass(sequence) + massTool.H2O - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 //            if (Math.abs(deltaMass) > 250) continue;
 //                    pepSet.add(sequence);
 
 
-            if (peptide0.isTarget) {
+            if (pepInfo.isTarget) {
                 if ((Math.abs(deltaMass) <= 0.01)) {
 
                     // PTM-free
@@ -142,7 +142,7 @@ public class Search {
             return;
         }
 
-        Map<String, Peptide0> peptide0Map = buildIndex.getPeptide0Map();
+        Map<String, PepInfo> peptide0Map = buildIndex.getPepInfoMap();
         TreeMap<Double, Set<String>> massPeptideMap = buildIndex.getMassPeptideMap();
 
         NavigableMap<Double, Set<String>> subMassPeptideMap = massPeptideMap.subMap(leftMass, true, rightMass, true);
@@ -155,18 +155,18 @@ public class Search {
                             int a = 1;
                         }
                     }
-                    Peptide0 peptide0 = peptide0Map.get(sequence);
+                    PepInfo pepInfo = peptide0Map.get(sequence);
                     double score = 0;
-                    double temp1 = Math.sqrt(peptide0.code.norm2square() * scanNormSquare);
+                    double temp1 = Math.sqrt(pepInfo.code.norm2square() * scanNormSquare);
                     if (temp1 > 1e-6) {
-                        score = peptide0.code.dot(scanCode) / temp1;
+                        score = pepInfo.code.dot(scanCode) / temp1;
                     }
 //                    SparseBooleanVector aaa = new SparseBooleanVector(new HashSet<>(Arrays.asList(4305,2435,4339,2421,2635,2556,2541,2429,2430)));
 //                    double sss = aaa.dot(scanCode)/temp1;
 
                     double deltaMass = mass - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 
-                    if (peptide0.isTarget) {
+                    if (pepInfo.isTarget) {
 //                        if ((deltaMass <= rightTol) && (deltaMass >= -1 * leftTol)) {
                         if ((Math.abs(deltaMass) <= 0.01)) {
 
@@ -239,17 +239,17 @@ public class Search {
             entry.ptmFreeList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
     }
-    private void mergeResult(PriorityQueue<ResultEntry> ptmFreeQueue, PriorityQueue<ResultEntry> ptmOnlyQueue, Map<String, Peptide0> peptide0Map) {
+    private void mergeResult(PriorityQueue<ResultEntry> ptmFreeQueue, PriorityQueue<ResultEntry> ptmOnlyQueue, Map<String, PepInfo> peptide0Map) {
         if (!ptmFreeQueue.isEmpty()) {
             for (ResultEntry temp : ptmFreeQueue){
-                Peptide0 pep0 = peptide0Map.get(temp.peptide);
+                PepInfo pep0 = peptide0Map.get(temp.peptide);
                 candidatesList.add(new PepWithScore(temp.peptide, temp.score, temp.isDecoy(), false, String.join("_", pep0.proteins)));
             }
         }
 
         if (!ptmOnlyQueue.isEmpty()) {
             for (ResultEntry temp : ptmOnlyQueue){
-                Peptide0 pep0 = peptide0Map.get(temp.peptide);
+                PepInfo pep0 = peptide0Map.get(temp.peptide);
                 candidatesList.add(new PepWithScore(temp.peptide, temp.score, temp.isDecoy(), true, String.join("_", pep0.proteins)));
             }
         }
