@@ -54,7 +54,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(2000));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(4435));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -182,7 +182,6 @@ public class PIPI {
             String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
             datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
         }
-//        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Data/PXD004732/pool121/truth.txt"));
         BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
 
         Map<Integer, String> pepTruth = new HashMap<>();
@@ -191,62 +190,53 @@ public class PIPI {
             if (line.isEmpty()) continue;
             line = line.trim();
             String[] splitRes = line.split(",");
-            if (splitRes.length == 1) {
-                int a = 1;
-            }
             String pepWithMod = splitRes[1].replace('I','L');
             pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
         }
 
-        BufferedReader parameterReader1 = new BufferedReader(new FileReader("/home/slaiad/Data/PXD001468/omProtUnion.txt"));
-        Set<String> omProts = new HashSet<>();
-        String line1;
-        while ((line1 = parameterReader1.readLine()) != null) {
-            if (line1.isEmpty()) continue;
-            line1 = line1.trim();
-            omProts.add(line1);
-        }
         SpecProcessor specProcessor = new SpecProcessor(massTool);
         Map<String, Integer> precursorChargeMap = new HashMap<>();
         Map<String, Double> precursorMassMap = new HashMap<>();
         TreeMap<Double, Set<String>> pcMassScanNameMap = new TreeMap<>();
 
 
-        logger.info("Scan decoding and protein db reducing...");
-        int threadNumX = Integer.valueOf(parameterMap.get("thread_num"));
-        if (threadNumX == 0) {
-            threadNumX = 3 + Runtime.getRuntime().availableProcessors();
+        logger.info("Get long tags to reduce proteins...");
+        int threadNum_0 = Integer.valueOf(parameterMap.get("thread_num"));
+        if (threadNum_0 == 0) {
+            threadNum_0 = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             //change thread 1
 //            threadNumX = 1;
         }
-        System.out.println("thread NUM "+ threadNumX);
+        System.out.println("thread NUM "+ threadNum_0);
 
         Map<String, String> mgfTitleMap = new HashMap<>();
         Map<String, Integer> isotopeCorrectionNumMap = new HashMap<>();
         Map<String, Double> ms1PearsonCorrelationCoefficientMap = new HashMap<>();
 
-        ExecutorService threadPoolSpecCoderX = Executors.newFixedThreadPool(threadNumX);
-        ArrayList<Future<SpecCoder.Entry>> taskListSpecCoderX = new ArrayList<>(datasetReader.getUsefulSpectraNum() + 10);
+        //////////==================================================
+        //   Get Long Tags
+        ExecutorService threadPoolGetLongTag = Executors.newFixedThreadPool(threadNum_0);
+        ArrayList<Future<GetLongTag.Entry>> taskListGetLongTag = new ArrayList<>(datasetReader.getUsefulSpectraNum() + 10);
         Connection sqlConSpecCoderX = DriverManager.getConnection(sqlPath);
-        Statement sqlStatementSpecCoderX = sqlConSpecCoderX.createStatement();
-        ResultSet sqlResSetSpecCoderX = sqlStatementSpecCoderX.executeQuery("SELECT scanName, scanNum, precursorCharge" +
+        Statement sqlStateGetLongTag = sqlConSpecCoderX.createStatement();
+        ResultSet sqlResSetGetLongTag = sqlStateGetLongTag.executeQuery("SELECT scanName, scanNum, precursorCharge" +
                 ", precursorMass, precursorScanNo, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient FROM spectraTable");
 
-        ReentrantLock lockSpecCoderX = new ReentrantLock();
+        ReentrantLock lockGetLongTag = new ReentrantLock();
 
         int submitNumSpecCoderX = 0;
         Set<String> validScanSet = new HashSet<>();
 
-        while (sqlResSetSpecCoderX.next()) {
-            String scanName = sqlResSetSpecCoderX.getString("scanName");
-            int scanNum = sqlResSetSpecCoderX.getInt("scanNum");
-            int precursorCharge = sqlResSetSpecCoderX.getInt("precursorCharge");
-            double precursorMass = sqlResSetSpecCoderX.getDouble("precursorMass");
-            mgfTitleMap.put(scanName, sqlResSetSpecCoderX.getString("mgfTitle"));
-            isotopeCorrectionNumMap.put(scanName, sqlResSetSpecCoderX.getInt("isotopeCorrectionNum"));
-            ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetSpecCoderX.getDouble("ms1PearsonCorrelationCoefficient"));
+        while (sqlResSetGetLongTag.next()) {
+            String scanName = sqlResSetGetLongTag.getString("scanName");
+            int scanNum = sqlResSetGetLongTag.getInt("scanNum");
+            int precursorCharge = sqlResSetGetLongTag.getInt("precursorCharge");
+            double precursorMass = sqlResSetGetLongTag.getDouble("precursorMass");
+            mgfTitleMap.put(scanName, sqlResSetGetLongTag.getString("mgfTitle"));
+            isotopeCorrectionNumMap.put(scanName, sqlResSetGetLongTag.getInt("isotopeCorrectionNum"));
+            ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetGetLongTag.getDouble("ms1PearsonCorrelationCoefficient"));
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
@@ -255,8 +245,8 @@ public class PIPI {
                 }
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-                if (!shouldRun) {  //22459   comment this if block, if run all scans
-                    continue;
+                if (!shouldRun) {
+//                    continue;//22459   comment this continue line, if run all scans
                 }
             }
 
@@ -264,29 +254,26 @@ public class PIPI {
 
             precursorChargeMap.put(scanName, precursorCharge);
             precursorMassMap.put(scanName, precursorMass);
-//            logger.info("starts "+ scanName);
             submitNumSpecCoderX++;
             validScanSet.add(scanName);
-            taskListSpecCoderX.add(threadPoolSpecCoderX.submit(new SpecCoder(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockSpecCoderX, scanName, precursorCharge
+            taskListGetLongTag.add(threadPoolGetLongTag.submit(new GetLongTag(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockGetLongTag, scanName, precursorCharge
                     , precursorMass, specProcessor, pepTruth.get(1886))));
         }
         System.out.println("totalSubmit in SpecCoder, "+ submitNumSpecCoderX);
-        sqlResSetSpecCoderX.close();
-        sqlStatementSpecCoderX.close();
+        sqlResSetGetLongTag.close();
+        sqlStateGetLongTag.close();
 
-        int lastProgressSpecCoderX = 0;
-        int totalcountSpecCoderX = taskListSpecCoderX.size();
-        int countSpecCoderX = 0;
+        int lastProgressGetLongTag = 0;
+        int totalCountGetLongTag = taskListGetLongTag.size();
+        int countGetLongTag = 0;
         Map<String, Map<String, Double>> protTagScoreMapMap = new HashMap<>();
-        while (countSpecCoderX < totalcountSpecCoderX) {
+        while (countGetLongTag < totalCountGetLongTag) {
             // record search results and delete finished ones.
-            List<Future<SpecCoder.Entry>> toBeDeleteTaskList = new ArrayList<>(totalcountSpecCoderX - countSpecCoderX);
-            for (Future<SpecCoder.Entry> task : taskListSpecCoderX) {
+            List<Future<GetLongTag.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountGetLongTag - countGetLongTag);
+            for (Future<GetLongTag.Entry> task : taskListGetLongTag) {
                 if (task.isDone()) {
                     if (task.get() != null ) {
-                        SpecCoder.Entry entry = task.get();
-
-//                        logger.info("finished "+ entry.scanName);
+                        GetLongTag.Entry entry = task.get();
                         for (String prot : entry.protTagScoreMap.keySet()){
                             List<Pair<String, Double>> tagScoreList = entry.protTagScoreMap.get(prot);
                             if (protTagScoreMapMap.containsKey(prot)) {
@@ -320,33 +307,37 @@ public class PIPI {
                     toBeDeleteTaskList.add(task);
                 }
             }
-            countSpecCoderX += toBeDeleteTaskList.size();
-            taskListSpecCoderX.removeAll(toBeDeleteTaskList);
-            taskListSpecCoderX.trimToSize();
+            countGetLongTag += toBeDeleteTaskList.size();
+            taskListGetLongTag.removeAll(toBeDeleteTaskList);
+            taskListGetLongTag.trimToSize();
 
-            int progress = countSpecCoderX * 20 / totalcountSpecCoderX;
-            if (progress != lastProgressSpecCoderX) {
-                logger.info("Spectra Coding {}%...", progress * 5);
-                lastProgressSpecCoderX = progress;
+            int progress = countGetLongTag * 20 / totalCountGetLongTag;
+            if (progress != lastProgressGetLongTag) {
+                logger.info("Getting long tags for prot {}%...", progress * 5);
+                lastProgressGetLongTag = progress;
             }
 
-            if (countSpecCoderX == totalcountSpecCoderX) {
+            if (countGetLongTag == totalCountGetLongTag) {
                 break;
             }
             Thread.sleep(6000);
         }
         // shutdown threads.
-        threadPoolSpecCoderX.shutdown();
-        if (!threadPoolSpecCoderX.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPoolSpecCoderX.shutdownNow();
-            if (!threadPoolSpecCoderX.awaitTermination(60, TimeUnit.SECONDS))
+        threadPoolGetLongTag.shutdown();
+        if (!threadPoolGetLongTag.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPoolGetLongTag.shutdownNow();
+            if (!threadPoolGetLongTag.awaitTermination(60, TimeUnit.SECONDS))
                 throw new Exception("Pool did not terminate");
         }
-
-        if (lockSpecCoderX.isLocked()) {
-            lockSpecCoderX.unlock();
+        if (lockGetLongTag.isLocked()) {
+            lockGetLongTag.unlock();
         }
+        //   ==========END=============Get Long Tags
+        //////////==================================================
 
+
+        //////////==================================================
+        //   Score for Proteins
         Map<String, Integer> protLengthMap = buildIndex.protLengthMap;
         Map<String, Double> protScoreFinalMap = new HashMap<>();
         Map<String, Integer> tagNumMap = new HashMap<>();
@@ -377,104 +368,139 @@ public class PIPI {
             protScoreLongList.add(new Pair<>(prot, protScoreFinalMap.get(prot)));
         }
         protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
-        int num = 0;
-        int correct = 0;
-        int totalCorrect = 0;
-        for (int i = protScoreLongList.size()-1; i >= 0; i--){
-            num++;
-            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
-                correct++;
-            }
-            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
-                totalCorrect ++;
-
-            }
-            System.out.println(num+ "," +protScoreLongList.get(i).getSecond() + ","+protLengthMap.get(protScoreLongList.get(i).getFirst() )
-                    + ","+protScoreLongList.get(i).getFirst() +"," + (omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0));
-            for (String tag : protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).keySet()){
-                System.out.println(tag+ "," + protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).get(tag) + "," +tagNumMap.get(tag));
-            }
-            System.out.println("==============");
-        }
-        System.out.println("5300 contains,"+ correct);
-        System.out.println("total,"+ num + ","+totalCorrect);
+//        int num = 0;
+//        int correct = 0;
+//        int totalCorrect = 0;
+//        for (int i = protScoreLongList.size()-1; i >= 0; i--){
+//            num++;
+//            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
+//                correct++;
+//            }
+//            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
+//                totalCorrect ++;
+//
+//            }
+//            System.out.println(num+ "," +protScoreLongList.get(i).getSecond() + ","+protLengthMap.get(protScoreLongList.get(i).getFirst() )
+//                    + ","+protScoreLongList.get(i).getFirst() +"," + (omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0));
+//            for (String tag : protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).keySet()){
+//                System.out.println(tag+ "," + protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).get(tag) + "," +tagNumMap.get(tag));
+//            }
+//            System.out.println("==============");
+//        }
+//        System.out.println("5300 contains,"+ correct);
+//        System.out.println("total,"+ num + ","+totalCorrect);
         Set<String> reducedProtIdSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
             if (pair.getSecond() < 300) continue;
             reducedProtIdSet.add(pair.getFirst());
         }
+        Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
+        while (iter.hasNext()) {
+//            String protId = iter.next();
+            if (!reducedProtIdSet.contains(iter.next())) {
+                iter.remove();
+            }
+        }
 
-        logger.info("Generating peptide database...");
-        int threadNum1 = Integer.valueOf(parameterMap.get("thread_num"));
-        if (threadNum1 == 0) {
-            threadNum1 = 3 + Runtime.getRuntime().availableProcessors();
+        //  END Score for Proteins
+        //////////==================================================
+
+
+        //////////==================================================
+        //   Get Tags and Get Peptide Candidates
+        logger.info("Generating peptide candidates...");
+        int threadNum_1 = Integer.valueOf(parameterMap.get("thread_num"));
+        if (threadNum_1 == 0) {
+            threadNum_1 = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             //change thread 1
-            threadNum1 = 1;
+//            threadNum_1 = 1;
         }
-        System.out.println("thread NUM "+ threadNum1);
+        System.out.println("thread NUM "+ threadNum_1);
 
-        ExecutorService threadPoolSpecCoder = Executors.newFixedThreadPool(threadNum1);
-        ArrayList<Future<GeneratePepDb.Entry>> taskListSpecCoder = new ArrayList<>(reducedProtIdSet.size() + 10);
+        ExecutorService threadPoolGetPepCandi = Executors.newFixedThreadPool(threadNum_1);
+        ArrayList<Future<GetPepCandi.Entry>> taskListSpecCoder = new ArrayList<>(reducedProtIdSet.size() + 10);
         ReentrantLock lockSpecCoder = new ReentrantLock();
 
-        int submitNumSpecCoder = 0;
-        for (String protId : reducedProtIdSet) {
-            taskListSpecCoder.add(threadPoolSpecCoder.submit(new GeneratePepDb(parameterMap, buildIndex, protId)));
+        int submitNumGetPepCandis = 0;
+        for (String protId : reducedProtIdSet) {    //All protSeq are recorded but some decoy version are not because their targets are not in the reducedProtIdSet
+            taskListSpecCoder.add(threadPoolGetPepCandi.submit(new GetPepCandi(parameterMap, buildIndex, protId)));
         }
-        System.out.println("totalSubmit in SpecCoder, "+ submitNumSpecCoder);
+        System.out.println("totalSubmit in GetPepCandi, "+ submitNumGetPepCandis);
 
-        int lastProgressSpecCoder = 0;
-        int totalCountSpecCoder = taskListSpecCoder.size();
+        int lastProgressGetPepCandis = 0;
+        int totalCountGetPepCandis = taskListSpecCoder.size();
         int countSpecCoder = 0;
         Multimap<String, String> pepProtsMap = HashMultimap.create();
         Map<String, Double> pepMassMap = new HashMap<>(500000);
-        Map<String, String> targetDecoyProtSeqMap = new HashMap<>(buildIndex.protSeqMap);
         Map<String, SparseBooleanVector> pepCodeMap = new HashMap<>();
         double minPeptideMass = 9999;
         double maxPeptideMass = 0;
 
-        Set<String> targetPepSet = new HashSet<>();
-        Set<String> decoyPepSet = new HashSet<>();
-
-        while (countSpecCoder < totalCountSpecCoder) {
+//        Set<String> targetPepSet = new HashSet<>();
+//        Set<String> decoyPepSet = new HashSet<>();
+        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = new HashMap<>();
+        while (countSpecCoder < totalCountGetPepCandis) {
             // record search results and delete finished ones.
-            List<Future<GeneratePepDb.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountSpecCoder - countSpecCoder);
-            for (Future<GeneratePepDb.Entry> task : taskListSpecCoder) {
+            List<Future<GetPepCandi.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountGetPepCandis - countSpecCoder);
+            for (Future<GetPepCandi.Entry> task : taskListSpecCoder) {
                 if (task.isDone()) {
                     if (task.get() != null ) {
-                        GeneratePepDb.Entry entry = task.get();
+                        GetPepCandi.Entry entry = task.get();
                         String protId = entry.protId;
                         String decoyProtSeq = entry.decoyProtSeq;
-                        Map<String, Double> targetPepMassMap = entry.targetPepMassMap;
-                        Map<String, Double> decoyPepMassMap = entry.decoyPepMassMap;
-                        Map<String, SparseBooleanVector> targetPepCodeMap = entry.targetPepCodeMap;
-                        Map<String, SparseBooleanVector> decoyPepCodeMap = entry.decoyPepCodeMap;
-                        targetPepSet.addAll(targetPepMassMap.keySet());
-                        decoyPepSet.addAll(decoyPepMassMap.keySet());
+//                        Map<String, Double> targetPepMassMap = entry.targetPepMassMap;
+//                        Map<String, Double> decoyPepMassMap = entry.decoyPepMassMap;
+//                        Map<String, SparseBooleanVector> targetPepCodeMap = entry.targetPepCodeMap;
+//                        Map<String, SparseBooleanVector> decoyPepCodeMap = entry.decoyPepCodeMap;
+//                        targetPepSet.addAll(targetPepMassMap.keySet());
+//                        decoyPepSet.addAll(decoyPepMassMap.keySet());
+                        String decoyProtId = "DECOY_"+protId;
+                        buildIndex.protSeqMap.put(decoyProtId, decoyProtSeq);
 
-                        targetDecoyProtSeqMap.put("DECOY_"+protId, decoyProtSeq);
-
-                        pepMassMap.putAll(targetPepMassMap);
-                        pepMassMap.putAll(decoyPepMassMap);
-                        pepCodeMap.putAll(targetPepCodeMap);
-                        pepCodeMap.putAll(decoyPepCodeMap);
-
-                        for (String tarPep : targetPepMassMap.keySet()) {
-                            pepProtsMap.put(tarPep, protId);
-                            double mass = targetPepMassMap.get(tarPep);
-                            if (mass < minPeptideMass) minPeptideMass = mass;
-                            if (mass > maxPeptideMass) maxPeptideMass = mass;
-//                            pepMassMap.put(tarPep, targetPepMassMap.get(tarPep));
+                        for (Pair<String, Integer> tagPosPair : entry.targetTagPosList) {
+                            String tag  = tagPosPair.getFirst();
+                            int pos = tagPosPair.getSecond();
+                            if (tagProtPosMap.containsKey(tag)) {
+                                tagProtPosMap.get(tag).add(new Pair(protId, pos));
+                            } else {
+                                Set<Pair<String, Integer>> protIdSet = new HashSet<>();
+                                protIdSet.add(new Pair(protId, pos));
+                                tagProtPosMap.put(tag, protIdSet);
+                            }
                         }
-                        for (String decPep : decoyPepMassMap.keySet()) {
-                            pepProtsMap.put(decPep, "DECOY_"+protId);
-                            double mass = decoyPepMassMap.get(decPep);
-                            if (mass < minPeptideMass) minPeptideMass = mass;
-                            if (mass > maxPeptideMass) maxPeptideMass = mass;
-//                            pepMassMap.put(decPep, decoyPepMassMap.get(decPep));
+                        for (Pair<String, Integer> tagPosPair : entry.decoyTagPosList) {
+                            String tag  = tagPosPair.getFirst();
+                            int pos = tagPosPair.getSecond();
+                            if (tagProtPosMap.containsKey(tag)) {
+                                tagProtPosMap.get(tag).add(new Pair(decoyProtId, pos));
+                            } else {
+                                Set<Pair<String, Integer>> protIdSet = new HashSet<>();
+                                protIdSet.add(new Pair(decoyProtId, pos));
+                                tagProtPosMap.put(tag, protIdSet);
+                            }
                         }
+
+//                        pepMassMap.putAll(targetPepMassMap);
+//                        pepMassMap.putAll(decoyPepMassMap);
+//                        pepCodeMap.putAll(targetPepCodeMap);
+//                        pepCodeMap.putAll(decoyPepCodeMap);
+
+//                        for (String tarPep : targetPepMassMap.keySet()) {
+//                            pepProtsMap.put(tarPep, protId);
+//                            double mass = targetPepMassMap.get(tarPep);
+//                            if (mass < minPeptideMass) minPeptideMass = mass;
+//                            if (mass > maxPeptideMass) maxPeptideMass = mass;
+////                            pepMassMap.put(tarPep, targetPepMassMap.get(tarPep));
+//                        }
+//                        for (String decPep : decoyPepMassMap.keySet()) {
+//                            pepProtsMap.put(decPep, "DECOY_"+protId);
+//                            double mass = decoyPepMassMap.get(decPep);
+//                            if (mass < minPeptideMass) minPeptideMass = mass;
+//                            if (mass > maxPeptideMass) maxPeptideMass = mass;
+////                            pepMassMap.put(decPep, decoyPepMassMap.get(decPep));
+//                        }
                     }
                     toBeDeleteTaskList.add(task);
                 } else if (task.isCancelled()) {
@@ -485,22 +511,22 @@ public class PIPI {
             taskListSpecCoder.removeAll(toBeDeleteTaskList);
             taskListSpecCoder.trimToSize();
 
-            int progress = countSpecCoder * 20 / totalCountSpecCoder;
-            if (progress != lastProgressSpecCoder) {
+            int progress = countSpecCoder * 20 / totalCountGetPepCandis;
+            if (progress != lastProgressGetPepCandis) {
                 logger.info("Build pepDb {}%...", progress * 5);
-                lastProgressSpecCoder = progress;
+                lastProgressGetPepCandis = progress;
             }
 
-            if (countSpecCoder == totalCountSpecCoder) {
+            if (countSpecCoder == totalCountGetPepCandis) {
                 break;
             }
             Thread.sleep(6000);
         }
         // shutdown threads.
-        threadPoolSpecCoder.shutdown();
-        if (!threadPoolSpecCoder.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPoolSpecCoder.shutdownNow();
-            if (!threadPoolSpecCoder.awaitTermination(60, TimeUnit.SECONDS))
+        threadPoolGetPepCandi.shutdown();
+        if (!threadPoolGetPepCandi.awaitTermination(60, TimeUnit.SECONDS)) {
+            threadPoolGetPepCandi.shutdownNow();
+            if (!threadPoolGetPepCandi.awaitTermination(60, TimeUnit.SECONDS))
                 throw new Exception("Pool did not terminate");
         }
         if (lockSpecCoder.isLocked()) {
@@ -509,7 +535,7 @@ public class PIPI {
 
         buildIndex.minPeptideMass = minPeptideMass;
         buildIndex.maxPeptideMass = maxPeptideMass;
-
+        buildIndex.tagProtPosMap = tagProtPosMap;
         // writer concatenated fasta
         Map<String, String> proteinAnnotationMap;
         String dbPath = parameterMap.get("db");
@@ -523,84 +549,81 @@ public class PIPI {
             proteinAnnotationMap = dbTool.getProteinAnnotateMap();
         }
         BufferedWriter writer = new BufferedWriter(new FileWriter(dbPath + ".TD.fasta"));
-        for (String protId : targetDecoyProtSeqMap.keySet()) {
+        for (String protId : buildIndex.protSeqMap.keySet()) {
             writer.write(String.format(Locale.US, ">%s %s\n", protId, proteinAnnotationMap.getOrDefault(protId, "")));
-            writer.write(targetDecoyProtSeqMap.get(protId) + "\n");
+            writer.write(buildIndex.protSeqMap.get(protId) + "\n");
         }
         writer.close();
 
-        FMIndex fmIndex = buildIndex.fmIndex;
-        int[] dotPosArr = buildIndex.dotPosArr;
-        Map<Integer, String> posProtMap = buildIndex.posProtMap;
-        Map<String, PepInfo> tempMap = new HashMap<>();
-        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.massPeptideMap;
-        for (String peptide : pepMassMap.keySet()) {
-            if (peptide.contentEquals("nRVTLMPKDLQLARc")) {
-                int a = 1;
-            }
-            Character[] leftRightFlank = DbTool.getLeftRightFlank(peptide, pepProtsMap, targetDecoyProtSeqMap, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), parameterMap.get("is_from_C_term_1").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-            if (leftRightFlank == null) {
-                leftRightFlank = DbTool.getLeftRightFlank(peptide, pepProtsMap, targetDecoyProtSeqMap, parameterMap.get("cleavage_site_2"), parameterMap.get("protection_site_2"), parameterMap.get("is_from_C_term_2").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-            }
-            if (leftRightFlank != null) {
-                boolean isTarget = isTarget(pepProtsMap.get(peptide));
-                if (!isTarget) { //decoy pep is only from one decoy protein
-                    int ptnForwardCount = 0;
-                    int ptnBackwardCount = 0;
-                    SearchInterval searchForward = null;
-                    SearchInterval searchBackward = null;
-                    char[] pepChar = peptide.substring(1,peptide.length()-1).toCharArray();
-                    searchForward = fmIndex.fmSearch(pepChar);
-                    if (searchForward != null) {
-                        ptnForwardCount = searchForward.ep - searchForward.sp + 1;
-                    }
-
-                    String revPep = new StringBuilder(peptide.substring(1,peptide.length()-1)).reverse().toString();
-                    char[] revTagChar = revPep.toCharArray();
-                    searchBackward = fmIndex.fmSearch(revTagChar);
-                    if (searchBackward != null) {
-                        ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
-                    }
-                    if (ptnForwardCount + ptnBackwardCount > 0) {
-                        isTarget = true;
-                        if (ptnForwardCount > 0) {
-                            for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
-                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
-                                pepProtsMap.put(peptide, posProtMap.get(-res - 2));
-                            }
-                        }
-                        if (ptnBackwardCount > 0) {
-                            for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
-                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
-                                pepProtsMap.put(peptide, posProtMap.get(-res - 2));
-                            }
-                        }
-                    }
-                }
-                tempMap.put(peptide, new PepInfo(pepCodeMap.get(peptide), isTarget, pepProtsMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
-
-                if (massPeptideMap.containsKey(pepMassMap.get(peptide))) {
-                    massPeptideMap.get(pepMassMap.get(peptide)).add(peptide);
-                } else {
-                    Set<String> tempSet = new HashSet<>();
-                    tempSet.add(peptide);
-                    massPeptideMap.put(pepMassMap.get(peptide), tempSet);
-                }
-            } else {
-                System.out.println("no flank,"+ peptide + isTarget(pepProtsMap.get(peptide)));
-            }
-        }
-
-        buildIndex.pepInfoMap = new HashMap<>(tempMap); // Since this map won't be changed any more, using this step to create a HashMap with the capacity exactly equals the actual size.
-        int numTargetPep = 0, numDecoyPep = 0;
-        for (PepInfo pep : buildIndex.pepInfoMap.values()){
-            if (pep.isTarget) {
-                numTargetPep++;
-            }else {
-                numDecoyPep++;
-            }
-        }
-        System.out.println("Db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
+//        FMIndex fmIndex = buildIndex.fmIndex;
+//        int[] dotPosArr = buildIndex.dotPosArr;
+//        Map<Integer, String> posProtMap = buildIndex.posProtMap;
+//        Map<String, PepInfo> tempMap = new HashMap<>();
+//        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.massPeptideMap;
+//        for (String peptide : pepMassMap.keySet()) {
+//            Character[] leftRightFlank = DbTool.getLeftRightFlank(peptide, pepProtsMap, buildIndex.protSeqMap, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), parameterMap.get("is_from_C_term_1").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+//            if (leftRightFlank == null) {
+//                leftRightFlank = DbTool.getLeftRightFlank(peptide, pepProtsMap, buildIndex.protSeqMap, parameterMap.get("cleavage_site_2"), parameterMap.get("protection_site_2"), parameterMap.get("is_from_C_term_2").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
+//            }
+//            if (leftRightFlank != null) {
+//                boolean isTarget = isTarget(pepProtsMap.get(peptide));
+//                if (!isTarget) { //decoy pep is only from one decoy protein
+//                    int ptnForwardCount = 0;
+//                    int ptnBackwardCount = 0;
+//                    SearchInterval searchForward = null;
+//                    SearchInterval searchBackward = null;
+//                    char[] pepChar = peptide.substring(1,peptide.length()-1).toCharArray();
+//                    searchForward = fmIndex.fmSearch(pepChar);
+//                    if (searchForward != null) {
+//                        ptnForwardCount = searchForward.ep - searchForward.sp + 1;
+//                    }
+//
+//                    String revPep = new StringBuilder(peptide.substring(1,peptide.length()-1)).reverse().toString();
+//                    char[] revTagChar = revPep.toCharArray();
+//                    searchBackward = fmIndex.fmSearch(revTagChar);
+//                    if (searchBackward != null) {
+//                        ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
+//                    }
+//                    if (ptnForwardCount + ptnBackwardCount > 0) {
+//                        isTarget = true;
+//                        if (ptnForwardCount > 0) {
+//                            for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
+//                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
+//                                pepProtsMap.put(peptide, posProtMap.get(-res - 2));
+//                            }
+//                        }
+//                        if (ptnBackwardCount > 0) {
+//                            for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
+//                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
+//                                pepProtsMap.put(peptide, posProtMap.get(-res - 2));
+//                            }
+//                        }
+//                    }
+//                }
+//                tempMap.put(peptide, new PepInfo(pepCodeMap.get(peptide), isTarget, pepProtsMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
+//
+//                if (massPeptideMap.containsKey(pepMassMap.get(peptide))) {
+//                    massPeptideMap.get(pepMassMap.get(peptide)).add(peptide);
+//                } else {
+//                    Set<String> tempSet = new HashSet<>();
+//                    tempSet.add(peptide);
+//                    massPeptideMap.put(pepMassMap.get(peptide), tempSet);
+//                }
+//            } else {
+//                System.out.println("no flank,"+ peptide + isTarget(pepProtsMap.get(peptide)));
+//            }
+//        }
+//
+//        buildIndex.pepInfoMap = new HashMap<>(tempMap); // Since this map won't be changed any more, using this step to create a HashMap with the capacity exactly equals the actual size.
+//        int numTargetPep = 0, numDecoyPep = 0;
+//        for (PepInfo pep : buildIndex.pepInfoMap.values()){
+//            if (pep.isTarget) {
+//                numTargetPep++;
+//            }else {
+//                numDecoyPep++;
+//            }
+//        }
+//        System.out.println("Db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
 
         logger.info("Pre searching...");
         int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
@@ -609,7 +632,7 @@ public class PIPI {
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             // change thread 2
-//            threadNum = 1;
+            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
@@ -622,16 +645,26 @@ public class PIPI {
 
             double precursorMass = precursorMassMap.get(scanName);
             submitNumBone++;
+            int scanNum = Integer.valueOf(scanNameStr[2]);
+            boolean shouldRun = false;
+            for (int debugScanNum : lszDebugScanNum) {
+                if (Math.abs(scanNum-debugScanNum) < 200) {
+                    shouldRun = true;
+                }
+            }
+            if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
+                if (!shouldRun) {
+                    continue;//22459   comment this continue line, if run all scans
+                }
+            }
+
             taskListBone.add(threadPoolBone.submit(new PreSearch(Integer.valueOf(scanNameStr[2]), buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                     , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor, pepTruth.get(1886))));
         }
         System.out.println("totalSubmit in Bone, "+ submitNumBone);
 
-        Map<String, List<Peptide>> ptmOnlyCandiMap = new HashMap<>();
-        Map<String, List<Peptide>> ptmFreeCandiMap = new HashMap<>();
-
-//        Map<String, Set<String>> fileIdScanNumToScanNameMap = new HashMap<>(); //key: fileId.scanNum, value: fileId.scanId.scanNum.coId  // keep all scans not only co with same charge
+        Map<String, Set<PeptideInfo>> scanNamePeptideInfoMap = new HashMap<>();
         int lastProgressBone = 0;
         int resultCountBone = 0;
         int totalCountBone = taskListBone.size();
@@ -643,9 +676,7 @@ public class PIPI {
                 if (task.isDone()) {
                     if (task.get() != null) {
                         PreSearch.Entry entry = task.get();
-
-                        ptmOnlyCandiMap.put(entry.scanName, entry.ptmOnlyList);
-                        ptmFreeCandiMap.put(entry.scanName, entry.ptmFreeList);
+                        scanNamePeptideInfoMap.put(entry.scanName, entry.peptideInfoSet);
                         if (pcMassScanNameMap.containsKey(entry.precursorMass)) {
                             pcMassScanNameMap.get(entry.precursorMass).add(entry.scanName);
                         }else {
@@ -692,7 +723,7 @@ public class PIPI {
 
         System.out.println("resultCount," +resultCountBone);
 
-        System.out.println("lsz +" +","+ptmOnlyCandiMap.size()+","+pcMassScanNameMap.size() + "," + ptmOnlyCandiMap.keySet().size());
+        System.out.println("lsz +" +","+scanNamePeptideInfoMap.size()+","+pcMassScanNameMap.size());
         logger.info("Start searching...");
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
@@ -702,7 +733,7 @@ public class PIPI {
 //            threadNum = 1;
         }
         ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
-        ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(ptmOnlyCandiMap.keySet().size() + 10);
+        ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(scanNamePeptideInfoMap.keySet().size() + 10);
         ReentrantLock lockPtm = new ReentrantLock();
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
         int submitTimePtm = 0;
@@ -716,17 +747,11 @@ public class PIPI {
                     int a = 1;
                 }
                 int thisFileId = Integer.valueOf( thisScanName.split("\\.")[0] );
-                Set<Peptide> realPtmOnlyList = new HashSet<>();
-                Set<Peptide> realPtmFreeList = new HashSet<>();
-                for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
-                    realPtmOnlyList.add(pep.clone());
+                Set<PeptideInfo> realPeptideInfoList = new HashSet<>();
+                for (PeptideInfo pep : scanNamePeptideInfoMap.get(thisScanName)) {
+                    realPeptideInfoList.add(pep.clone());
                 }
-                for (Peptide pep : ptmFreeCandiMap.get(thisScanName)) {
-                    realPtmFreeList.add(pep.clone());
-                }
-                for (int i = -3; i <= 3; i++) {
-//                    if (i == 0) continue;
-
+                for (int i = 10-3; i <= 3; i++) { //-3 to 3
                     for (Set<String> otherScanNameSet : pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - 0.02, true, mass + i*MassTool.PROTON + 0.02, true).values()) {
                         for (String otherScanName : otherScanNameSet) {
                             int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
@@ -734,19 +759,8 @@ public class PIPI {
                             if (otherFileId != thisFileId) continue;
 
                             if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                                for (Peptide pep : ptmOnlyCandiMap.get(otherScanName)) {
-                                    if (Math.abs(pep.getTheoMass()-precursorMassMap.get(thisScanName)) < 0.02) {
-                                        realPtmFreeList.add(pep.clone());
-                                    } else {
-                                        realPtmOnlyList.add(pep.clone());
-                                    }
-                                }
-                                for (Peptide pep : ptmFreeCandiMap.get(otherScanName)) {
-                                    if (Math.abs(pep.getTheoMass()-precursorMassMap.get(thisScanName)) < 0.02) {
-                                        realPtmFreeList.add(pep.clone());
-                                    } else {
-                                        realPtmOnlyList.add(pep.clone());
-                                    }
+                                for (PeptideInfo pep : scanNamePeptideInfoMap.get(otherScanName)) {
+                                    realPeptideInfoList.add(pep.clone());
                                 }
                             }
                         }
@@ -761,7 +775,7 @@ public class PIPI {
                         , leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance
                         , inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                         , spectraParserArray[thisFileId], minClear, maxClear, lockPtm, thisScanName, precursorCharge
-                        , precursorMass, inferPTM, specProcessor, sqlPath, binomial, precursorScanNo, realPtmOnlyList, realPtmFreeList)));
+                        , precursorMass, inferPTM, specProcessor, sqlPath, binomial, precursorScanNo, realPeptideInfoList)));
             }
         }
         System.out.println("submit times in Ptm" + submitTimePtm);

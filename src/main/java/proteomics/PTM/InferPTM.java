@@ -275,8 +275,6 @@ public class InferPTM {
         if (modifiedZone.isEmpty()) {
             return allPtmPatternBad;
         }
-//
-
 
 
         PeptidePTMPattern ptmInitialTemp = new PeptidePTMPattern(ptmFreePeptide, 1);

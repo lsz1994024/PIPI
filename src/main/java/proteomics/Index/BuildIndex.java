@@ -19,6 +19,7 @@ package proteomics.Index;
 import java.io.*;
 import java.util.*;
 
+import org.apache.commons.math3.util.Pair;
 import proteomics.FM.FMIndex;
 import proteomics.FM.UnicodeReader;
 import proteomics.PTM.InferPTM;
@@ -44,7 +45,7 @@ public class BuildIndex {
     public int[] dotPosArr;
     public Map<Integer, String> posProtMap = new HashMap<>();
     public Map<String, String> protSeqMap;
-
+    public Map<String, Set<Pair<String,Integer>>> tagProtPosMap = new HashMap<>();
     public BuildIndex(Map<String, String> parameterMap) throws Exception {
         boolean addContaminant = parameterMap.get("add_contaminant").contentEquals("1");
         String dbPath = parameterMap.get("db");
@@ -88,7 +89,7 @@ public class BuildIndex {
         } else {
             protSeqMap = dbTool.getProtSeqMap();
         }
-
+//        DECOY_Q29443
         // define a new MassTool object
         massTool = new MassTool(missedCleavage, fixModMap, parameterMap.get("cleavage_site_1").trim(), parameterMap.get("protection_site_1").trim(), parameterMap.get("is_from_C_term_1").trim().contentEquals("1"), parameterMap.getOrDefault("cleavage_site_2", null), parameterMap.getOrDefault("protection_site_2", null), parameterMap.containsKey("is_from_C_term_2") ? parameterMap.get("is_from_C_term_2").trim().contentEquals("1") : null, ms2Tolerance, oneMinusBinOffset, labelling);
 

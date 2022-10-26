@@ -29,7 +29,7 @@ public class DbTool {
     private static Map<Character, Character> nextAaMap = new HashMap<>();
     private static final Random random = new Random();
 
-    private Map<String, String> proteinSequenceMap = new HashMap<>();
+    private Map<String, String> protSeqMap = new HashMap<>();
     private Map<String, String> proteinAnnotateMap = new HashMap<>();
 
     public DbTool(String dbName, String databaseType) throws IOException {
@@ -90,7 +90,7 @@ public class DbTool {
                 // This line is a header
                 if (!newPro && !sequence.toString().contains("O") && !sequence.toString().contains("U")) {
                     // This isn't the first protein
-                    proteinSequenceMap.put(id, sequence.toString());
+                    protSeqMap.put(id, sequence.toString());
                 }
                 id = headMatcher.group(1).trim();
                 if (databaseType.contentEquals("others")) {
@@ -113,16 +113,17 @@ public class DbTool {
         }
         dbReader.close();
         // Last protein
-        proteinSequenceMap.put(id, sequence.toString());
-        if (!sequence.toString().contains("O") && !sequence.toString().contains("U")) {
-             proteinSequenceMap.put(id, sequence.toString());
-        }
+//        protSeqMap.put(id, sequence.toString());
+//        if (!sequence.toString().contains("O") && !sequence.toString().contains("U")) {
+//             protSeqMap.put(id, sequence.toString());
+//        }
 
-        proteinSequenceMap.put(id, sequence.toString());
+        //the last prot
+        protSeqMap.put(id, sequence.toString());
     }
 
     public Map<String, String> getProtSeqMap() {
-        return proteinSequenceMap;
+        return protSeqMap;
     }
 
     public Map<String, String> getProteinAnnotateMap() {

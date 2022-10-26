@@ -20,11 +20,14 @@ import ProteomicsLibrary.Types.Coordinate;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.MassTool;
 
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class Peptide implements Comparable<Peptide>, Cloneable{
+    public boolean isTarget;
+    public Set<String> protIdSet = new HashSet<>();
+    public char leftFlank;
+    public char rightFlank;
+
     public int scanNum = 0;
     private final String ptmFreePeptide;
     private final boolean isDecoy;
@@ -69,13 +72,18 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         this.globalRank = globalRank;
 
         hashCode = ptmFreePeptide.hashCode();
-
     }
 
-//    @Override
-//    public Peptide clone() throws CloneNotSupportedException {
-//        return (Peptide) super.clone();
+//    public Peptide(String ptmFreePeptide, boolean isDecoy, MassTool massTool, int maxMs2Charge, double normalizedCrossCorrelationCoefficient, int globalRank) {
+//        this.ptmFreePeptide = ptmFreePeptide;
+//        this.isDecoy = isDecoy;
+//        this.normalizedPeptideString = InferSegment.normalizeSequence(ptmFreePeptide);
+//        this.massTool = massTool;
+//        this.maxMs2Charge = maxMs2Charge;
+//
+//        hashCode = ptmFreePeptide.hashCode();
 //    }
+
     public void setScanNum(int scanNum) {this.scanNum = scanNum;}
 
     public int getGlobalRank() {

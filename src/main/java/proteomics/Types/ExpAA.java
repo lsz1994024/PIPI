@@ -44,6 +44,10 @@ public class ExpAA implements Comparable<ExpAA> {
         hashCode = toString.hashCode();
     }
 
+    public ExpAA revAA(double totalMass){
+        return new ExpAA(aa, ptmFreeAA, totalMass-tailLocation, totalMass-headLocation, tailIntensity, headIntensity, theoLocation, mod, nTermMod, cTermMod);
+    }
+
     public String getAA() {
         return aa;
     }
@@ -56,13 +60,6 @@ public class ExpAA implements Comparable<ExpAA> {
         return mod;
     }
 
-    public double getnTermMod() {
-        return nTermMod;
-    }
-
-    public double getcTermMod() {
-        return cTermMod;
-    }
 
     void setTheoLocation(int theo) {
         theoLocation = theo;
@@ -71,9 +68,6 @@ public class ExpAA implements Comparable<ExpAA> {
         hashCode = toString.hashCode();
     }
 
-    public int getTheoLocation() {
-        return theoLocation;
-    }
 
     public int compareTo(ExpAA other) {
         if (headLocation > other.headLocation) {

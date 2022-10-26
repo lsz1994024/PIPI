@@ -19,6 +19,7 @@ package proteomics.Types;
 
 import org.apache.commons.math3.analysis.function.Exp;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +33,6 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
     private int regionIdx;
     public Map<Integer, Double> bAlignPosMassMap = new HashMap<>();
     public Map<Integer, Double> yAlignPosMassMap = new HashMap<>();
-    public enum NC {NOT, N, C;}
-    public NC ncTag = NC.NOT; //-1 not aligned, 0 B, 1 Y
-    public boolean isGoodTag3 = false;
     public List<ExpAA> expAAList = null;
     public double[] intensityArray;
     public ThreeExpAA(ExpAA aa1, ExpAA aa2, ExpAA aa3) {
@@ -60,6 +58,24 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         hashCode = toString.hashCode();
 
         StringBuilder sb = new StringBuilder(7);
+        for (ExpAA aa : threeExpAa) {
+            sb.append(aa.getPtmFreeAA());
+        }
+        ptmFreeAAString = sb.toString();
+
+        double intensity = threeExpAa[0].getHeadIntensity();
+        for (ExpAA aa : threeExpAa) {
+            intensity += aa.getTailIntensity();
+        }
+        totalIntensity = intensity;
+    }
+
+    public ThreeExpAA(ExpAA aa1, ExpAA aa2, ExpAA aa3, ExpAA aa4, ExpAA aa5) {
+        threeExpAa = new ExpAA[]{aa1, aa2, aa3, aa4, aa5};
+        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString()+ "-" + threeExpAa[3].toString()+ "-" + threeExpAa[4].toString();
+        hashCode = toString.hashCode();
+
+        StringBuilder sb = new StringBuilder(9);
         for (ExpAA aa : threeExpAa) {
             sb.append(aa.getPtmFreeAA());
         }
@@ -114,13 +130,6 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         return true;
     }
 
-//    public void setTheoLocation(int i, int theoLoc) {
-//        threeExpAa[i].setTheoLocation(theoLoc);
-//        // update toString and hashCode
-//        String toString = threeExpAa[0].toString() + "-" + threeExpAa[1].toString() + "-" + threeExpAa[2].toString();
-//        hashCode = toString.hashCode();
-//    }
-
     public int compareTo(ThreeExpAA other) {
         return Double.compare(threeExpAa[0].getHeadLocation(), other.threeExpAa[0].getHeadLocation());
     }
@@ -174,4 +183,11 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         return regionIdx;
     }
 
+    public ThreeExpAA revTag(double totalMass){
+        List<ExpAA> revExpAAList = new ArrayList<>(threeExpAa.length);
+        for (int i = threeExpAa.length-1; i>=0; i--) {
+            revExpAAList.add(threeExpAa[i].revAA(totalMass));
+        }
+        return new ThreeExpAA(revExpAAList);
+    }
 }

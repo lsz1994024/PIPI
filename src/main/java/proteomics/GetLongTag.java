@@ -18,7 +18,6 @@ package proteomics;
 
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
-import ProteomicsLibrary.Types.SparseVector;
 import org.apache.commons.math3.util.Pair;
 import proteomics.FM.FMIndex;
 import proteomics.FM.SearchInterval;
@@ -32,7 +31,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class SpecCoder implements Callable<SpecCoder.Entry> {
+public class GetLongTag implements Callable<GetLongTag.Entry> {
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
@@ -48,7 +47,7 @@ public class SpecCoder implements Callable<SpecCoder.Entry> {
     private String truth;
 
 
-    public SpecCoder(int scanNum, BuildIndex buildIndex, MassTool massTool, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock
+    public GetLongTag(int scanNum, BuildIndex buildIndex, MassTool massTool, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock
             , String scanName, int precursorCharge, double precursorMass, SpecProcessor specProcessor, String truth) {
 
         this.buildIndex = buildIndex;

@@ -266,12 +266,4 @@ public class Search {
 
         return peptideList;
     }
-
-    public List<Peptide> getPTMOnlyResult() {
-        return ptmOnlyResult;
-    }
-
-    public List<Peptide> getPTMFreeResult() {
-        return ptmFreeResult;
-    }
 }
