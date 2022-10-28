@@ -40,15 +40,15 @@ public class SparseBooleanVector {
         return output;
     }
 
-    public double fastDot(SparseVector other) { // Caution: this will change the original SparseBooleanVector
-        double output = 0;
-        Map<Integer, Double> otherVector = other.getVectorMap();
-        sparseVector.retainAll(otherVector.keySet());
-        for (int i : sparseVector) {
-            output += otherVector.get(i);
-        }
-        return output;
-    }
+//    public double fastDot(SparseVector other) { // Caution: this will change the original SparseBooleanVector
+//        double output = 0;
+//        Map<Integer, Double> otherVector = other.getVectorMap();
+//        sparseVector.retainAll(otherVector.keySet());
+//        for (int i : sparseVector) {
+//            output += otherVector.get(i);
+//        }
+//        return output;
+//    }
 
     public int dot(SparseBooleanVector other) {
         Set<Integer> intersectedKeys = new HashSet<>(sparseVector);
@@ -61,27 +61,27 @@ public class SparseBooleanVector {
         return unionKeys.size();
     }
 
-    public SparseBooleanVector deepCopy() {
-        return new SparseBooleanVector(this.sparseVector);
-    }
+//    public SparseBooleanVector deepCopy() {
+//        return new SparseBooleanVector(this.sparseVector);
+//    }
 
-    public boolean isZero(int idx) {
-        return !sparseVector.contains(idx);
-    }
+//    public boolean isZero(int idx) {
+//        return !sparseVector.contains(idx);
+//    }
 
-    public void delete(int idx) {
-        if (sparseVector.contains(idx)) {
-            sparseVector.remove(idx);
-        }
-    }
+//    public void delete(int idx) {
+//        if (sparseVector.contains(idx)) {
+//            sparseVector.remove(idx);
+//        }
+//    }
 
-    public int getNonZeroNum() {
-        return sparseVector.size();
-    }
-
-    public Integer[] getNonZeroIdxes() {
-        return sparseVector.toArray(new Integer[0]);
-    }
+//    public int getNonZeroNum() {
+//        return sparseVector.size();
+//    }
+//
+//    public Integer[] getNonZeroIdxes() {
+//        return sparseVector.toArray(new Integer[0]);
+//    }
 
     public String toString() {
         StringBuilder sb = new StringBuilder(sparseVector.size() * 6);

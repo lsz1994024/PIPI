@@ -190,4 +190,12 @@ public class ThreeExpAA implements Comparable<ThreeExpAA> {
         }
         return new ThreeExpAA(revExpAAList);
     }
+
+    public double getIntesFrom(int aaId1, int aaId2){
+        double intes = 0;
+        for (int i = aaId1; i <= aaId2+1; i++){
+            intes += intensityArray[i];
+        }
+        return intes;
+    }
 }

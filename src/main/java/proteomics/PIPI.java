@@ -47,7 +47,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class PIPI {
-
     private static final Logger logger = LoggerFactory.getLogger(PIPI.class);
     public static final String versionStr = "1.4.7";
     static final boolean useXcorr = false;
@@ -632,7 +631,7 @@ public class PIPI {
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             // change thread 2
-            threadNum = 1;
+//            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
@@ -664,7 +663,9 @@ public class PIPI {
         }
         System.out.println("totalSubmit in Bone, "+ submitNumBone);
 
-        Map<String, Set<PeptideInfo>> scanNamePeptideInfoMap = new HashMap<>();
+        Map<String, Map<String, PeptideInfo>> scanNamePeptideInfoMap = new HashMap<>();
+        Map<String, List<Peptide>> ptmOnlyCandiMap = new HashMap<>();
+        Map<String, List<Peptide>> ptmFreeCandiMap = new HashMap<>();
         int lastProgressBone = 0;
         int resultCountBone = 0;
         int totalCountBone = taskListBone.size();
@@ -676,7 +677,9 @@ public class PIPI {
                 if (task.isDone()) {
                     if (task.get() != null) {
                         PreSearch.Entry entry = task.get();
-                        scanNamePeptideInfoMap.put(entry.scanName, entry.peptideInfoSet);
+                        ptmOnlyCandiMap.put(entry.scanName, entry.ptmOnlyList);
+                        ptmFreeCandiMap.put(entry.scanName, entry.ptmFreeList);
+                        scanNamePeptideInfoMap.put(entry.scanName, entry.peptideInfoMap);
                         if (pcMassScanNameMap.containsKey(entry.precursorMass)) {
                             pcMassScanNameMap.get(entry.precursorMass).add(entry.scanName);
                         }else {
@@ -738,29 +741,53 @@ public class PIPI {
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
         int submitTimePtm = 0;
 
-
-        Map<String, PepInfo> pep0Map = buildIndex.getPepInfoMap();
+        Map<String, PeptideInfo> allPeptideInfoMap = new HashMap<>();
+        Map<String, PeptideInfo> thisScanPeptideInfoMap;
+        Map<String, PeptideInfo> otherScanPeptideInfoMap;
         for (double mass : pcMassScanNameMap.keySet()) {
             for (String thisScanName : pcMassScanNameMap.get(mass)){
+                thisScanPeptideInfoMap = scanNamePeptideInfoMap.get(thisScanName);
                 int thisScanNum = Integer.valueOf( thisScanName.split("\\.")[2] );
                 if (lszDebugScanNum.contains(thisScanNum)) {
                     int a = 1;
                 }
                 int thisFileId = Integer.valueOf( thisScanName.split("\\.")[0] );
-                Set<PeptideInfo> realPeptideInfoList = new HashSet<>();
-                for (PeptideInfo pep : scanNamePeptideInfoMap.get(thisScanName)) {
-                    realPeptideInfoList.add(pep.clone());
+                Set<Peptide> realPtmOnlyList = new HashSet<>();
+                Set<Peptide> realPtmFreeList = new HashSet<>();
+                Map<String, PeptideInfo> realPeptideInfoMap = new HashMap<>();
+                for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
+                    realPtmOnlyList.add(pep.clone());
+                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                    allPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
                 }
-                for (int i = 10-3; i <= 3; i++) { //-3 to 3
+                for (Peptide pep : ptmFreeCandiMap.get(thisScanName)) {
+                    realPtmFreeList.add(pep.clone());
+                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                    allPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                }
+                for (int i = -3; i <= 3; i++) {
                     for (Set<String> otherScanNameSet : pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - 0.02, true, mass + i*MassTool.PROTON + 0.02, true).values()) {
                         for (String otherScanName : otherScanNameSet) {
                             int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
                             int otherFileId = Integer.valueOf( otherScanName.split("\\.")[0] );
                             if (otherFileId != thisFileId) continue;
-
+                            otherScanPeptideInfoMap = scanNamePeptideInfoMap.get(otherScanName);
                             if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                                for (PeptideInfo pep : scanNamePeptideInfoMap.get(otherScanName)) {
-                                    realPeptideInfoList.add(pep.clone());
+                                for (Peptide pep : ptmOnlyCandiMap.get(otherScanName)) {
+                                    if (Math.abs(pep.getTheoMass()-precursorMassMap.get(thisScanName)) < 0.02) {
+                                        realPtmFreeList.add(pep.clone());
+                                    } else {
+                                        realPtmOnlyList.add(pep.clone());
+                                    }
+                                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), otherScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                                }
+                                for (Peptide pep : ptmFreeCandiMap.get(otherScanName)) {
+                                    if (Math.abs(pep.getTheoMass()-precursorMassMap.get(thisScanName)) < 0.02) {
+                                        realPtmFreeList.add(pep.clone());
+                                    } else {
+                                        realPtmOnlyList.add(pep.clone());
+                                    }
+                                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), otherScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
                                 }
                             }
                         }
@@ -771,14 +798,15 @@ public class PIPI {
                 int precursorScanNo = 0;
                 double precursorMass = precursorMassMap.get(thisScanName);
                 submitTimePtm++;
+//                System.out.println(thisScanNum+","+realPtmOnlyList.size()+","+realPtmFreeList.size()+","+realPeptideInfoMap.size());
                 taskListPTM.add(threadPoolPtm.submit(new PtmSearch(thisScanNum, buildIndex, massTool, ms1Tolerance
                         , leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance
                         , inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                         , spectraParserArray[thisFileId], minClear, maxClear, lockPtm, thisScanName, precursorCharge
-                        , precursorMass, inferPTM, specProcessor, sqlPath, binomial, precursorScanNo, realPeptideInfoList)));
+                        , precursorMass, inferPTM, specProcessor, sqlPath, binomial, precursorScanNo, realPtmOnlyList, realPtmFreeList, realPeptideInfoMap)));
             }
         }
-        System.out.println("submit times in Ptm" + submitTimePtm);
+//        System.out.println("submit times in Ptm" + submitTimePtm);
         // check progress every minute, record results,and delete finished tasks.
         Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
         PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -826,45 +854,6 @@ public class PIPI {
                         sqlPreparedStatement.setInt(27, entry.hasPTM);
                         sqlPreparedStatement.setInt(28, entry.ptmNum);
                         sqlPreparedStatement.setInt(29, entry.isSettled);
-
-                        if (!entry.extraEntryList.isEmpty()) {
-                            List<ExRes> exResList = new ArrayList<>();
-                            for (PtmSearch.ExtraEntry extraEntry : entry.extraEntryList) {
-                                ExRes res = new ExRes();
-                                res.scanNum = extraEntry.scanNum;
-                                res.scanName = extraEntry.scanName;
-                                res.precursorCharge = extraEntry.precursorCharge;
-                                res.precursorMass = extraEntry.precursorMass;
-                                res.mgfTitle = mgfTitleMap.get(entry.scanName);
-                                res.isotopeCorrectionNum = isotopeCorrectionNumMap.get(entry.scanName);
-                                res.ms1PearsonCorrelationCoefficient = ms1PearsonCorrelationCoefficientMap.get(entry.scanName);
-                                res.labelling = extraEntry.labelling;
-                                res.peptide = extraEntry.peptide;
-                                res.theoMass = extraEntry.theoMass;
-                                res.isDecoy = extraEntry.isDecoy;
-                                res.globalRank = extraEntry.globalRank;
-                                res.normalizedCorrelationCoefficient = extraEntry.normalizedCorrelationCoefficient;
-                                res.score = extraEntry.score;
-                                res.deltaLCn = extraEntry.deltaLCn;
-                                res.deltaCn = extraEntry.deltaCn;
-                                res.matchedPeakNum = extraEntry.matchedPeakNum;
-                                res.ionFrac = extraEntry.ionFrac;
-                                res.matchedHighestIntensityFrac = extraEntry.matchedHighestIntensityFrac;
-                                res.explainedAaFrac = extraEntry.explainedAaFrac;
-                                res.otherPtmPatterns = extraEntry.otherPtmPatterns;
-                                res.aScore = extraEntry.aScore;
-                                res.candidates = extraEntry.candidates;
-                                res.peptideSet = extraEntry.peptideSet;
-                                res.whereIsTopCand = extraEntry.whereIsTopCand;
-                                res.shouldPtm = extraEntry.shouldPtm;
-                                res.hasPTM = extraEntry.hasPTM;
-                                res.ptmNum = extraEntry.ptmNum;
-                                res.isSettled = extraEntry.isSettled;
-                                exResList.add(res);
-                            }
-                            exResForScanNameMap.put(entry.scanName, exResList);
-                        }
-
 
                         sqlPreparedStatement.executeUpdate();
                         ++resultCountPtm;
@@ -914,7 +903,7 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        writePercolator(percolatorInputFileName, buildIndex.getPepInfoMap(), sqlPath, exResForScanNameMap);
+        writePercolator(percolatorInputFileName, allPeptideInfoMap, sqlPath, exResForScanNameMap);
         Map<String, PercolatorEntry> percolatorResultMap = null;
 
         if (parameterMap.get("add_decoy").contentEquals("0")) {
@@ -940,7 +929,7 @@ public class PIPI {
         logger.info("Saving results...");
 //        writeDebugResults(sqlPath, spectraPath);
 
-        writeFinalResult(percolatorResultMap, spectraPath + "." + labelling + ".pipi.csv", buildIndex.getPepInfoMap(), sqlPath, spectraPath);
+        writeFinalResult(percolatorResultMap, spectraPath + "." + labelling + ".pipi.csv", allPeptideInfoMap, sqlPath, spectraPath);
 //        new WritePepXml(spectraPath + "." + labelling + ".pipi.pep.xml", spectraPath, parameterMap, massTool.getMassTable(), percolatorResultMap, buildIndex.getPepInfoMap(), buildIndex.returnFixModMap(), sqlPath);
     }
 
@@ -1056,7 +1045,7 @@ public class PIPI {
 
         return pep01.code.dot(pep02.code) > 0.2*pep01.code.union(pep02.code);
     }
-    private void writePercolator(String resultPath, Map<String, PepInfo> peptide0Map, String sqlPath, Map<String, List<ExRes>> exResForScanNameMap) throws IOException, SQLException , CloneNotSupportedException{
+    private void writePercolator(String resultPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, List<ExRes>> exResForScanNameMap) throws IOException, SQLException , CloneNotSupportedException{
         BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath));
         writer.write("id\tlabel\tscannr\texpmass\tcalcmass\tscore\tdelta_c_n\tdelta_L_c_n\tnormalized_cross_corr\tglobal_search_rank\tabs_ppm\tion_frac\tmatched_high_peak_frac\tcharge1\tcharge2\tcharge3\tcharge4\tcharge5\tcharge6\texplained_aa_frac\tpeptide\tprotein\n");
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
@@ -1071,9 +1060,9 @@ public class PIPI {
                 double expMass = sqlResultSet.getDouble("precursorMass");
                 double massDiff = getMassDiff(expMass, theoMass, MassTool.C13_DIFF);
 
-                PepInfo pepInfo = peptide0Map.get(peptide.replaceAll("[^ncA-Z]+", ""));
+                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
                 TreeSet<String> proteinIdSet = new TreeSet<>();
-                for (String protein : pepInfo.proteins) {
+                for (String protein : pepInfo.protIdSet) {
                     proteinIdSet.add(protein.trim());
                 }
 
@@ -1204,33 +1193,33 @@ public class PIPI {
         return percolatorResultMap;
     }
 
-    private void writeDebugResults(String sqlPath, String spectraPath) throws IOException, SQLException {
-        System.out.println("PFM starts");
-        Connection sqlConnection = DriverManager.getConnection(sqlPath);
-        Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates, whereIsTopCand FROM spectraTable");
-
-        String resultPath = spectraPath + "candidates.csv";
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath))) {
-            writer.write("scanNo,whereIsTopCand,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
-            while (sqlResultSet.next()) {
-                int scanNum = sqlResultSet.getInt("scanNum");
-                int whereIsTopCand = sqlResultSet.getInt("whereIsTopCand");
-                String candidatesList = sqlResultSet.getString("candidates");
-                if (!sqlResultSet.wasNull()) {
-                    writer.write(scanNum + "," + whereIsTopCand + "," + candidatesList + "\n");
-                }
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            logger.error(ex.getMessage());
-            System.exit(1);
-        }
-        sqlResultSet.close();
-        sqlStatement.close();
-        sqlConnection.close();
-    }
-    private void writeFinalResult(Map<String, PercolatorEntry> percolatorResultMap, String outputPath, Map<String, PepInfo> peptide0Map, String sqlPath, String spectraPath) throws IOException, SQLException {
+//    private void writeDebugResults(String sqlPath, String spectraPath) throws IOException, SQLException {
+//        System.out.println("PFM starts");
+//        Connection sqlConnection = DriverManager.getConnection(sqlPath);
+//        Statement sqlStatement = sqlConnection.createStatement();
+//        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates, whereIsTopCand FROM spectraTable");
+//
+//        String resultPath = spectraPath + "candidates.csv";
+//        try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultPath))) {
+//            writer.write("scanNo,whereIsTopCand,pep1,s1,b1,m1,p1,pep2,s2,b2,m2,p2,pep3,s3,b3,m3,p3,pep4,s4,b4,m4,p4,pep5,s5,b5,m5,p5,pep6,s6,b6,m6,p6,pep7,s7,b7,m7,p7,pep8,s8,b8,m8,p8,pep9,s9,b9,m9,p9,pep10,s10,b10,m10,p10,pep11,s11,b11,m11,p11,pep12,s12,b12,m12,p12,pep13,s13,b13,m13,p13,pep14,s14,b14,m14,p14,pep15,s15,b15,m15,p15,pep16,s16,b16,m16,p16,pep17,s17,b17,m17,p17,pep18,s18,b18,m18,p18,pep19,s19,b19,m19,p19,pep20,s20,b20,m20,p20\n");
+//            while (sqlResultSet.next()) {
+//                int scanNum = sqlResultSet.getInt("scanNum");
+//                int whereIsTopCand = sqlResultSet.getInt("whereIsTopCand");
+//                String candidatesList = sqlResultSet.getString("candidates");
+//                if (!sqlResultSet.wasNull()) {
+//                    writer.write(scanNum + "," + whereIsTopCand + "," + candidatesList + "\n");
+//                }
+//            }
+//        } catch (IOException ex) {
+//            ex.printStackTrace();
+//            logger.error(ex.getMessage());
+//            System.exit(1);
+//        }
+//        sqlResultSet.close();
+//        sqlStatement.close();
+//        sqlConnection.close();
+//    }
+    private void writeFinalResult(Map<String, PercolatorEntry> percolatorResultMap, String outputPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, String spectraPath) throws IOException, SQLException {
         TreeMap<Double, List<String>> tempMap = new TreeMap<>();
 
         String resultPath = spectraPath + "candidates.csv";
@@ -1273,12 +1262,12 @@ public class PIPI {
                 double explainedAaFrac = sqlResultSet.getDouble("explainedAaFrac");
                 String peptideSet = sqlResultSet.getString("peptideSet");
 
-                PepInfo pepInfo = peptide0Map.get(peptide.replaceAll("[^ncA-Z]+", ""));
+                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
                 TreeSet<String> proteinIdSet = new TreeSet<>();
-                for (String protein : pepInfo.proteins) {
+                for (String protein : pepInfo.protIdSet) {
                     proteinIdSet.add(protein.trim());
                 }
-
+                String[] test = new String[]{"a","s"};
                 String aScore = sqlResultSet.getString("aScore");
                 dbgWriter.write(scanNum  + "," + peptideSet + "\n");
 
@@ -1308,14 +1297,6 @@ public class PIPI {
                     if ((isDecoy == 0 && percolatorEntry.isDecoy) || (isDecoy == 1 && !percolatorEntry.isDecoy)){
                         System.out.println("wrong isDecoy" + scanName);
                     }
-
-
-//                        writer.write("scanName,scan_num,peptide, isDecoy, q_value,score,delta_C_n,shouldPtm, hasPTM, ptmNum, isSettled,charge,theo_mass,exp_mass,abs_ppm,A_score,protein_ID,deltaLCn,globalRank, " +
-//                                "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
-//                    }
-//                            writer.write("scanName,scan_num,peptide, isDecoy, q_value, score,delta_C_n, theo_mass,exp_mass,abs_ppm,shouldPtm, hasPTM, ptmNum, isSettled,charge,A_score,protein_ID,deltaLCn,globalRank, " +
-//                                    "cosScore,ionFrac,matchedHighestIntensityFrac,explainedAaFrac,percolator_score,posterior_error_prob,other_PTM_patterns,MGF_title,labelling,isotope_correction,MS1_pearson_correlation_coefficient\n");
-//                        }
 
                     String str = String.format(Locale.US, "%s, %d,%s,%d,%s,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%s,%s,%f,%d,%f,%f,%f,%f,%f,%s,%s,\"%s\",%s,%d,%f\n"
                             , scanName, scanNum, peptide,percolatorEntry.isDecoy ? 1 : 0, percolatorEntry.qValue, score, sqlResultSet.getDouble("deltaCn"),theoMass, expMass, ppm

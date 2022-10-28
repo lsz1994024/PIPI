@@ -157,6 +157,53 @@ public class InferSegment {
         }
     }
 
+    private int minTagLen = 4;
+    private int maxTagLen = 6;
+    public Map<String, Double> getTagStrMap(List<ThreeExpAA> longTagList) {
+        Map<String, Double> finalMap = new HashMap<>();
+        if (!longTagList.isEmpty()) {
+            Segment tempSeg;
+            for (ThreeExpAA tag : longTagList) {
+                String seq = tag.getPtmFreeAAString();
+                for (int i = minTagLen; i <= Math.min(tag.size(), maxTagLen); i++){
+                    for (int j = 0; j <= tag.size()-i; j++){
+                        tempSeg = new Segment(seq.substring(j, j+i));
+                        finalMap.put(tempSeg.toString(), tag.getIntesFrom(j, j+i-1));
+                    }
+                }
+            }
+        }
+        return finalMap;
+    }
+
+    public Set<String> getTagStrSet(String pepSeq) {
+        Set<String> finalSet = new HashSet<>();
+        Segment tempSeg;
+        for (int i = minTagLen; i <= Math.min(pepSeq.length(), maxTagLen); i++){
+            for (int j = 0; j <= pepSeq.length()-i; j++){
+                tempSeg = new Segment(pepSeq.substring(j, j+i));
+                finalSet.add(tempSeg.toString());
+            }
+        }
+        return finalSet;
+    }
+
+    public double norm2square(Map<String, Double> scanTagStrMap){
+        double res = 0;
+        for (double value : scanTagStrMap.values()) {
+            res += value*value;
+        }
+        return res;
+    }
+//    public double norm2square(Set<Double> candSeqSet){
+//        double res = 0;
+//        for (double value : scanTagStrMap.values()) {
+//            res += value*value;
+//        }
+//        return res;
+//    }
+
+
     public SparseBooleanVector generateSegmentBooleanVector(String peptide) {
 
         String normalizedPeptide = normalizeSequence(DbTool.getSequenceOnly(peptide));
@@ -324,7 +371,7 @@ public class InferSegment {
             return tempList;
         }
     }
-    public List<ThreeExpAA> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
+    public List<ThreeExpAA> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtract) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         List<ThreeExpAA> outputList = new LinkedList<>();
@@ -360,7 +407,7 @@ public class InferSegment {
         ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
 //        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
-            if (path.size() < 7) continue; //aa length is 6 . peaks number is 7.
+            if (path.size() < minTagLenToExtract+1) continue; //aa length is 6 . peaks number is 7.
             List<ExpAA> expAAList = new ArrayList<>();
             for (int i = 0; i < path.size()-1; i++){
                 int j = i + 1;

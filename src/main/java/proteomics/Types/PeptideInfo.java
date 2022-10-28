@@ -18,7 +18,7 @@ package proteomics.Types;
 import java.util.HashSet;
 import java.util.Set;
 
-public class PeptideInfo {
+public class PeptideInfo implements Cloneable{
     public String seq;
     public boolean isTarget;
     public Set<String> protIdSet = new HashSet<>();
@@ -35,6 +35,7 @@ public class PeptideInfo {
     public PeptideInfo clone() throws CloneNotSupportedException {
         super.clone();
         PeptideInfo other = new PeptideInfo(seq, isTarget, leftFlank, rightFlank);
+        other.protIdSet.addAll(this.protIdSet);
         return other;
     }
 

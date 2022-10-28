@@ -18,8 +18,12 @@ package proteomics;
 
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
+import ProteomicsLibrary.Types.SparseVector;
 import org.apache.commons.math3.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import proteomics.Index.BuildIndex;
+import proteomics.Search.Search;
 import proteomics.Segment.InferSegment;
 import proteomics.Spectrum.DatasetReader;
 import proteomics.Types.*;
@@ -32,6 +36,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import static proteomics.PIPI.lszDebugScanNum;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
+    private static final Logger logger = LoggerFactory.getLogger(PreSearch.class);
+
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
@@ -94,33 +100,34 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
 
-        if (plMap.isEmpty()) {
-            return null;
-        }
-
+        if (plMap.isEmpty()) return null;
         // Coding
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
         List<ThreeExpAA> tag4List = inferSegment.getAllTag5(precursorMass, finalPlMap, scanNum);
-        Collections.sort(tag4List, Comparator.comparingDouble(ThreeExpAA::getTotalIntensity));
+        Collections.sort(tag4List, Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+
         Map<String, Set<Pair<String, Integer>>> tagProtPosMap = buildIndex.tagProtPosMap;
-        Map<String, PeptideInfo> peptideInfoMap = new HashMap<>();
+        Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(200);
 
         if (tag4List.isEmpty())  return null;
         Entry entry = new Entry();
 
+
         double totalMass = precursorMass + 2 * MassTool.PROTON;
-        List<ThreeExpAA> compTag4List = new ArrayList<>(2* tag4List.size());
-        compTag4List.addAll(tag4List);
-        for (ThreeExpAA tag4 : tag4List) {
+        List<ThreeExpAA> compTag4List = new ArrayList<>(2* Math.min(50, tag4List.size())); // only take top 100 candidates.
+        compTag4List.addAll(tag4List.subList(0, Math.min(50, tag4List.size())));
+        for (ThreeExpAA tag4 : tag4List.subList(0, Math.min(50, tag4List.size()))) {
             compTag4List.add(tag4.revTag(totalMass));
         }   // duplicate reverse tags for every tag, then dont need to care the both direction of a tag because already contained in this compTag4List
 
+//        logger.info(scanNum+",starts,"+compTag4List.size());
         double pcMassL = precursorMass - 250;
         double pcMassR = precursorMass + 250;
+        String tag;
         for (ThreeExpAA tagInfo : compTag4List) {
-            String tag = tagInfo.getPtmFreeAAString();
+            tag = tagInfo.getPtmFreeAAString();
 
             if (!tagProtPosMap.containsKey(tagInfo.getPtmFreeAAString())) {
                 int a = 1;
@@ -132,30 +139,30 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (protId.contentEquals("sp|P35637|FUS_HUMAN") && lszDebugScanNum.contains(scanNum)) {
                     int a = 1;
                 }
+//                double tagNMass = tagInfo.getHeadLocation();
+                double tagCMass = tagInfo.getTailLocation();
                 int pos = protPos.getSecond();
                 String protSeq = buildIndex.protSeqMap.get(protId);
                 Set<Integer> cPosSet = new HashSet<>();
 
-                double tagNMass = tagInfo.getHeadLocation();
-                double tagCMass = tagInfo.getTailLocation();
-                if ("KR".contains(protSeq.substring(pos+3, pos+4)) && tagCMass <= pcMassR && tagCMass  >= pcMassL) {
-                    cPosSet.add(pos+3);
+                if (isKR(protSeq.charAt(pos+4)) && tagCMass <= pcMassR && tagCMass  >= pcMassL) {
+                    cPosSet.add(pos+4);
                 }
                 for (int i = pos+tag.length(); i < protSeq.length(); i++) {  //
-                    tagCMass += massTool.calResidueMass(protSeq.substring(i, i+1));
+                    tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
                     if (tagCMass < pcMassL) continue;
                     if (tagCMass > pcMassR) break;
-                    if ("KR".contains(protSeq.substring(i, i+1))) {
+                    if (isKR(protSeq.charAt(i))) {
                         cPosSet.add(i);
                     }
                 }
                 for (int cPos : cPosSet) {
-                    double curMass = massTool.calResidueMass(protSeq.substring(pos, cPos+1)) + massTool.H2O;
-                    int numMissCleave = 0;
+                    double deltaMass = precursorMass - massTool.calResidueMass(protSeq.substring(pos,cPos+1)) - massTool.H2O;
+//                    int numMissCleave = 0;
                     for (int nPos = pos-1; nPos > 0; nPos--) {
-                        curMass += massTool.calResidueMass(protSeq.substring(nPos, nPos+1));
-                        if (curMass < pcMassL) continue;
-                        if (curMass > pcMassR) break;
+                        deltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
+                        if (deltaMass > 250) continue;
+                        if (deltaMass < -250) break;
                         String pepSeq = protSeq.substring(nPos, cPos+1);
                         if (peptideInfoMap.containsKey(pepSeq)) {
                             PeptideInfo pepInfo = peptideInfoMap.get(pepSeq);
@@ -177,16 +184,32 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
             }
         }
-        System.out.println(scanNum + ","+ compTag4List.size()+"," + peptideInfoMap.size());
+//        System.out.println(scanNum + ","+ compTag4List.size()+"," + peptideInfoMap.size());
+//        logger.info(scanNum+",ends,"+peptideInfoMap.size());
 
-        entry.peptideInfoSet = new HashSet<>(peptideInfoMap.values());
+//        Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+//                , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
+        // add the tag matrix
+
+//        Set<String> candiSet = new HashSet<>();
+//        for (PeptideInfo pepInfo : peptideInfoMap.values()) {
+//            candiSet.add(pepInfo.seq);
+//        }
+        entry.peptideInfoMap = peptideInfoMap;
         entry.scanName = this.scanName;
+        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
 
+        Map<String, Double> scanTagStrMap = inferSegment.getTagStrMap(allLongTagList);
+        Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, entry.peptideInfoMap);
         return entry;
+    }
+
+    private boolean isKR(char aa){
+        return aa == 'K' || aa == 'R';
     }
     public class Entry {
 
-        public Set<PeptideInfo> peptideInfoSet;
+        public Map<String, PeptideInfo> peptideInfoMap;
         public double precursorMass = PreSearch.this.precursorMass;
         public int precursorCharge = PreSearch.this.precursorCharge;
         public List<Peptide> ptmOnlyList = new ArrayList<>();

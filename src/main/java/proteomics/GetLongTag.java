@@ -84,7 +84,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
         Map<String, String> protIdSeqMap = buildIndex.protSeqMap;
 
-        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum);
+        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 6);
         if (!allLongTagList.isEmpty()) {
             Entry entry = new Entry();
                 //which top long tags to uses
