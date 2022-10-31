@@ -157,7 +157,7 @@ public class InferSegment {
         }
     }
 
-    private int minTagLen = 4;
+    private int minTagLen = 3;
     private int maxTagLen = 6;
     public Map<String, Double> getTagStrMap(List<ThreeExpAA> longTagList) {
         Map<String, Double> finalMap = new HashMap<>();

@@ -52,6 +52,11 @@ public class Search {
             if (temp1 > 1e-6) {
                 score = dot(tagStrSet, scanTagStrMap) / temp1;
             }
+            if (lszDebugScanNum.contains(scanNum)){
+                if (pepSeq.contentEquals("DNVFENNRLAFEVAEK")){
+                    int a = 1;
+                }
+            }
             double deltaMass = massTool.calResidueMass(pepSeq) + massTool.H2O - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 
             if (cand.isTarget) {

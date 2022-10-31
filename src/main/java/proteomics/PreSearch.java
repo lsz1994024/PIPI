@@ -105,20 +105,30 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
-        List<ThreeExpAA> tag4List = inferSegment.getAllTag5(precursorMass, finalPlMap, scanNum);
+        List<ThreeExpAA> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
         Collections.sort(tag4List, Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
 
+        String truth = "DNVFENNRLAFEVAEK";
+        if (lszDebugScanNum.contains(scanNum)){
+            for (ThreeExpAA tagInfo : tag4List){
+                String seq = tagInfo.getPtmFreeAAString();
+                String revSeq = (new StringBuilder(seq)).reverse().toString();
+                if (truth.contains(seq) || truth.contains(revSeq)) {
+                    System.out.println(seq +"  1");
+                }
+            }
+        }
         Map<String, Set<Pair<String, Integer>>> tagProtPosMap = buildIndex.tagProtPosMap;
-        Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(200);
+        Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(50000);
 
         if (tag4List.isEmpty())  return null;
         Entry entry = new Entry();
 
 
         double totalMass = precursorMass + 2 * MassTool.PROTON;
-        List<ThreeExpAA> compTag4List = new ArrayList<>(2* Math.min(50, tag4List.size())); // only take top 100 candidates.
-        compTag4List.addAll(tag4List.subList(0, Math.min(50, tag4List.size())));
-        for (ThreeExpAA tag4 : tag4List.subList(0, Math.min(50, tag4List.size()))) {
+        List<ThreeExpAA> compTag4List = new ArrayList<>(2* Math.min(75, tag4List.size())); // only take top 100 candidates.
+        compTag4List.addAll(tag4List.subList(0, Math.min(75, tag4List.size())));
+        for (ThreeExpAA tag4 : tag4List.subList(0, Math.min(75, tag4List.size()))) {
             compTag4List.add(tag4.revTag(totalMass));
         }   // duplicate reverse tags for every tag, then dont need to care the both direction of a tag because already contained in this compTag4List
 
@@ -136,9 +146,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             Set<Pair<String, Integer>> protPosPairs = tagProtPosMap.get(tagInfo.getPtmFreeAAString());
             for (Pair<String, Integer> protPos : protPosPairs){
                 String protId = protPos.getFirst();
-                if (protId.contentEquals("sp|P35637|FUS_HUMAN") && lszDebugScanNum.contains(scanNum)) {
-                    int a = 1;
-                }
+//                if (protId.contentEquals("sp|P35637|FUS_HUMAN") && lszDebugScanNum.contains(scanNum)) {
+//                    int a = 1;
+//                }
 //                double tagNMass = tagInfo.getHeadLocation();
                 double tagCMass = tagInfo.getTailLocation();
                 int pos = protPos.getSecond();
@@ -183,24 +193,28 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
             }
+//            if (peptideInfoMap.size() > 100000){
+////                break;
+//            }
         }
-//        System.out.println(scanNum + ","+ compTag4List.size()+"," + peptideInfoMap.size());
-//        logger.info(scanNum+",ends,"+peptideInfoMap.size());
-
-//        Search search = new Search(entry, scanNum, buildIndex, precursorMass, scanCode, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
-//                , ms1ToleranceUnit, minPtmMass, maxPtmMass, localMaxMs2Charge, ncTags);
-        // add the tag matrix
-
-//        Set<String> candiSet = new HashSet<>();
-//        for (PeptideInfo pepInfo : peptideInfoMap.values()) {
-//            candiSet.add(pepInfo.seq);
-//        }
-        entry.peptideInfoMap = peptideInfoMap;
         entry.scanName = this.scanName;
         List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
 
         Map<String, Double> scanTagStrMap = inferSegment.getTagStrMap(allLongTagList);
-        Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, entry.peptideInfoMap);
+        Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, peptideInfoMap);
+//        entry.peptideInfoMap = peptideInfoMap;
+        if (lszDebugScanNum.contains(scanNum)){
+            if (peptideInfoMap.containsKey(truth)) {
+                int a = 1;
+            }
+        }
+        for (Peptide pep : entry.ptmOnlyList ) {
+            entry.peptideInfoMap.put(pep.getPTMFreePeptide(), peptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+        }
+        for (Peptide pep : entry.ptmFreeList ) {
+            entry.peptideInfoMap.put(pep.getPTMFreePeptide(), peptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+        }
+        int c = 1;
         return entry;
     }
 
@@ -209,7 +223,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     }
     public class Entry {
 
-        public Map<String, PeptideInfo> peptideInfoMap;
+        public Map<String, PeptideInfo> peptideInfoMap = new HashMap<>();
         public double precursorMass = PreSearch.this.precursorMass;
         public int precursorCharge = PreSearch.this.precursorCharge;
         public List<Peptide> ptmOnlyList = new ArrayList<>();

@@ -53,7 +53,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(4435));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(43013));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -449,12 +449,6 @@ public class PIPI {
                         GetPepCandi.Entry entry = task.get();
                         String protId = entry.protId;
                         String decoyProtSeq = entry.decoyProtSeq;
-//                        Map<String, Double> targetPepMassMap = entry.targetPepMassMap;
-//                        Map<String, Double> decoyPepMassMap = entry.decoyPepMassMap;
-//                        Map<String, SparseBooleanVector> targetPepCodeMap = entry.targetPepCodeMap;
-//                        Map<String, SparseBooleanVector> decoyPepCodeMap = entry.decoyPepCodeMap;
-//                        targetPepSet.addAll(targetPepMassMap.keySet());
-//                        decoyPepSet.addAll(decoyPepMassMap.keySet());
                         String decoyProtId = "DECOY_"+protId;
                         buildIndex.protSeqMap.put(decoyProtId, decoyProtSeq);
 
@@ -480,26 +474,6 @@ public class PIPI {
                                 tagProtPosMap.put(tag, protIdSet);
                             }
                         }
-
-//                        pepMassMap.putAll(targetPepMassMap);
-//                        pepMassMap.putAll(decoyPepMassMap);
-//                        pepCodeMap.putAll(targetPepCodeMap);
-//                        pepCodeMap.putAll(decoyPepCodeMap);
-
-//                        for (String tarPep : targetPepMassMap.keySet()) {
-//                            pepProtsMap.put(tarPep, protId);
-//                            double mass = targetPepMassMap.get(tarPep);
-//                            if (mass < minPeptideMass) minPeptideMass = mass;
-//                            if (mass > maxPeptideMass) maxPeptideMass = mass;
-////                            pepMassMap.put(tarPep, targetPepMassMap.get(tarPep));
-//                        }
-//                        for (String decPep : decoyPepMassMap.keySet()) {
-//                            pepProtsMap.put(decPep, "DECOY_"+protId);
-//                            double mass = decoyPepMassMap.get(decPep);
-//                            if (mass < minPeptideMass) minPeptideMass = mass;
-//                            if (mass > maxPeptideMass) maxPeptideMass = mass;
-////                            pepMassMap.put(decPep, decoyPepMassMap.get(decPep));
-//                        }
                     }
                     toBeDeleteTaskList.add(task);
                 } else if (task.isCancelled()) {
@@ -630,8 +604,8 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            // change thread 2
-//            threadNum = 1;
+            // change thread PreSearch
+            threadNum = 1;
         }
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
@@ -733,7 +707,7 @@ public class PIPI {
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
 //            change thread 3
-//            threadNum = 1;
+            threadNum = 1;
         }
         ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
         ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(scanNamePeptideInfoMap.keySet().size() + 10);

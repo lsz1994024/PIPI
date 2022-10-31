@@ -50,15 +50,6 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
         String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
 //        Set<String> peptideSet = buildIndex.massTool.buildPeptideSetPnP(protSeq);
         entry.targetTagPosList = getTagsFromProts(protSeq);
-//        for (String peptide : peptideSet) {
-//            if (MassTool.containsNonAAAndNC(peptide)) {
-//                continue;
-//            }
-//            if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
-//                entry.targetPepMassMap.put(peptide, buildIndex.massTool.calResidueMass(peptide) + buildIndex.massTool.H2O);
-//                entry.targetPepCodeMap.put(peptide, buildIndex.inferSegment.generateSegmentBooleanVector(peptide));
-//            }
-//        }
         if (addDecoy) {
             //1
 //                List<Character> proSeqAaList = proSeq.chars().mapToObj( c -> (char)c).collect(Collectors.toList());
@@ -72,25 +63,16 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
             String decoyProtSeq = DbTool.shuffleProtKeepKR(protSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
             entry.decoyTagPosList = getTagsFromProts(decoyProtSeq);
             entry.decoyProtSeq = decoyProtSeq;
-//            peptideSet = buildIndex. massTool.buildPeptideSetPnP(decoyProtSeq);
-//            for (String peptide : peptideSet) {
-//                if (MassTool.containsNonAAAndNC(peptide)) {
-//                    continue;
-//                }
-//                if ((peptide.length() - 2 <= maxPeptideLength) && (peptide.length() - 2 >= minPeptideLength)) { // caution: there are n and c in the sequence
-//                    entry.decoyPepMassMap.put(peptide, buildIndex.massTool.calResidueMass(peptide) + buildIndex.massTool.H2O);
-//                    entry.decoyPepCodeMap.put(peptide, buildIndex.inferSegment.generateSegmentBooleanVector(peptide));
-//                }
 //            }
         }
         return entry;
     }
 
     private List<Pair<String, Integer>> getTagsFromProts(String seq){
-        List<Pair<String, Integer>> tagPosList = new ArrayList<>(seq.length()-5);
-        for (int i = 0; i < seq.length()-5; i++){
+        List<Pair<String, Integer>> tagPosList = new ArrayList<>(seq.length()-4);
+        for (int i = 0; i < seq.length()-4; i++){
 //            Segment seg = new Segment(seq.substring(i, i+4));
-            tagPosList.add(new Pair(seq.substring(i, i+5), i));
+            tagPosList.add(new Pair(seq.substring(i, i+4), i));
         }
         return tagPosList;
     }

@@ -36,6 +36,8 @@ import org.dom4j.Document;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 
+import static proteomics.PIPI.lszDebugScanNum;
+
 
 public class InferPTM {
 
@@ -194,7 +196,7 @@ public class InferPTM {
         Set<Integer> modifiedZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
 
-        String truthPep = "nSGRGTGRGGGGGGGGGAPRc";
+        String truthPep = "n"+"DNVFENNRLAFEVAEK"+"c";
         Peptide p1p = new Peptide(truthPep, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         PositionDeltaMassMap fakePatten = new PositionDeltaMassMap(ptmFreePeptide.length());
 //        fakePatten.put(new Coordinate(0, 1), (58.005));
@@ -207,6 +209,9 @@ public class InferPTM {
         double ss = massTool.buildVectorAndCalXCorr(p1p.getIonMatrixNow(), 1, expProcessedPL, matchedBions1, matchedYions1, jRange1) ;
         //stub end
 
+        if (lszDebugScanNum.contains(scanNum)) {
+            int a = 1;
+        }
         if (modifiedZone.size() == 0) {
 //            System.out.println(scanNum + " is empty modifiedZone after tag 2");
             return peptidePTMPattern; //Some scans are not valid Scans. Will be deleted soon.

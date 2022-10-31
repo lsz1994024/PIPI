@@ -33,6 +33,9 @@ public class PeptideInfo implements Cloneable{
     }
 
     public PeptideInfo clone() throws CloneNotSupportedException {
+//        if (super == null){
+//
+//        }
         super.clone();
         PeptideInfo other = new PeptideInfo(seq, isTarget, leftFlank, rightFlank);
         other.protIdSet.addAll(this.protIdSet);
