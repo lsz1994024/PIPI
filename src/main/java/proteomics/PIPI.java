@@ -16,23 +16,18 @@
 
 package proteomics;
 
-import ProteomicsLibrary.DbTool;
+import ProteomicsLibrary.*;
 import ProteomicsLibrary.Types.SparseBooleanVector;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import proteomics.FM.FMIndex;
-import proteomics.FM.SearchInterval;
 import proteomics.PTM.InferPTM;
-import ProteomicsLibrary.Binomial;
-import ProteomicsLibrary.SpecProcessor;
 import proteomics.Types.*;
 import proteomics.Index.BuildIndex;
 import proteomics.Parameter.Parameter;
 import proteomics.Spectrum.DatasetReader;
-import ProteomicsLibrary.MassTool;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 import uk.ac.ebi.pride.tools.mgf_parser.MgfFile;
 import uk.ac.ebi.pride.tools.mzxml_parser.MzXMLFile;
@@ -41,6 +36,7 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.*;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
@@ -877,6 +873,8 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
+        pfm(spectraPath, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap);
+
         writePercolator(percolatorInputFileName, allPeptideInfoMap, sqlPath, exResForScanNameMap);
         Map<String, PercolatorEntry> percolatorResultMap = null;
 
@@ -1078,6 +1076,205 @@ public class PIPI {
         sqlConnection.close();
     }
 
+    class ScanRes {
+        public int scanNum;
+        public double qValue = -0.1;
+        public List<CandiScore> peptideInfoScoreList;
+        ScanRes(int scanNum, List<CandiScore> peptideInfoScoreList){
+            this.scanNum = scanNum;
+            this.peptideInfoScoreList = peptideInfoScoreList;
+        }
+    }
+    class CandiScore{
+        public PeptideInfo peptideInfo;
+        public double pepScore;
+        public double protScore = 0;
+        CandiScore(PeptideInfo peptideInfo, double pepScore) {
+            this.peptideInfo = peptideInfo;
+            this.pepScore = pepScore;
+        }
+    }
+    private void pfm(String spectraPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap) throws IOException, SQLException , CloneNotSupportedException{
+        //collect data
+        Connection sqlConnection = DriverManager.getConnection(sqlPath);
+        Statement sqlStatement = sqlConnection.createStatement();
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, scanName, precursorCharge, precursorMass, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, peptideSet FROM spectraTable");
+        Map<String, Map<String, Double>> protPepScoreMap = new HashMap<>();
+
+        List<ScanRes> scanResList = new ArrayList<>();
+        while (sqlResultSet.next()) {
+            String peptide = sqlResultSet.getString("peptide");
+            if (!sqlResultSet.wasNull()) {
+                int charge = sqlResultSet.getInt("precursorCharge");
+                double theoMass = sqlResultSet.getDouble("theoMass");
+                double expMass = sqlResultSet.getDouble("precursorMass");
+                double massDiff = getMassDiff(expMass, theoMass, MassTool.C13_DIFF);
+                double score = sqlResultSet.getDouble("score");
+                String peptideSet = sqlResultSet.getString("peptideSet");
+                int scanNum = sqlResultSet.getInt("scanNum");
+
+                String[] candiSetStr = peptideSet.split(",");
+                int numPep = candiSetStr.length/3;
+
+                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
+                List<CandiScore> candiScoreList = new ArrayList<>();
+                for (int i = 0; i < numPep; i++) {
+                    //dont put in the impossible ones
+                    PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(candiSetStr[3*i+0]);
+                    candiScoreList.add(new CandiScore(candiPeptideInfo, Double.valueOf(candiSetStr[3*i+1]))); //peptideInfo and their score
+                }
+                Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
+                scanResList.add(new ScanRes(scanNum, candiScoreList));
+
+                for (String protId : pepInfo.protIdSet){
+                    if (protPepScoreMap.containsKey(protId)){
+                        Map<String, Double> pepScoreMap = protPepScoreMap.get(protId);
+                        if (pepScoreMap.containsKey(peptide)){
+                            pepScoreMap.put(peptide, Math.max(pepScoreMap.get(peptide), score)); // use max score of repeated peptides for any protein
+                        } else {
+                            pepScoreMap.put(peptide, score);
+                        }
+                    } else {
+                        Map<String, Double> pepScoreMap = new HashMap<>();
+                        pepScoreMap.put(peptide, score);
+                        protPepScoreMap.put(protId, pepScoreMap);
+                    }
+                }
+                String scanName = sqlResultSet.getString("scanName");
+                int isDecoy = sqlResultSet.getInt("isDecoy");
+                int globalRank = sqlResultSet.getInt("globalRank");
+                double normalizedCorrelationCoefficient = sqlResultSet.getDouble("normalizedCorrelationCoefficient");
+                double deltaLCn = sqlResultSet.getDouble("deltaLCn");
+                double deltaCn = sqlResultSet.getDouble("deltaCn");
+                double ionFrac = sqlResultSet.getDouble("ionFrac");
+                double matchedHighestIntensityFrac = sqlResultSet.getDouble("matchedHighestIntensityFrac");
+                double explainedAaFrac = sqlResultSet.getDouble("explainedAaFrac");
+            }
+        }
+        sqlResultSet.close();
+        sqlStatement.close();
+        sqlConnection.close();
+        //calculate prot score
+        Map<String, Double> protScoreMap = new HashMap<>();
+        for (String protId : protPepScoreMap.keySet()) {
+            Map<String,Double> pepScoreMap = protPepScoreMap.get(protId);
+            for (String pep : pepScoreMap.keySet()){
+                if (pepScoreMap.get(pep) > 2) {     //this peptide score threshold is empirical
+                    if (protScoreMap.containsKey(protId)){
+                        protScoreMap.put(protId, protScoreMap.get(protId)+ pepScoreMap.get(pep));
+                    } else {
+                        protScoreMap.put(protId, pepScoreMap.get(pep));
+                    }
+                }
+            }
+        }
+        //normalize prot score
+        for (String protId : protScoreMap.keySet()){
+            protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
+        }
+        //===============================
+
+        //update prot score for candidates
+        for (ScanRes scanRes : scanResList) {
+            List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
+            for (CandiScore candiScore : candiScoreList) {
+                double protScoreForCand = -1;
+                for (String protId : candiScore.peptideInfo.protIdSet) {
+                    if (protScoreMap.getOrDefault(protId, 0.0) > protScoreForCand){
+                        protScoreForCand = protScoreMap.getOrDefault(protId, 0.0);
+                    }
+                }
+                candiScore.protScore = protScoreForCand;
+            }
+        }
+
+        DecimalFormat df= new  DecimalFormat( ".00000" ); //构造方法的字符格式这里如果小数不足2位,会以0补足.
+
+        //calculate ori FDR
+        for (ScanRes scanRes : scanResList) {
+            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder())); // rank candidates using peptide score
+        }
+        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).pepScore, Comparator.reverseOrder()));
+        List<Double> fdrList = new ArrayList<>(scanResList.size());
+        int numTPlusD = 0;
+        int numD = 0;
+        for (ScanRes scanRes : scanResList) {  //scanResList is already ranked
+            CandiScore candiScore = scanRes.peptideInfoScoreList.get(0);
+            numTPlusD++;
+            if (!candiScore.peptideInfo.isTarget) numD++;
+            fdrList.add(2*(double)numD/numTPlusD);
+            System.out.println(scanRes.scanNum + "," + candiScore.pepScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
+        }
+        int numQ001 = 0;
+        double minQ = 1.0;
+        for (int i = fdrList.size()-1; i >= 0; i--) {
+            minQ = Math.min(fdrList.get(i), minQ);
+            scanResList.get(i).qValue = minQ;
+            if (minQ < 0.01) {
+                numQ001 = i;
+//                break;
+            }
+        }
+        BufferedWriter oriWriter = new BufferedWriter(new FileWriter("Peptides."+spectraPath+".csv"));
+        oriWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
+        for (ScanRes scanRes : scanResList) {
+            List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
+            StringBuilder str = new StringBuilder();
+            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(candiScoreList.get(0).peptideInfo.isTarget ? 1 : 0);
+            for (CandiScore candiScore : candiScoreList){
+                str.append(","+candiScore.peptideInfo.seq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+            }
+            str.append("\n");
+            oriWriter.write(str.toString());
+        }
+        oriWriter.close();
+        System.out.println("naive TDA original PSM number: " + numQ001);
+
+
+        System.out.println("end ori start new");
+        for (ScanRes scanRes : scanResList) {
+            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
+        }
+        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).protScore, Comparator.reverseOrder()));
+        //calculate new FDR
+        int a = 1;
+        fdrList = new ArrayList<>(scanResList.size());
+        numTPlusD = 0;
+        numD = 0;
+        for (ScanRes scanRes : scanResList) {
+            CandiScore candiScore = scanRes.peptideInfoScoreList.get(0);
+            numTPlusD++;
+            if (!candiScore.peptideInfo.isTarget) numD++;
+            fdrList.add(2*(double)numD/numTPlusD);
+            System.out.println(scanRes.scanNum + "," + candiScore.protScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
+        }
+        numQ001 = 0;
+        minQ = 1.0;
+        for (int i = fdrList.size()-1; i >= 0; i--) {
+            minQ = Math.min(fdrList.get(i), minQ);
+            scanResList.get(i).qValue = minQ;
+            if (minQ < 0.01) {
+                numQ001 = i;
+//                break;
+            }
+        }
+        BufferedWriter newWriter = new BufferedWriter(new FileWriter("Proteins."+spectraPath+".csv"));
+        newWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
+        for (ScanRes scanRes : scanResList) {
+            List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
+            StringBuilder str = new StringBuilder();
+            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(candiScoreList.get(0).peptideInfo.isTarget ? 1 : 0);
+            for (CandiScore candiScore : candiScoreList){
+                str.append(","+candiScore.peptideInfo.seq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+            }
+            str.append("\n");
+            newWriter.write(str.toString());
+        }
+        newWriter.close();
+        System.out.println("naive TDA PFM PSM number: " + numQ001);
+
+    }
+
     private static Map<String, PercolatorEntry> runPercolator(String percolatorPath, String percolatorInputFileName, String percolatorOutputFileName, String percolatorDecoyOutputFileName, String percolatorProteinOutputFileName, String tdFastaPath, String enzymeName) throws Exception {
         Map<String, PercolatorEntry> percolatorResultMap = new HashMap<>();
         if ((new File(percolatorInputFileName)).exists()) {
@@ -1168,7 +1365,6 @@ public class PIPI {
     }
 
 //    private void writeDebugResults(String sqlPath, String spectraPath) throws IOException, SQLException {
-//        System.out.println("PFM starts");
 //        Connection sqlConnection = DriverManager.getConnection(sqlPath);
 //        Statement sqlStatement = sqlConnection.createStatement();
 //        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, candidates, whereIsTopCand FROM spectraTable");

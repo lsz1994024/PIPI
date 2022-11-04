@@ -71,7 +71,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         Set<String> temp2 = peptideInfoMap.get(p2.getPTMFreePeptide()).protIdSet;
 
         Set<String> set = new HashSet<>(temp1);
-        set.retainAll(Arrays.asList(temp2));
+        set.retainAll(temp2);
         if (set.isEmpty()) return false;
 //        peptide0Map.get(p1.getPTMFreePeptide()).code.
         SparseBooleanVector sbv1 = buildIndex.inferSegment.generateSegmentBooleanVector(p1.getPTMFreePeptide());

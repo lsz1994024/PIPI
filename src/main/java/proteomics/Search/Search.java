@@ -28,11 +28,11 @@ import static proteomics.PIPI.lszDebugScanNum;
 
 public class Search {
 
-    private static final int rankNum = 5;
+    private static final int rankNum = 15;
 
-    private List<Peptide> ptmOnlyResult = new LinkedList<>();
-    private List<Peptide> ptmFreeResult = new LinkedList<>();
-    public List<PepWithScore> candidatesList = new LinkedList<>();
+//    private List<Peptide> ptmOnlyResult = new LinkedList<>();
+//    private List<Peptide> ptmFreeResult = new LinkedList<>();
+//    public List<PepWithScore> candidatesList = new LinkedList<>();
 
 
     public Search(Entry entry, int scanNum, InferSegment inferSegment, double precursorMass, Map<String, Double> scanTagStrMap, MassTool massTool
