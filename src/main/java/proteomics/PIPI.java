@@ -363,35 +363,15 @@ public class PIPI {
             protScoreLongList.add(new Pair<>(prot, protScoreFinalMap.get(prot)));
         }
         protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
-//        int num = 0;
-//        int correct = 0;
-//        int totalCorrect = 0;
-//        for (int i = protScoreLongList.size()-1; i >= 0; i--){
-//            num++;
-//            if (num < 5300 && omProts.contains(protScoreLongList.get(i).getFirst()) ) {
-//                correct++;
-//            }
-//            if (omProts.contains(protScoreLongList.get(i).getFirst())) {
-//                totalCorrect ++;
-//
-//            }
-//            System.out.println(num+ "," +protScoreLongList.get(i).getSecond() + ","+protLengthMap.get(protScoreLongList.get(i).getFirst() )
-//                    + ","+protScoreLongList.get(i).getFirst() +"," + (omProts.contains(protScoreLongList.get(i).getFirst()) ? 1:0));
-//            for (String tag : protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).keySet()){
-//                System.out.println(tag+ "," + protTagScoreMapMap.get(protScoreLongList.get(i).getFirst()).get(tag) + "," +tagNumMap.get(tag));
-//            }
-//            System.out.println("==============");
-//        }
-//        System.out.println("5300 contains,"+ correct);
-//        System.out.println("total,"+ num + ","+totalCorrect);
         Set<String> reducedProtIdSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 300) continue;
+//            if (pair.getSecond() < 300) continue;
             reducedProtIdSet.add(pair.getFirst());
         }
+
+        // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
-//            String protId = iter.next();
             if (!reducedProtIdSet.contains(iter.next())) {
                 iter.remove();
             }
@@ -523,76 +503,6 @@ public class PIPI {
             writer.write(buildIndex.protSeqMap.get(protId) + "\n");
         }
         writer.close();
-
-//        FMIndex fmIndex = buildIndex.fmIndex;
-//        int[] dotPosArr = buildIndex.dotPosArr;
-//        Map<Integer, String> posProtMap = buildIndex.posProtMap;
-//        Map<String, PepInfo> tempMap = new HashMap<>();
-//        TreeMap<Double, Set<String>> massPeptideMap = buildIndex.massPeptideMap;
-//        for (String peptide : pepMassMap.keySet()) {
-//            Character[] leftRightFlank = DbTool.getLeftRightFlank(peptide, pepProtsMap, buildIndex.protSeqMap, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), parameterMap.get("is_from_C_term_1").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-//            if (leftRightFlank == null) {
-//                leftRightFlank = DbTool.getLeftRightFlank(peptide, pepProtsMap, buildIndex.protSeqMap, parameterMap.get("cleavage_site_2"), parameterMap.get("protection_site_2"), parameterMap.get("is_from_C_term_2").contentEquals("1")); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-//            }
-//            if (leftRightFlank != null) {
-//                boolean isTarget = isTarget(pepProtsMap.get(peptide));
-//                if (!isTarget) { //decoy pep is only from one decoy protein
-//                    int ptnForwardCount = 0;
-//                    int ptnBackwardCount = 0;
-//                    SearchInterval searchForward = null;
-//                    SearchInterval searchBackward = null;
-//                    char[] pepChar = peptide.substring(1,peptide.length()-1).toCharArray();
-//                    searchForward = fmIndex.fmSearch(pepChar);
-//                    if (searchForward != null) {
-//                        ptnForwardCount = searchForward.ep - searchForward.sp + 1;
-//                    }
-//
-//                    String revPep = new StringBuilder(peptide.substring(1,peptide.length()-1)).reverse().toString();
-//                    char[] revTagChar = revPep.toCharArray();
-//                    searchBackward = fmIndex.fmSearch(revTagChar);
-//                    if (searchBackward != null) {
-//                        ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
-//                    }
-//                    if (ptnForwardCount + ptnBackwardCount > 0) {
-//                        isTarget = true;
-//                        if (ptnForwardCount > 0) {
-//                            for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
-//                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
-//                                pepProtsMap.put(peptide, posProtMap.get(-res - 2));
-//                            }
-//                        }
-//                        if (ptnBackwardCount > 0) {
-//                            for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
-//                                int res = Arrays.binarySearch(dotPosArr, fmIndex.SA[ii]);
-//                                pepProtsMap.put(peptide, posProtMap.get(-res - 2));
-//                            }
-//                        }
-//                    }
-//                }
-//                tempMap.put(peptide, new PepInfo(pepCodeMap.get(peptide), isTarget, pepProtsMap.get(peptide).toArray(new String[0]), leftRightFlank[0], leftRightFlank[1]));
-//
-//                if (massPeptideMap.containsKey(pepMassMap.get(peptide))) {
-//                    massPeptideMap.get(pepMassMap.get(peptide)).add(peptide);
-//                } else {
-//                    Set<String> tempSet = new HashSet<>();
-//                    tempSet.add(peptide);
-//                    massPeptideMap.put(pepMassMap.get(peptide), tempSet);
-//                }
-//            } else {
-//                System.out.println("no flank,"+ peptide + isTarget(pepProtsMap.get(peptide)));
-//            }
-//        }
-//
-//        buildIndex.pepInfoMap = new HashMap<>(tempMap); // Since this map won't be changed any more, using this step to create a HashMap with the capacity exactly equals the actual size.
-//        int numTargetPep = 0, numDecoyPep = 0;
-//        for (PepInfo pep : buildIndex.pepInfoMap.values()){
-//            if (pep.isTarget) {
-//                numTargetPep++;
-//            }else {
-//                numDecoyPep++;
-//            }
-//        }
-//        System.out.println("Db size "+(numDecoyPep+ numTargetPep)+",targer : decoy = "+numTargetPep+" : "+numDecoyPep);
 
         logger.info("Pre searching...");
         int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
@@ -1118,10 +1028,19 @@ public class PIPI {
 
                 PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
                 List<CandiScore> candiScoreList = new ArrayList<>();
+                double firstScore = 0;
                 for (int i = 0; i < numPep; i++) {
                     //dont put in the impossible ones
                     PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(candiSetStr[3*i+0]);
-                    candiScoreList.add(new CandiScore(candiPeptideInfo, Double.valueOf(candiSetStr[3*i+1]))); //peptideInfo and their score
+                    double thisScore = Double.valueOf(candiSetStr[3*i+1]);
+                    if (i == 0) {
+                        firstScore = thisScore;
+                    } else { //if any non-top candidates have poor score, break.
+                        if (thisScore < 1 || thisScore < firstScore/2) {
+                            break;
+                        }
+                    }
+                    candiScoreList.add(new CandiScore(candiPeptideInfo, thisScore)); //peptideInfo and their score
                 }
                 Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
                 scanResList.add(new ScanRes(scanNum, candiScoreList));
@@ -1171,6 +1090,7 @@ public class PIPI {
         //normalize prot score
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
+            System.out.println(protId + "," + protScoreMap.get(protId));
         }
         //===============================
 
@@ -1203,19 +1123,21 @@ public class PIPI {
             numTPlusD++;
             if (!candiScore.peptideInfo.isTarget) numD++;
             fdrList.add(2*(double)numD/numTPlusD);
-            System.out.println(scanRes.scanNum + "," + candiScore.pepScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
+//            System.out.println(scanRes.scanNum + "," + candiScore.pepScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
         }
         int numQ001 = 0;
         double minQ = 1.0;
+        boolean found = false;
         for (int i = fdrList.size()-1; i >= 0; i--) {
             minQ = Math.min(fdrList.get(i), minQ);
             scanResList.get(i).qValue = minQ;
-            if (minQ < 0.01) {
+            if (!found && minQ < 0.01) {
                 numQ001 = i;
+                found = true;
 //                break;
             }
         }
-        BufferedWriter oriWriter = new BufferedWriter(new FileWriter("Peptides."+spectraPath+".csv"));
+        BufferedWriter oriWriter = new BufferedWriter(new FileWriter(spectraPath+".Peptides.csv"));
         oriWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
         for (ScanRes scanRes : scanResList) {
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
@@ -1235,7 +1157,8 @@ public class PIPI {
         for (ScanRes scanRes : scanResList) {
             Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
         }
-        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).protScore, Comparator.reverseOrder()));
+
+        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).protScore, Comparator.reverseOrder())); // should still use peptideScore to do FDR
         //calculate new FDR
         int a = 1;
         fdrList = new ArrayList<>(scanResList.size());
@@ -1246,19 +1169,21 @@ public class PIPI {
             numTPlusD++;
             if (!candiScore.peptideInfo.isTarget) numD++;
             fdrList.add(2*(double)numD/numTPlusD);
-            System.out.println(scanRes.scanNum + "," + candiScore.protScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
+//            System.out.println(scanRes.scanNum + "," + candiScore.protScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
         }
         numQ001 = 0;
         minQ = 1.0;
+        found = false;
         for (int i = fdrList.size()-1; i >= 0; i--) {
             minQ = Math.min(fdrList.get(i), minQ);
             scanResList.get(i).qValue = minQ;
-            if (minQ < 0.01) {
+            if (!found && minQ < 0.01) {
                 numQ001 = i;
+                found = true;
 //                break;
             }
         }
-        BufferedWriter newWriter = new BufferedWriter(new FileWriter("Proteins."+spectraPath+".csv"));
+        BufferedWriter newWriter = new BufferedWriter(new FileWriter(spectraPath+".Proteins.csv"));
         newWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
         for (ScanRes scanRes : scanResList) {
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
