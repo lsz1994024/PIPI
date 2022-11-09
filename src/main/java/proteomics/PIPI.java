@@ -365,7 +365,7 @@ public class PIPI {
         protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
         Set<String> reducedProtIdSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
-//            if (pair.getSecond() < 300) continue;
+            if (pair.getSecond() < 300) continue;
             reducedProtIdSet.add(pair.getFirst());
         }
 
@@ -783,7 +783,7 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        pfm(spectraPath, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap);
+        pfm(spectraPath, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool);
 
         writePercolator(percolatorInputFileName, allPeptideInfoMap, sqlPath, exResForScanNameMap);
         Map<String, PercolatorEntry> percolatorResultMap = null;
@@ -1004,7 +1004,7 @@ public class PIPI {
             this.pepScore = pepScore;
         }
     }
-    private void pfm(String spectraPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap) throws IOException, SQLException , CloneNotSupportedException{
+    private void pfm(String spectraPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap, MassTool massTool) throws IOException, SQLException , CloneNotSupportedException{
         //collect data
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
@@ -1036,7 +1036,7 @@ public class PIPI {
                     if (i == 0) {
                         firstScore = thisScore;
                     } else { //if any non-top candidates have poor score, break.
-                        if (thisScore < 1 || thisScore < firstScore/2) {
+                        if (thisScore < firstScore*0.5) {
                             break;
                         }
                     }
@@ -1090,6 +1090,7 @@ public class PIPI {
         //normalize prot score
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
+            protScoreMap.put(protId, protScoreMap.get(protId) / massTool.dummyDigest(protSeqMap.get(protId), 0).size());
             System.out.println(protId + "," + protScoreMap.get(protId));
         }
         //===============================
