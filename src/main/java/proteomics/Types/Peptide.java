@@ -108,7 +108,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return ionMatrix;
     }
 
-    private String getVarPtmContainingSeqNow() {
+    public String getVarPtmContainingSeqNow() {
         if (varPTMMap != null) {
             StringBuilder sb = new StringBuilder(ptmFreePeptide.length() * 5);
             int tempIdx = varPTMMap.firstKey().y;
