@@ -49,7 +49,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(43013));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(48176));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -235,7 +235,7 @@ public class PIPI {
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 200) {
+                if (Math.abs(scanNum-debugScanNum) < 50) {
                     shouldRun = true;
                 }
             }
@@ -1166,7 +1166,7 @@ public class PIPI {
             Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
         }
 
-        Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*Math.sqrt(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
+        Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
 
         //calculate new FDR
         fdrList = new ArrayList<>(scanResList.size());
@@ -1212,7 +1212,7 @@ public class PIPI {
             double ppm = Math.abs(massDiff * 1e6 / theoMass);
             //TempRes(double pepScore, double protScore, double qValue, boolean isDecoy, String ptmPepSeq)
 //            scanNumFinalScoreMap.put(scanRes.scanNum, new TempRes(topCandi.pepScore, topCandi.protScore, scanRes.qValue, !topCandi.peptideInfo.isTarget, topCandi.peptideInfo.seq, 0)); //isdecoy
-            double finalScore = topCandi.pepScore*Math.sqrt(topCandi.protScore+1);
+            double finalScore = topCandi.pepScore*(topCandi.protScore+1);
             String finalStr = String.format(Locale.US, "%d,%f,%d,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
                     , scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isTarget ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, df.format(topCandi.pepScore)
                     , String.join(";",topCandi.peptideInfo.protIdSet), df.format(topCandi.protScore), ppm, theoMass, scanRes.expMass, scanRes.charge

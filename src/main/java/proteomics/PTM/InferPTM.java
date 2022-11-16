@@ -225,8 +225,8 @@ public class InferPTM {
 
         Peptide cleanPep = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
 
-        int lb = 0;
-        int rb = ptmFreePeptide.length() - 1;
+        int lb = 0;  //lb included
+        int rb = ptmFreePeptide.length() - 1;//rb included
         Map<Integer, Double> matchedBions = new HashMap<>();
         Map<Integer, Double> matchedYions = new HashMap<>();
         double[][] temp1 = cleanPep.getIonMatrixNow();
@@ -260,7 +260,7 @@ public class InferPTM {
             rb = Collections.min(matchedYions.keySet()) - 1;
         }
 
-        if (rb - lb < 0) {
+        if (rb - lb <= 0) {
             double bSumIntens = 0;
             for (double intes : matchedBions.values()) bSumIntens += intes;
             double ySumIntens = 0;

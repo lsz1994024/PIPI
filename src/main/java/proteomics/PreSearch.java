@@ -173,7 +173,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                         deltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                         if (deltaMass > 250) continue;
                         if (deltaMass < -250) break;
-                        String pepSeq = protSeq.substring(nPos, cPos+1);
+                        String pepSeq = "n"+protSeq.substring(nPos, cPos+1)+"c";
                         if (peptideInfoMap.containsKey(pepSeq)) {
                             PeptideInfo pepInfo = peptideInfoMap.get(pepSeq);
                             pepInfo.protIdSet.add(protId);

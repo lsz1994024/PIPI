@@ -55,6 +55,11 @@ public class VarModParam {
         return hashCode;
     }
 
+    @Override
+    public String toString() {
+        return String.valueOf(Math.round(mass * 1000)) ;
+    }
+
     public boolean equals(Object other) {
         if (other instanceof VarModParam) {
             VarModParam temp = (VarModParam) other;

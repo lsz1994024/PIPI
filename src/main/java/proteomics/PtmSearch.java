@@ -160,6 +160,10 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
                     for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {
                         tempPeptide.bestPep = peptidePTMPattern.bestPep;
+
+//                        if (Math.abs(massTool.calResidueMass(tempPeptide.getVarPtmContainingSeqNow())+ massTool.H2O - precursorMass) > 1) {
+//                            continue;// skip the unsettle peptides
+//                        }
                         if (tempPeptide.getScore() > 0) {
                             if (peptideSet.size() < candisNum) {
                                 peptideSet.add(tempPeptide);
@@ -202,7 +206,13 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             for (int j = pepList.size()-1; j >= 1; j--) {
                 for (int i = 0; i < j; i++) {
                     if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
-                        pepList.remove(j);
+                        boolean isIGood = Math.abs(massTool.calResidueMass(pepList.get(i).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
+                        boolean isJGood = Math.abs(massTool.calResidueMass(pepList.get(j).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
+                        if (!isIGood && isJGood) {
+                            pepList.remove(i);
+                        } else {
+                            pepList.remove(j);
+                        }
                         break;
                     }
                 }
