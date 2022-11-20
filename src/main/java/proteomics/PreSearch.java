@@ -18,7 +18,6 @@ package proteomics;
 
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
-import ProteomicsLibrary.Types.SparseVector;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +32,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static proteomics.PIPI.lszDebugScanNum;
+import static proteomics.PIPI.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final Logger logger = LoggerFactory.getLogger(PreSearch.class);
@@ -59,11 +58,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private final int scanNum;
     private String truth;
 
+    private final Set<String> tempDebugTargetNormalProtIdSet;
 
     public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
             , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge, double precursorMass
-            , SpecProcessor specProcessor, String truth) {
+            , SpecProcessor specProcessor, String truth, Set<String> tempDebugTargetNormalProtIdSet) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -84,6 +84,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         this.specProcessor = specProcessor;
         this.scanNum = scanNum;
         this.truth = truth;
+        this.tempDebugTargetNormalProtIdSet = tempDebugTargetNormalProtIdSet;
     }
 
     @Override
@@ -105,7 +106,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
-        List<ThreeExpAA> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
+//        List<ThreeExpAA> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
+        List<ThreeExpAA> tag4List = inferSegment.getAllTag3(precursorMass, finalPlMap, scanNum);
+
         Collections.sort(tag4List, Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
 
         String truth = "DNVFENNRLAFEVAEK";
@@ -138,7 +141,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         String tag;
         for (ThreeExpAA tagInfo : compTag4List) {
             tag = tagInfo.getPtmFreeAAString();
-
+            if ((tag.contentEquals("KLT") || tag.contentEquals("TLK")) && lszDebugScanNum.contains(scanNum) ) {
+                int a = 1;
+            }
             if (!tagProtPosMap.containsKey(tagInfo.getPtmFreeAAString())) {
                 int a = 1;
                 continue;
@@ -146,17 +151,17 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             Set<Pair<String, Integer>> protPosPairs = tagProtPosMap.get(tagInfo.getPtmFreeAAString());
             for (Pair<String, Integer> protPos : protPosPairs){
                 String protId = protPos.getFirst();
-//                if (protId.contentEquals("sp|P35637|FUS_HUMAN") && lszDebugScanNum.contains(scanNum)) {
-//                    int a = 1;
-//                }
+                if (protId.contentEquals("HGGYKPSDEHK") && lszDebugScanNum.contains(scanNum)) {
+                    int a = 1;
+                }
 //                double tagNMass = tagInfo.getHeadLocation();
                 double tagCMass = tagInfo.getTailLocation();
                 int pos = protPos.getSecond();
                 String protSeq = buildIndex.protSeqMap.get(protId);
                 Set<Integer> cPosSet = new HashSet<>();
 
-                if (isKR(protSeq.charAt(pos+4)) && tagCMass <= pcMassR && tagCMass  >= pcMassL) {
-                    cPosSet.add(pos+4);
+                if (isKR(protSeq.charAt(pos+ lenProbeTag-1)) && tagCMass <= pcMassR && tagCMass  >= pcMassL) {
+                    cPosSet.add(pos+ lenProbeTag-1);
                 }
                 for (int i = pos+tag.length(); i < protSeq.length(); i++) {  //
                     tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
@@ -169,11 +174,38 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 for (int cPos : cPosSet) {
                     double deltaMass = precursorMass - massTool.calResidueMass(protSeq.substring(pos,cPos+1)) - massTool.H2O;
 //                    int numMissCleave = 0;
-                    for (int nPos = pos-1; nPos > 0; nPos--) {
+                    int missCleav = 0;
+                    for (int nPos = pos-1; nPos >= 0; nPos--) {
                         deltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                         if (deltaMass > 250) continue;
                         if (deltaMass < -250) break;
+                        if (!cTermSpecific) { // must be full specific
+                            if (nPos != 0 && !isKR(protSeq.charAt(nPos-1))) {
+                                continue;
+                            }
+                        }
+
+                        if (isKR(protSeq.charAt(nPos))) {
+                            missCleav++; //current num of missed cleavage
+                        }
+                        if (missCleav > maxMissCleav) {
+                            break;         // stop extend to n term
+                        }
+
                         String pepSeq = "n"+protSeq.substring(nPos, cPos+1)+"c";
+                        if (!(protId.startsWith("DECOY_") || protId.startsWith("[contaminant]"))) { //target normal prot
+//                            if (isKR(protSeq.charAt(nPos-1)) && 'P' == protSeq.charAt(nPos)){
+//                                System.out.println(scanNum + ","+protId);
+//                            }
+                            pepSeq = "n"+protSeq+"c";
+                            if ( Math.abs(massTool.calResidueMass(pepSeq) + massTool.H2O - precursorMass) > 250) {
+                                break; //for target normal prot, dont digest.
+                            }
+                        } else {//decoy or contaminant prot
+                            if (tempDebugTargetNormalProtIdSet.contains(pepSeq.substring(1, pepSeq.length()-1))){
+                                continue;
+                            }
+                        }
                         if (peptideInfoMap.containsKey(pepSeq)) {
                             PeptideInfo pepInfo = peptideInfoMap.get(pepSeq);
                             pepInfo.protIdSet.add(protId);
@@ -198,7 +230,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //            }
         }
         entry.scanName = this.scanName;
-        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
+        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 3);
 
         Map<String, Double> scanTagStrMap = inferSegment.getTagStrMap(allLongTagList);
         Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, peptideInfoMap);

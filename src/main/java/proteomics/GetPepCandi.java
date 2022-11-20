@@ -16,12 +16,13 @@
 
 package proteomics;
 import ProteomicsLibrary.*;
-import ProteomicsLibrary.Types.SparseBooleanVector;
 import org.apache.commons.math3.util.Pair;
 import proteomics.Index.BuildIndex;
 
 import java.util.*;
 import java.util.concurrent.Callable;
+
+import static proteomics.PIPI.lenProbeTag;
 
 public class GetPepCandi implements Callable<GetPepCandi.Entry> {
     private Map<String, String> parameterMap;
@@ -44,11 +45,12 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
 
         Entry entry = new Entry();
         entry.protId = protId;
-//        if (protId.contentEquals("Q29443")) {
-//            int a = 1;
-//        }
+        if (protId.contentEquals("IPGLVTLK")) {
+            int a = 1;
+        }
         String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
 //        Set<String> peptideSet = buildIndex.massTool.buildPeptideSetPnP(protSeq);
+
         entry.targetTagPosList = getTagsFromProts(protSeq);
         if (addDecoy) {
             //1
@@ -69,10 +71,10 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
     }
 
     private List<Pair<String, Integer>> getTagsFromProts(String seq){
-        List<Pair<String, Integer>> tagPosList = new ArrayList<>(seq.length()-4);
-        for (int i = 0; i < seq.length()-4; i++){
+        List<Pair<String, Integer>> tagPosList = new ArrayList<>(seq.length()- lenProbeTag + 1);
+        for (int i = 0; i < seq.length()- lenProbeTag+1; i++){
 //            Segment seg = new Segment(seq.substring(i, i+4));
-            tagPosList.add(new Pair(seq.substring(i, i+4), i));
+            tagPosList.add(new Pair(seq.substring(i, i+ lenProbeTag), i));
         }
         return tagPosList;
     }

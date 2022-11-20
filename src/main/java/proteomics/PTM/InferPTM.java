@@ -196,7 +196,7 @@ public class InferPTM {
         Set<Integer> modifiedZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
 
-        String truthPep = "n"+"DNVFENNRLAFEVAEK"+"c";
+        String truthPep = "n"+"HGSYKPSDQHK"+"c";
         Peptide p1p = new Peptide(truthPep, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         PositionDeltaMassMap fakePatten = new PositionDeltaMassMap(ptmFreePeptide.length());
 //        fakePatten.put(new Coordinate(0, 1), (58.005));

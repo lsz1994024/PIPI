@@ -47,9 +47,12 @@ public class PIPI {
     public static final String versionStr = "1.4.7";
     static final boolean useXcorr = false;
 
+    static final boolean cTermSpecific = false;
+    static final int maxMissCleav = 0;
+    static final int lenProbeTag = 3;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(48176));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(2077));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -365,10 +368,10 @@ public class PIPI {
         protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
         Set<String> reducedProtIdSet = new HashSet<>();
         for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 300) continue;
+            if (pair.getSecond() < 0) continue;
             reducedProtIdSet.add(pair.getFirst());
         }
-
+        reducedProtIdSet = protLengthMap.keySet();
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
@@ -377,6 +380,13 @@ public class PIPI {
             }
         }
 
+        Set<String> tempDebugTargetNormalProtIdSet = new HashSet<>();
+        for (String protId : reducedProtIdSet){
+            if (!protId.startsWith("[contaminant]")) {
+                tempDebugTargetNormalProtIdSet.add(protId.replaceAll("I","L"));
+            }
+        }
+        final Set<String> debugTargetNormalProtIdSet = new HashSet<>(tempDebugTargetNormalProtIdSet);
         //  END Score for Proteins
         //////////==================================================
 
@@ -539,7 +549,7 @@ public class PIPI {
 
             taskListBone.add(threadPoolBone.submit(new PreSearch(Integer.valueOf(scanNameStr[2]), buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor, pepTruth.get(1886))));
+                    , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor, pepTruth.get(1886), tempDebugTargetNormalProtIdSet)));
         }
         System.out.println("totalSubmit in Bone, "+ submitNumBone);
 
@@ -1085,7 +1095,7 @@ public class PIPI {
         for (String protId : protPepScoreMap.keySet()) {
             Map<String,Double> pepScoreMap = protPepScoreMap.get(protId);
             for (String pep : pepScoreMap.keySet()){
-                if (pepScoreMap.get(pep) > 2) {     //this peptide score threshold is empirical
+                if (pepScoreMap.get(pep) > 1) {     //this peptide score threshold is empirical
                     if (protScoreMap.containsKey(protId)){
                         protScoreMap.put(protId, protScoreMap.get(protId)+ pepScoreMap.get(pep));
                     } else {
@@ -1098,7 +1108,7 @@ public class PIPI {
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
 //            protScoreMap.put(protId, protScoreMap.get(protId) / massTool.dummyDigest(protSeqMap.get(protId), 0).size());
-            System.out.println(protId + "," + protScoreMap.get(protId));
+//            System.out.println(protId + "," + protScoreMap.get(protId));
         }
         //===============================
 

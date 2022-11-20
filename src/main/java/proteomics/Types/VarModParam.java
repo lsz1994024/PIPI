@@ -57,7 +57,9 @@ public class VarModParam {
 
     @Override
     public String toString() {
-        return String.valueOf(Math.round(mass * 1000)) ;
+//        return String.valueOf(Math.round(mass * 1000)) ;
+        return name +" " +mass;
+
     }
 
     public boolean equals(Object other) {

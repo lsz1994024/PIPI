@@ -53,7 +53,7 @@ public class Search {
                 score = dot(tagStrSet, scanTagStrMap) / temp1;
             }
             if (lszDebugScanNum.contains(scanNum)){
-                if (pepSeq.contentEquals("DNVFENNRLAFEVAEK")){
+                if (pepSeq.contentEquals("nLPALYTLKc")){
                     int a = 1;
                 }
             }

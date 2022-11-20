@@ -130,8 +130,8 @@ public class InferSegment {
         deltaMassArray = modifiedAAMap.keySet().toArray(new Double[0]);
     }
 
-    public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
-        return inferThreeAAFromSpectrum(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON);
+    public List<ThreeExpAA> getAllTag3(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
+        return getTag3(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON);
     }
 
     public List<ThreeExpAA> getAllTag4(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
@@ -231,7 +231,7 @@ public class InferSegment {
         return seq.replaceAll("I", "L");
     }
 
-    private List<ThreeExpAA> inferThreeAAFromSpectrum(TreeMap<Double, Double> plMap, double cTermMz) throws Exception {
+    private List<ThreeExpAA> getTag3(TreeMap<Double, Double> plMap, double cTermMz) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         Set<ThreeExpAA> tempSet = new HashSet<>();

@@ -31,6 +31,8 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static proteomics.PIPI.lszDebugScanNum;
+
 public class GetLongTag implements Callable<GetLongTag.Entry> {
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
@@ -85,6 +87,9 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         Map<String, String> protIdSeqMap = buildIndex.protSeqMap;
 
         List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 6);
+        if (lszDebugScanNum.contains(scanNum)) {
+            int a = 1;
+        }
         if (!allLongTagList.isEmpty()) {
             Entry entry = new Entry();
                 //which top long tags to uses
