@@ -51,8 +51,7 @@ public class PIPI {
     static final int maxMissCleav = 0;
     static final int lenProbeTag = 3;
     public static final int[] debugScanNumArray = new int[]{};
-
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(2077));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(38373));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -247,7 +246,7 @@ public class PIPI {
 //                    continue;//22459   comment this continue line, if run all scans
                 }
             }
-
+//            System.out.println(scanNum+","+precursorMass);
             int fileId = Integer.valueOf( scanName.split("\\.")[0] );
 
             precursorChargeMap.put(scanName, precursorCharge);
@@ -1091,11 +1090,15 @@ public class PIPI {
         sqlStatement.close();
         sqlConnection.close();
         //calculate prot score
+
+//        for (ScanRes res : scanResList) {
+//            System.out.println(res.peptideInfoScoreList.get(0).pepScore + "," + (res.peptideInfoScoreList.get(0).peptideInfo.isTarget ? 1:0));
+//        }
         Map<String, Double> protScoreMap = new HashMap<>();
         for (String protId : protPepScoreMap.keySet()) {
             Map<String,Double> pepScoreMap = protPepScoreMap.get(protId);
             for (String pep : pepScoreMap.keySet()){
-                if (pepScoreMap.get(pep) > 1) {     //this peptide score threshold is empirical
+                if (pepScoreMap.get(pep) > 2.3) {     //this peptide score threshold is empirical
                     if (protScoreMap.containsKey(protId)){
                         protScoreMap.put(protId, protScoreMap.get(protId)+ pepScoreMap.get(pep));
                     } else {
@@ -1162,7 +1165,7 @@ public class PIPI {
             StringBuilder str = new StringBuilder();
             str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(candiScoreList.get(0).peptideInfo.isTarget ? 1 : 0);
             for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.peptideInfo.seq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+                str.append(","+candiScore.ptmContainingSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
             }
             str.append("\n");
             oriWriter.write(str.toString());
@@ -1173,10 +1176,11 @@ public class PIPI {
 
         System.out.println("end ori start new");
         for (ScanRes scanRes : scanResList) {
-            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
+            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder())); // rank candidates using peptide score
         }
 
-        Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
+//        Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
+        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).pepScore, Comparator.reverseOrder())); // should still use peptideScore to do FDR
 
         //calculate new FDR
         fdrList = new ArrayList<>(scanResList.size());
@@ -1212,7 +1216,7 @@ public class PIPI {
             StringBuilder str = new StringBuilder();
             str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(topCandi.peptideInfo.isTarget ? 1 : 0);
             for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.peptideInfo.seq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+                str.append(","+candiScore.ptmContainingSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
             }
             str.append("\n");
             newWriter.write(str.toString());
@@ -1222,7 +1226,8 @@ public class PIPI {
             double ppm = Math.abs(massDiff * 1e6 / theoMass);
             //TempRes(double pepScore, double protScore, double qValue, boolean isDecoy, String ptmPepSeq)
 //            scanNumFinalScoreMap.put(scanRes.scanNum, new TempRes(topCandi.pepScore, topCandi.protScore, scanRes.qValue, !topCandi.peptideInfo.isTarget, topCandi.peptideInfo.seq, 0)); //isdecoy
-            double finalScore = topCandi.pepScore*(topCandi.protScore+1);
+//            double finalScore = topCandi.pepScore*(topCandi.protScore+1);
+            double finalScore = topCandi.pepScore;
             String finalStr = String.format(Locale.US, "%d,%f,%d,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
                     , scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isTarget ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, df.format(topCandi.pepScore)
                     , String.join(";",topCandi.peptideInfo.protIdSet), df.format(topCandi.protScore), ppm, theoMass, scanRes.expMass, scanRes.charge

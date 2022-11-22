@@ -181,6 +181,9 @@ public class InferPTM {
         if (Math.abs(totalDeltaMass) < 0.01 ) {
             return peptidePTMPattern;
         }
+        if (lszDebugScanNum.contains(scanNum)){
+            int a = 1;
+        }
         Set<Integer> fixModIdxes = getFixModIdxes(ptmFreePeptide, fixModMap);  // record the indexes of the amino acids with fix mod, e.g. when there is no C, this is empty set.
 
         String ptmFreePeptideOrdinary = ptmFreePeptide.replaceAll("I","L");
