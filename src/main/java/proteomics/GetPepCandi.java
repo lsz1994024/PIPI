@@ -72,7 +72,11 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
         List<Pair<String, Integer>> tagPosList = new ArrayList<>(seq.length()-4);
         for (int i = 0; i < seq.length()-4; i++){
 //            Segment seg = new Segment(seq.substring(i, i+4));
-            tagPosList.add(new Pair(seq.substring(i, i+4), i));
+            String tag = seq.substring(i, i+4);
+            if (tag.contains("X")) {
+                continue;
+            }
+            tagPosList.add(new Pair(tag, i));
         }
         return tagPosList;
     }

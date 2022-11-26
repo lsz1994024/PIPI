@@ -40,7 +40,7 @@ public class DatasetReader {
     private final IsotopeDistribution isotopeDistribution;
 
     private int usefulSpectraNum = 0;
-
+    public Set<Integer> scansNoCharge = new HashSet<>();
     public DatasetReader(JMzReader spectraParser, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath) throws Exception {
         isotopeDistribution = new IsotopeDistribution(massTool.getElementTable(), 0, massTool.getLabelling());
 
@@ -98,7 +98,8 @@ public class DatasetReader {
                     }
 
                     if (spectrum.getPrecursorCharge() == null) {
-                        logger.warn("Scan {} does not contain charge information.", scanNum);
+//                        logger.warn("Scan {} does not contain charge information.", scanNum);
+                        scansNoCharge.add(scanNum);
                         continue;
                     } else {
                         precursorCharge = spectrum.getPrecursorCharge();
@@ -224,7 +225,7 @@ public class DatasetReader {
                         }
 
                         if (spectrum.getPrecursorCharge() == null) {
-                            logger.warn("Scan {} does not contain charge information.", scanNum);
+//                            logger.warn("Scan {} does not contain charge information.", scanNum);
                             continue;
                         } else {
                             precursorCharge = spectrum.getPrecursorCharge();

@@ -159,6 +159,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     cPosSet.add(pos+4);
                 }
                 for (int i = pos+tag.length(); i < protSeq.length(); i++) {  //
+                    if (isX(protSeq.charAt(i))) break;
+
                     tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
                     if (tagCMass < pcMassL) continue;
                     if (tagCMass > pcMassR) break;
@@ -170,6 +172,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     double deltaMass = precursorMass - massTool.calResidueMass(protSeq.substring(pos,cPos+1)) - massTool.H2O;
 //                    int numMissCleave = 0;
                     for (int nPos = pos-1; nPos > 0; nPos--) {
+                        if (isX(protSeq.charAt(nPos))) break;
                         deltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                         if (deltaMass > 250) continue;
                         if (deltaMass < -250) break;
@@ -220,6 +223,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
     private boolean isKR(char aa){
         return aa == 'K' || aa == 'R';
+    }
+    private boolean isX(char aa){
+        return aa == 'X';
     }
     public class Entry {
 

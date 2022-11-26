@@ -362,10 +362,15 @@ public class PIPI {
         for (String prot : protScoreFinalMap.keySet()){
             protScoreLongList.add(new Pair<>(prot, protScoreFinalMap.get(prot)));
         }
-        protScoreLongList.sort(Comparator.comparingDouble(Pair::getSecond));
+        Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
+
         Set<String> reducedProtIdSet = new HashSet<>();
+        int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
-            if (pair.getSecond() < 300) continue;
+
+//            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
+            ii++;
+            if (pair.getSecond() < 100) break;
             reducedProtIdSet.add(pair.getFirst());
         }
 
@@ -1098,7 +1103,7 @@ public class PIPI {
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
 //            protScoreMap.put(protId, protScoreMap.get(protId) / massTool.dummyDigest(protSeqMap.get(protId), 0).size());
-            System.out.println(protId + "," + protScoreMap.get(protId));
+//            System.out.println(protId + "," + protScoreMap.get(protId));
         }
         //===============================
 

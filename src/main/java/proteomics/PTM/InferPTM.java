@@ -128,25 +128,6 @@ public class InferPTM {
             }
         }
 
-        // merge PTM map and AA substitution map
-//        for (char aa : aasMap.keySet()) {
-//            for (VarModParam modEntry : aasMap.get(aa)) {
-//                if (finalPtmMap.containsKey(aa)) {
-//                    if (finalPtmMap.get(aa).contains(modEntry)) {
-//                        if (modEntry.priority == 1 || !modEntry.onlyProteinTerminalIfnc) {
-//                            finalPtmMap.get(aa).remove(modEntry); // VarModParam only differs by mass and site.
-//                            finalPtmMap.get(aa).add(modEntry); // temp is a high priority PTM, it is safe to overwrite the original PTM.
-//                        }
-//                    } else {
-//                        finalPtmMap.get(aa).add(modEntry);
-//                    }
-//                } else {
-//                    Set<VarModParam> tempSet = new HashSet<>();
-//                    tempSet.add(modEntry);
-//                    finalPtmMap.put(aa, tempSet);
-//                }
-//            }
-//        }
         for (char aa : ptmMap.keySet()) {
             for (VarModParam modEntry : ptmMap.get(aa)) {
                 if (finalPtmMap.containsKey(aa)) {
@@ -768,6 +749,9 @@ public class InferPTM {
         Set<Integer> outputSet = new HashSet<>(ptmFreePeptide.length(), 1);
         char[] tempArray = ptmFreePeptide.toCharArray();
         for (int i = 0; i < tempArray.length; ++i) {
+//            if (!fixModMap.containsKey(tempArray[i])) {
+//                System.out.println("no ptmFreePeptide" + ptmFreePeptide);
+//            }
             if (Math.abs(fixModMap.get(tempArray[i])) > 0.1) {
                 outputSet.add(i);
             }

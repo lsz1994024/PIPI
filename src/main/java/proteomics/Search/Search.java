@@ -45,6 +45,9 @@ public class Search {
         Set<String> tagStrSet;
         PeptideInfo cand;
         for (String pepSeq : peptideInfoMap.keySet()) {
+            if (pepSeq.contains("X")) {
+                System.out.println("bad X," + scanNum +","+pepSeq);
+            }
             cand = peptideInfoMap.get(pepSeq);
             tagStrSet = inferSegment.getTagStrSet(pepSeq);
             double score = 0;
