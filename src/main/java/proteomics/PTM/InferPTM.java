@@ -17,11 +17,10 @@
 package proteomics.PTM;
 
 import ProteomicsLibrary.*;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
 //import proteomics.OutputPeff;
+import com.google.errorprone.annotations.Var;
 import proteomics.Types.*;
 
 import java.io.*;
@@ -31,7 +30,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.dom4j.Attribute;
 import org.dom4j.Document;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
@@ -48,14 +46,12 @@ public class InferPTM {
     private final Map<String, Double> elementTable;
     private final Map<Character, Double> massTable;
     private final Map<Character, Double> fixModMap;
-    private Set<VarModParam> varModParamSet = new HashSet<>();
+    private Set<VarPtm> varPtmSet = new HashSet<>();
     private final double minPtmMass;
     private final double maxPtmMass;
     private final double ms2Tolerance;
-    private final Multimap<Character, ModEntry> siteModMap;
-
-    private Map<Character, Set<VarModParam>> finalPtmMap = new HashMap<>();
-
+    private Map<Character, Set<VarPtm>> finalPtmMap = new HashMap<>();
+    private final Set<Character> aaCharSet = new HashSet<>(Arrays.asList('A','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','Y'));
     public InferPTM(MassTool massTool, Map<Character, Double> fixModMap, Map<String, String> parameterMap) throws Exception{
         this.massTool = massTool;
         elementTable = massTool.getElementTable();
@@ -64,87 +60,62 @@ public class InferPTM {
         this.minPtmMass = Double.valueOf(parameterMap.get("min_ptm_mass"));
         this.maxPtmMass = Double.valueOf(parameterMap.get("max_ptm_mass"));
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
-
         // Generate a varModParamSet from the parameterMap
         for (String k : parameterMap.keySet()) {
             if (k.startsWith("mod")) {
                 String v = parameterMap.get(k);
                 if (!v.startsWith("0.0")) {
-                    String[] temp = v.split("@");
+                    String[] temp = v.split(",");
                     if (Math.abs(fixModMap.get(temp[1].charAt(0))) < 0.1) {
                         // fix modification and var modification cannot be coexist
-                        varModParamSet.add(new VarModParam(Double.valueOf(temp[0]), temp[1].charAt(0), 1, false)); // var mods from the parameter file have the highest priority, those PTM can exist in peptide terminal.
-                    }
-                }
-            } else if (k.contentEquals("Nterm")) {
-                if (Math.abs(fixModMap.get('n')) < 0.1) {
-                    // fix modification and var modification cannot be coexist
-                    if (!parameterMap.get(k).startsWith("0.0")) {
-                        String[] tempArray = parameterMap.get(k).split(",");
-                        for (String tempString : tempArray) {
-                            varModParamSet.add(new VarModParam(Double.valueOf(tempString.trim()), 'n', 1, false)); // var mods from the parameter file have the highest priority
-                        }
-                    }
-                }
-            } else if (k.contentEquals("Cterm")) {
-                if (Math.abs(fixModMap.get('c')) < 0.1) {
-                    // fix modification and var modification cannot be coexist
-                    if (!parameterMap.get(k).startsWith("0.0")) {
-                        String[] tempArray = parameterMap.get(k).split(",");
-                        for (String tempString : tempArray) {
-                            varModParamSet.add(new VarModParam(Double.valueOf(tempString.trim()), 'c', 1, false)); // var mods from the parameter file have the highest priority
-                        }
+//                            public VarModParam(double mass, char site, int position,  String name, String classification, int priority) {
+                        varPtmSet.add(new VarPtm(Double.valueOf(temp[0]), temp[1].charAt(0), Integer.valueOf(temp[2]), temp[3], "ByUser", 1)); // var mods from the parameter file have the highest priority, those PTM can exist in peptide terminal.
                     }
                 }
             }
         }
 
-        // Generate a site mod map including all PTMs in Unimod and amino acid substitutions.
-//        siteModMap = readUnimodAndGenerateAAS(minPtmMass, maxPtmMass);
-        siteModMap = HashMultimap.create(); //to prove this siteModMap is useless and the unimod.xml.tsv
-
-        // Building an amino acid substitution matrix.
-        Map<Character, Set<VarModParam>> aasMap = buildAASMap(siteModMap);
-
+        // Multimap<Character, ModEntry>
         // Reading Mod table...
-        Map<Character, Set<VarModParam>> ptmMap = readModXml();
-        int numPtm = 0;
-        for (Set<VarModParam> varSet : ptmMap.values()) {
-            numPtm += varSet.size();
-        }
+        readModFromUnimod();
 
         // update ptm table with the high priority mods in the parameter file.
-        for (VarModParam varModParam : varModParamSet) {
-            varModParam.position = "Anywhere";
-            varModParam.classification = "User define";
-            varModParam.name = "user";
-            if (ptmMap.containsKey(varModParam.site)) {
-//                ptmMap.get(varModParam.site).remove(varModParam);
-                ptmMap.get(varModParam.site).add(varModParam);
+        for (VarPtm varPtm : varPtmSet) {
+            if (finalPtmMap.containsKey(varPtm.site)) {
+                if (finalPtmMap.get(varPtm.site).contains(varPtm)) {
+                    finalPtmMap.get(varPtm.site).remove(varPtm); // remove old one add new one with priority
+                }
+                finalPtmMap.get(varPtm.site).add(varPtm);
             } else {
-                Set<VarModParam> tempSet = new HashSet<>();
-                tempSet.add(varModParam);
-                ptmMap.put(varModParam.site, tempSet);
+                Set<VarPtm> tempSet = new HashSet<>();
+                tempSet.add(varPtm);
+                finalPtmMap.put(varPtm.site, tempSet);
             }
         }
 
-        for (char aa : ptmMap.keySet()) {
-            for (VarModParam modEntry : ptmMap.get(aa)) {
-                if (finalPtmMap.containsKey(aa)) {
-                    if (finalPtmMap.get(aa).contains(modEntry)) {
-                        if (modEntry.priority == 1 || !modEntry.onlyProteinTerminalIfnc) {
-                            finalPtmMap.get(aa).remove(modEntry); // VarModParam only differs by mass and site.
-                            finalPtmMap.get(aa).add(modEntry); // temp is a high priority PTM, it is safe to overwrite the original PTM.
+        // remove abundant records that are on the same site with lower level positions
+        for (Character site : finalPtmMap.keySet()) {
+            Set<VarPtm> toRemove = new HashSet<>();
+            Iterator<VarPtm> iterI = finalPtmMap.get(site).iterator();
+            while (iterI.hasNext()) {
+                VarPtm ptmI = iterI.next();
+                Iterator<VarPtm> iterJ = finalPtmMap.get(site).iterator();
+                String nameI = ptmI.toString().substring(0, ptmI.toString().length()-1);
+                int posI = Integer.valueOf(ptmI.toString().charAt(ptmI.toString().length()-1));
+                while (iterJ.hasNext()) {
+                    VarPtm ptmJ = iterJ.next();
+                    String nameJ = ptmJ.toString().substring(0, ptmJ.toString().length()-1);
+                    int posJ = Integer.valueOf(ptmJ.toString().charAt(ptmJ.toString().length()-1));
+                    if (!ptmI.toString().contentEquals(ptmJ.toString()) && nameI.contentEquals(nameJ)) {
+                        if (posI < posJ) {
+                            toRemove.add(ptmI);
+                        } else {
+                            toRemove.add(ptmJ);
                         }
-                    } else {
-                        finalPtmMap.get(aa).add(modEntry);
                     }
-                } else {
-                    Set<VarModParam> tempSet = new HashSet<>();
-                    tempSet.add(modEntry);
-                    finalPtmMap.put(aa, tempSet);
                 }
             }
+            finalPtmMap.get(site).removeAll(toRemove);
         }
         int a = 1;
     }
@@ -166,17 +137,26 @@ public class InferPTM {
 
         String ptmFreePeptideOrdinary = ptmFreePeptide.replaceAll("I","L");
 
-        Map<Integer, Set<VarModParam>> idxVarModMap = getIdxVarModMapNew(ptmFreePeptide, fixModIdxes, leftFlank, rightFlank);
-        Map<Integer, VarModParam[]> idxVarModArrayMap = new HashMap<>();
+        int pepPos = 0;
+        if (leftFlank == '-') {
+            pepPos = -1;
+        } else if (rightFlank == '-') {
+            pepPos = 1;
+        }
+
+        Map<Integer, Set<VarPtm>> idxVarModMap = getIdxVarModMapNew(ptmFreePeptide, fixModIdxes, pepPos);
+        Map<Integer, VarPtm[]> idxVarModArrayMap = new HashMap<>();
         for (int id : idxVarModMap.keySet()){
-            VarModParam[] modArray = new VarModParam[idxVarModMap.get(id).size()];
+            VarPtm[] modArray = new VarPtm[idxVarModMap.get(id).size()];
             idxVarModMap.get(id).toArray(modArray);
-            Arrays.sort(modArray, Comparator.comparingDouble(VarModParam::getMass));
+            Arrays.sort(modArray, Comparator.comparingDouble(VarPtm::getMass));
             idxVarModArrayMap.put(id, modArray);
         }
         Set<Integer> modifiedZone = new HashSet<>(idxVarModArrayMap.keySet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
-
+        if (pepPos != 0){
+            int a = 1;
+        }
         String truthPep = "n"+"DNVFENNRLAFEVAEK"+"c";
         Peptide p1p = new Peptide(truthPep, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
         PositionDeltaMassMap fakePatten = new PositionDeltaMassMap(ptmFreePeptide.length());
@@ -211,11 +191,11 @@ public class InferPTM {
         Map<Integer, Double> matchedBions = new HashMap<>();
         Map<Integer, Double> matchedYions = new HashMap<>();
         double[][] temp1 = cleanPep.getIonMatrixNow();
-        Set<Integer> jRange = IntStream.rangeClosed(0, ptmFreePeptide.length()-3).boxed().collect(Collectors.toSet());
+        Set<Integer> jRange = IntStream.rangeClosed(0, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());
         double[][] cleanPepIonMatrix = cleanPep.getIonMatrixNow();
         double cleanScore = massTool.buildVectorAndCalXCorr(cleanPepIonMatrix, 1, expProcessedPL, matchedBions, matchedYions, jRange) ;
         cleanPep.setScore(cleanScore);
-        cleanPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, cleanPep.getIonMatrix(), ms2Tolerance));
+        cleanPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, cleanPep.getIonMatrix(), ms2Tolerance));
         cleanPep.matchedBions.putAll(matchedBions);
         cleanPep.matchedYions.putAll(matchedYions);
 
@@ -277,14 +257,14 @@ public class InferPTM {
         DividedZone z1Z2Res = dividePep(scanNum, modifiedZone, ptmN1Good, ptmN1Bad, ptmInitialTemp, idxVarModArrayMap, totalDeltaMass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmN1Good.getPeptideTreeSet().isEmpty()) {
             ptmN1Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN1Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 1*0.1);
-            ptmN1Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN1Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN1Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN1Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN1Good.getTopPepPtn().shouldPTM = true;
 
             allPtmPattern.push(ptmN1Good.getTopPepPtn());
         }
         if (!ptmN1Bad.getPeptideTreeSet().isEmpty()) {
             ptmN1Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN1Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 1*0.1);
-            ptmN1Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN1Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN1Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN1Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN1Bad.getTopPepPtn().shouldPTM = true;
             allPtmPatternBad.push(ptmN1Bad.getTopPepPtn());
         }
@@ -315,14 +295,14 @@ public class InferPTM {
         DividedZone z3Z4Res = dividePep(scanNum, zone2, ptmN2Good, ptmN2Bad ,ptmN1Bad, idxVarModArrayMap, zone2Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmN2Good.getPeptideTreeSet().isEmpty()) {
             ptmN2Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN2Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 2*0.1);
-            ptmN2Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN2Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN2Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN2Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN2Good.getTopPepPtn().shouldPTM = true;
 
             allPtmPattern.push(ptmN2Good.getTopPepPtn());
         }
         if (!ptmN2Bad.getPeptideTreeSet().isEmpty()) {
             ptmN2Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN2Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 2*0.1);
-            ptmN2Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN2Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN2Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN2Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN2Bad.getTopPepPtn().shouldPTM = true;
             allPtmPatternBad.push(ptmN2Bad.getTopPepPtn());
         }
@@ -349,14 +329,14 @@ public class InferPTM {
         DividedZone z5Z6Res = dividePep(scanNum, zone4, ptmN3Good, ptmN3Bad, ptmN2Bad, idxVarModArrayMap, zone4Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmN3Good.peptideTreeSet.isEmpty()) {
             ptmN3Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN3Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 3*0.1);
-            ptmN3Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN3Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN3Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN3Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN3Good.getTopPepPtn().shouldPTM = true;
 
             allPtmPattern.push(ptmN3Good.getTopPepPtn());
         }
         if (!ptmN3Bad.getPeptideTreeSet().isEmpty()) {
             ptmN3Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN3Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 3*0.1);
-            ptmN3Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN3Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN3Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN3Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN3Bad.getTopPepPtn().shouldPTM = true;
             allPtmPatternBad.push(ptmN3Bad.getTopPepPtn());
         }
@@ -381,13 +361,13 @@ public class InferPTM {
         DividedZone z7Z8Res = dividePep(scanNum, zone6, ptmN4Good, ptmN4Bad ,ptmN3Bad, idxVarModArrayMap, zone6Mass, ptmFreePeptide, isDecoy, normalizedCrossCorr, globalRank, expProcessedPL, plMap, precursorCharge, localMaxMS2Charge, unUsedPlMap);
         if (!ptmN4Good.getPeptideTreeSet().isEmpty()) {
             ptmN4Good.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN4Good.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 4*0.1);
-            ptmN4Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN4Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN4Good.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN4Good.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN4Good.getTopPepPtn().shouldPTM = true;
             allPtmPattern.push(ptmN4Good.getTopPepPtn());
         }
         if (!ptmN4Bad.getPeptideTreeSet().isEmpty()) {
             ptmN4Bad.getTopPepPtn().setScore(massTool.buildVectorAndCalXCorr(ptmN4Bad.getTopPepPtn().getIonMatrixNow(), 1, expProcessedPL) - 4*0.1);
-            ptmN4Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, ptmN4Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
+            ptmN4Bad.getTopPepPtn().setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ptmN4Bad.getTopPepPtn().getIonMatrixNow(), ms2Tolerance));
             ptmN4Bad.getTopPepPtn().shouldPTM = true;
 
             allPtmPatternBad.push(ptmN4Bad.getTopPepPtn());
@@ -405,7 +385,7 @@ public class InferPTM {
         return allPtmPattern;
     }
 
-    private DividedZone dividePep(int scanNum, Set<Integer> modifiedZone, PeptidePTMPattern ptmGoodRes, PeptidePTMPattern ptmBadRes, PeptidePTMPattern ptmTemplate, Map<Integer, VarModParam[]> idxVarModMap, double totalDeltaMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge, SortedMap<Double, Double> unUsedPlMap) { // Sometimes, the precursor mass error may affects the digitized spectrum.
+    private DividedZone dividePep(int scanNum, Set<Integer> modifiedZone, PeptidePTMPattern ptmGoodRes, PeptidePTMPattern ptmBadRes, PeptidePTMPattern ptmTemplate, Map<Integer, VarPtm[]> idxVarModMap, double totalDeltaMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge, SortedMap<Double, Double> unUsedPlMap) { // Sometimes, the precursor mass error may affects the digitized spectrum.
         double ptmMass = 0;
         for (int pos : modifiedZone) {
             if (!idxVarModMap.containsKey(pos)) continue;
@@ -425,8 +405,8 @@ public class InferPTM {
                 if (ptmId == 0 && pos == 22){
                     int a = 1;
                 }
-                int lb = Math.max(0, Collections.min(modifiedZone)-1);
-                int rb = Math.min(ptmFreePeptide.length()-3, Collections.max(modifiedZone)-1);
+                int lb = Math.max(0, Collections.min(modifiedZone));
+                int rb = Math.min(ptmFreePeptide.length()-1, Collections.max(modifiedZone));
                 Set<Integer> jRange = IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());
 //                Set<Integer> jRange = new HashSet<>();
 //                for (int i : modifiedZone) {
@@ -443,7 +423,7 @@ public class InferPTM {
                 if (score > scoreLb) {
 //                    System.out.println("numPtmsOnPep " + numPtmsOnPep  + " XCorr " + score);
                     peptide.setScore(score);
-                    peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, localMaxMS2Charge, peptide.getIonMatrix(), ms2Tolerance));
+                    peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, peptide.getIonMatrix(), ms2Tolerance));
                     peptide.matchedBions.putAll(matchedBions);
                     peptide.matchedYions.putAll(matchedYions);
                     if (Math.abs(totalDeltaMass - idxVarModMap.get(pos)[ptmId].mass) <= 0.01){
@@ -535,40 +515,6 @@ public class InferPTM {
         return new DividedZone(keptZone, freeZone, ptmMass);
     }
 
-//    public static Multimap<Character, ModEntry> readUnimodAndGenerateAAS(double minPtmMass, double maxPtmMass) throws IOException {
-//        Multimap<Character, ModEntry> siteModMap = HashMultimap.create();
-//        InputStream inputStream = OutputPeff.class.getClassLoader().getResourceAsStream("unimod.xml.tsv");
-//        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-//        String line;
-//        while ((line = reader.readLine()) != null) {
-//            line = line.trim();
-//            if (!line.isEmpty() && !line.startsWith("accession")) {
-//                String[] parts = line.split("\t");
-//                if (!parts[6].contentEquals("Isotopic label") && !parts[6].contentEquals("AA substitution")) { // We don't consider isotopic label and amino acid substitution..
-//                    char site = parts[1].charAt(0);
-//                    if (parts[1].trim().contentEquals("N-term")) {
-//                        site = 'n';
-//                    } else if (parts[1].trim().contentEquals("C-term")) {
-//                        site = 'c';
-//                    }
-//                    if (site != 'n' && site != 'c') { // We don't consider peptide terminal modifications
-//                        double ptmDeltaMass =  Double.valueOf(parts[4].trim());
-//                        if (ptmDeltaMass >= minPtmMass && ptmDeltaMass <= maxPtmMass) { // only record the PTM within the delta mass range
-//                            siteModMap.put(site, new ModEntry("UNIMOD:" + parts[0].trim(), parts[2].trim().contentEquals("null") ? parts[3].trim() : parts[2].trim(), ptmDeltaMass)); // if there is no PSI-MS name, use the internal name in the Unimod
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//        reader.close();
-//
-//        return siteModMap;
-//    }
-
-    public Multimap<Character, ModEntry> getSiteModMap() {
-        return siteModMap;
-    }
-
     public double getMinPtmMass() {
         return minPtmMass;
     }
@@ -577,52 +523,7 @@ public class InferPTM {
         return maxPtmMass;
     }
 
-    private Map<Character, Set<VarModParam>> readModFile() throws Exception {
-        Map<Character, Set<VarModParam>> siteModMap = new HashMap<>();
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("modTable.tsv"); // PTMs from Unimod except for AA substitutions, isotopic labellings
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            line = line.trim();
-            if (!line.isEmpty() && !line.startsWith("site")) {
-                String[] parts = line.split("\t");
-                if (!parts[1].trim().contentEquals("null")) { // We don't consider those without PSI-MS names.
-                    char site = parts[0].charAt(0);
-                    if (parts[0].trim().contentEquals("N-term")) {
-                        site = 'n';
-                    } else if (parts[0].trim().contentEquals("C-term")) {
-                        site = 'c';
-                    }
-                    double mass = calculateMassFromComposition(parts[3].trim());
-                    if (mass >= minPtmMass && mass <= maxPtmMass) {
-                        if (site == 'n' || site == 'c' || massTable.get(site) + mass > ms2Tolerance) { // The mass of a modified amino acid cannot be 0 or negative.
-                            int priority = Integer.valueOf(parts[4]);
-                            VarModParam temp = new VarModParam(mass, site, priority, true); // natural N/C-terminal PTMs only happens on protein terminal.
-                            if (siteModMap.containsKey(site)) {
-                                if (siteModMap.get(site).contains(temp)) {
-                                    if (temp.priority == 1) { // temp is a high priority PTM, it is safe to overwrite the original PTM.
-                                        siteModMap.get(site).add(temp);
-                                    }
-                                } else {
-                                    siteModMap.get(site).add(temp);
-                                }
-                            } else {
-                                Set<VarModParam> tempSet = new HashSet<>();
-                                tempSet.add(temp);
-                                siteModMap.put(site, tempSet);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        reader.close();
-        return siteModMap;
-    }
-
-    private Map<Character, Set<VarModParam>> readModXml() throws Exception {
-        Map<Character, Set<VarModParam>> siteModMap = new HashMap<>();
-
+    private void readModFromUnimod() throws Exception {
         SAXReader reader = new SAXReader();
         Document document = reader.read(new File("/home/slaiad/Code/PIPI/src/main/resources/unimod.xml"));
         Element rootElement = document.getRootElement();
@@ -638,43 +539,67 @@ public class InferPTM {
                 Element modElem = modIter.next();
 
                 String name = modElem.attributeValue("title");
+                if (name.contentEquals("Diethylphosphothione")) {
+                    int a =1;
+                }
                 Set<Integer> recordIdWithPsiName = new HashSet<> (Arrays.asList(1,2,3,4,5,6,7,8,9,10,11,12,13,17,20,21,23,24,25,26,27,28,29,30,31,34,35,36,37,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,58,59,60,61,62,63,64,65,66,89,90,91,92,93,94,95,97,105,106,107,108,118,119,121,122,123,124,126,127,128,129,130,131,134,135,136,137,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,170,171,172,176,178,184,185,186,187,188,193,194,195,196,197,198,199,200,205,206,207,208,209,211,212,213,214,243,253,254,255,256,258,259,260,261,262,264,267,268,269,270,271,272,275,276,278,280,281,284,285,286,288,289,290,291,292,293,294,295,298,299,301,302,303,305,307,308,309,310,311,312,313,314,316,318,319,320,323,324,325,327,329,330,332,333,335,337,340,342,344,345,348,349,350,351,352,354,359,360,362,363,364,365,366,368,369,371,372,374,375,376,377,378,379,380,381,382,385,387,388,389,390,391,392,393,394,395,396,397,398,400,401,402,403,405,407,408,409,410,411,412,413,414,415,416,417,419,420,421,422,423,424,425,426,428,429,431,432,433,434,435,436,437,438,439,440,442,443,444,445,447,448,449,450,451,452,453,454,455,457,464,472,476,477,478,481,488,490,493,494,495,498,499,500,501,510,512,513,514,515,518,519,520,522,523,526,528,529,530,531,532,533,534,535,687,695,696,772));
                 int recordId = Integer.valueOf(modElem.attributeValue("record_id"));
                 double mass = Double.valueOf(modElem.element("delta").attributeValue("mono_mass"));
-                if (mass < -250 || mass > 250) continue;
-
+                if (mass < minPtmMass || mass > maxPtmMass) continue;
+                if (Math.abs(mass - 56.0626) <0.01) {
+                    int a = 1;
+                }
                 for (Element spec : modElem.elements("specificity")) {
                     String classification = spec.attributeValue("classification");
-//                    if (classification.contentEquals("Isotopic label") || classification.contentEquals("AA substitution")) continue;
-                    if (!recordIdWithPsiName.contains(Integer.valueOf(modElem.attributeValue("record_id"))) && !classification.contentEquals("AA substitution")) continue;
                     if (classification.contentEquals("Isotopic label") || classification.contains("glycos") || classification.contains("Other")) continue;
 
-                    char site = spec.attributeValue("site").charAt(0);
-                    boolean onlyProteinTerminalIfnc = false;
-                    String position = spec.attributeValue("position");
-                    if (spec.attributeValue("site").contentEquals("N-term")) {
-                        site = 'n';
-                        if (position.contentEquals("Protein N-term")) onlyProteinTerminalIfnc = true;
-                    } else if (spec.attributeValue("site").contentEquals("C-term")) {
-                        site = 'c';
-                        if (position.contentEquals("Protein C-term")) onlyProteinTerminalIfnc = true;
-                    }
-                    if (position == null) {
-                        int a = 1;
-                    }
-                    VarModParam temp = new VarModParam(mass, site, position, onlyProteinTerminalIfnc, classification, name);
+//                    if (!recordIdWithPsiName.contains(recordId) && !classification.contentEquals("AA substitution")) continue;
 
-                    if (siteModMap.containsKey(site)) {
-                        siteModMap.get(site).add(temp);
+                    String siteStr = spec.attributeValue("site");
+                    String positionStr = spec.attributeValue("position");
+                    int position = 0;
+                    switch (positionStr) {
+                        case "Protein N-term":
+                            position = 0;
+                            break;
+                        case "Protein C-term":
+                            position = 1;
+                            break;
+                        case "Any N-term":
+                            position = 2;
+                            break;
+                        case "Any C-term":
+                            position = 3;
+                            break;
+                        case "Anywhere":
+                            position = 4;
+                            break;
+                    }
+                    if (siteStr.contentEquals("N-term") || siteStr.contentEquals("C-term")) {
+                        for (char site : aaCharSet) {
+                            VarPtm temp = new VarPtm(mass, site, position, name, classification, 0);
+                            if (finalPtmMap.containsKey(site)) {
+                                finalPtmMap.get(site).add(temp);
+                            } else {
+                                Set<VarPtm> varPtmSet = new HashSet<>();
+                                varPtmSet.add(temp);
+                                finalPtmMap.put(site, varPtmSet);
+                            }
+                        }
                     } else {
-                        Set<VarModParam> tempSet = new HashSet<>();
-                        tempSet.add(temp);
-                        siteModMap.put(site, tempSet);
+                        char site = siteStr.charAt(0);
+                        VarPtm temp = new VarPtm(mass, site, position, name, classification, 0);
+                        if (finalPtmMap.containsKey(site)) {
+                            finalPtmMap.get(site).add(temp);
+                        } else {
+                            Set<VarPtm> varPtmSet = new HashSet<>();
+                            varPtmSet.add(temp);
+                            finalPtmMap.put(site, varPtmSet);
+                        }
                     }
                 }
             }
         }
-        return siteModMap;
     }
 
     private double calculateMassFromComposition(String composition) throws Exception {
@@ -696,62 +621,11 @@ public class InferPTM {
         return mass;
     }
 
-    private Map<Character, Set<VarModParam>> buildAASMap(Multimap<Character, ModEntry> siteModMap) {
-        int[][] pam1Matrix = new int[][]{
-                {9867 , 2    , 9    , 10   , 3    , 8    , 17   , 21   , 2    , 6    , 4    , 2    , 6    , 2    , 22   , 35   , 32   , 0    , 2    , 18},
-                {1    , 9913 , 1    , 0    , 1    , 10   , 0    , 0    , 10   , 3    , 1    , 19   , 4    , 1    , 4    , 6    , 1    , 8    , 0    , 1},
-                {4    , 1    , 9822 , 36   , 0    , 4    , 6    , 6    , 21   , 3    , 1    , 13   , 0    , 1    , 2    , 20   , 9    , 1    , 4    , 1},
-                {6    , 0    , 42   , 9859 , 0    , 6    , 53   , 6    , 4    , 1    , 0    , 3    , 0    , 0    , 1    , 5    , 3    , 0    , 0    , 1},
-                {1    , 1    , 0    , 0    , 9973 , 0    , 0    , 0    , 1    , 1    , 0    , 0    , 0    , 0    , 1    , 5    , 1    , 0    , 3    , 2},
-                {3    , 9    , 4    , 5    , 0    , 9876 , 27   , 1    , 23   , 1    , 3    , 6    , 4    , 0    , 6    , 2    , 2    , 0    , 0    , 1},
-                {10   , 0    , 7    , 56   , 0    , 35   , 9865 , 4    , 2    , 3    , 1    , 4    , 1    , 0    , 3    , 4    , 2    , 0    , 1    , 2},
-                {21   , 1    , 12   , 11   , 1    , 3    , 7    , 9935 , 1    , 0    , 1    , 2    , 1    , 1    , 3    , 21   , 3    , 0    , 0    , 5},
-                {1    , 8    , 18   , 3    , 1    , 20   , 1    , 0    , 9912 , 0    , 1    , 1    , 0    , 2    , 3    , 1    , 1    , 1    , 4    , 1},
-                {2    , 2    , 3    , 1    , 2    , 1    , 2    , 0    , 0    , 9872 , 9    , 2    , 12   , 7    , 0    , 1    , 7    , 0    , 1    , 33},
-                {3    , 1    , 3    , 0    , 0    , 6    , 1    , 1    , 4    , 22   , 9947 , 2    , 45   , 13   , 3    , 1    , 3    , 4    , 2    , 15},
-                {2    , 37   , 25   , 6    , 0    , 12   , 7    , 2    , 2    , 4    , 1    , 9926 , 20   , 0    , 3    , 8    , 11   , 0    , 1    , 1},
-                {1    , 1    , 0    , 0    , 0    , 2    , 0    , 0    , 0    , 5    , 8    , 4    , 9874 , 1    , 0    , 1    , 2    , 0    , 0    , 4},
-                {1    , 1    , 1    , 0    , 0    , 0    , 0    , 1    , 2    , 8    , 6    , 0    , 4    , 9946 , 0    , 2    , 1    , 3    , 28   , 0},
-                {13   , 5    , 2    , 1    , 1    , 8    , 3    , 2    , 5    , 1    , 2    , 2    , 1    , 1    , 9926 , 12   , 4    , 0    , 0    , 2},
-                {28   , 11   , 34   , 7    , 11   , 4    , 6    , 16   , 2    , 2    , 1    , 7    , 4    , 3    , 17   , 9840 , 38   , 5    , 2    , 2},
-                {22   , 2    , 13   , 4    , 1    , 3    , 2    , 2    , 1    , 11   , 2    , 8    , 6    , 1    , 5    , 32   , 9871 , 0    , 2    , 9},
-                {0    , 2    , 0    , 0    , 0    , 0    , 0    , 0    , 0    , 0    , 0    , 0    , 0    , 1    , 0    , 1    , 0    , 9976 , 1    , 0},
-                {1    , 0    , 3    , 0    , 3    , 0    , 1    , 0    , 4    , 1    , 1    , 0    , 0    , 21   , 0    , 1    , 1    , 2    , 9945 , 1},
-                {13   , 2    , 1    , 1    , 3    , 2    , 2    , 3    , 3    , 57   , 11   , 1    , 17   , 1    , 3    , 2    , 10   , 0    , 2    , 9901},
-        };
-        char[] aaArray = new char[]{'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V'};
-        Map<Character, Set<VarModParam>> aasMap = new HashMap<>();
-        for (int i = 0; i < aaArray.length; ++i) {
-            for (int j = 0; j < aaArray.length; ++j) {
-                if (i != j) {
-                    if (!(aaArray[i] == 'I' && aaArray[j] == 'L') && !(aaArray[i] == 'L' && aaArray[j] == 'I')) { // "I" and "L" have the same mass. don't consider such a AA substitution.
-                        double ptmDeltaMass = massTable.get(aaArray[j]) - massTable.get(aaArray[i]);
-                        if (ptmDeltaMass >= minPtmMass && ptmDeltaMass <= maxPtmMass) {
-                            VarModParam temp = new VarModParam(ptmDeltaMass, aaArray[i], 0, true);
-                            if (aasMap.containsKey(aaArray[i])) {
-                                aasMap.get(aaArray[i]).add(temp); // all AAs have the same priority
-                            } else {
-                                Set<VarModParam> tempSet = new HashSet<>();
-                                tempSet.add(temp);
-                                aasMap.put(aaArray[i], tempSet);
-                            }
-
-                            siteModMap.put(aaArray[i], new ModEntry("AAS", aaArray[i] + "->" + aaArray[j], ptmDeltaMass)); // add the amino acid substitution to the map.
-                        }
-                    }
-                }
-            }
-        }
-        return aasMap;
-    }
 
     private Set<Integer> getFixModIdxes(String ptmFreePeptide, Map<Character, Double> fixModMap) {
         Set<Integer> outputSet = new HashSet<>(ptmFreePeptide.length(), 1);
         char[] tempArray = ptmFreePeptide.toCharArray();
         for (int i = 0; i < tempArray.length; ++i) {
-//            if (!fixModMap.containsKey(tempArray[i])) {
-//                System.out.println("no ptmFreePeptide" + ptmFreePeptide);
-//            }
             if (Math.abs(fixModMap.get(tempArray[i])) > 0.1) {
                 outputSet.add(i);
             }
@@ -759,15 +633,15 @@ public class InferPTM {
         return outputSet;
     }
 
-    private Map<Integer, Set<VarModParam>> getIdxVarModMap(String ptmFreePeptide, Set<Integer> fixModIdxes, char leftFlank, char rightFlank) {
-        Map<Integer, Set<VarModParam>> idxVarModMap = new HashMap<>(ptmFreePeptide.length() + 1, 1);
+    private Map<Integer, Set<VarPtm>> getIdxVarModMap(String ptmFreePeptide, Set<Integer> fixModIdxes, char leftFlank, char rightFlank) {
+        Map<Integer, Set<VarPtm>> idxVarModMap = new HashMap<>(ptmFreePeptide.length() + 1, 1);
         for (int i = 0; i < ptmFreePeptide.length(); ++i) {
             if (!fixModIdxes.contains(i)) {
                 char aa = ptmFreePeptide.charAt(i);
                 if (aa == 'n') {
                     if (finalPtmMap.containsKey('n')) {
-                        Set<VarModParam> tempSet = new HashSet<>();
-                        for (VarModParam modEntry : finalPtmMap.get('n')) {
+                        Set<VarPtm> tempSet = new HashSet<>();
+                        for (VarPtm modEntry : finalPtmMap.get('n')) {
                             if (!modEntry.onlyProteinTerminalIfnc || leftFlank == '-') {
                                 if ((leftFlank != 'K' || Math.abs(massTable.get('K') - modEntry.mass) > ms2Tolerance) && (leftFlank != 'R' || Math.abs(massTable.get('R') - modEntry.mass) > ms2Tolerance) && (massTable.get(ptmFreePeptide.charAt(1)) + modEntry.mass > ms2Tolerance)) {  // Fixing missed cleavages caused issue in N-term and the mass of a modified amino acid cannot be 0 or negative.
                                     tempSet.add(modEntry);
@@ -780,8 +654,8 @@ public class InferPTM {
                     }
                 } else if (aa == 'c') {
                     if (finalPtmMap.containsKey('c')) {
-                        Set<VarModParam> tempSet = new HashSet<>();
-                        for (VarModParam modEntry : finalPtmMap.get('c')) {
+                        Set<VarPtm> tempSet = new HashSet<>();
+                        for (VarPtm modEntry : finalPtmMap.get('c')) {
                             if (!modEntry.onlyProteinTerminalIfnc || rightFlank == '-') {
                                 if ((rightFlank != 'K' || Math.abs(massTable.get('K') - modEntry.mass) > ms2Tolerance) && (rightFlank != 'R' || Math.abs(massTable.get('R') - modEntry.mass) > ms2Tolerance) && (massTable.get(ptmFreePeptide.charAt(ptmFreePeptide.length() - 2)) + modEntry.mass > ms2Tolerance)) {  // Fixing missed cleavages caused issue in C-term and the mass of a modified amino acid cannot be 0 or negative
                                     tempSet.add(modEntry);
@@ -802,85 +676,52 @@ public class InferPTM {
         return idxVarModMap;
     }
 
-    private Map<Integer, Set<VarModParam>> getIdxVarModMapNew(String ptmFreePeptide, Set<Integer> fixModIdxes, char leftFlank, char rightFlank) {
-        Map<Integer, Set<VarModParam>> idxVarModMap = new HashMap<>(ptmFreePeptide.length() + 1, 1);
+    private Map<Integer, Set<VarPtm>> getIdxVarModMapNew(String ptmFreePeptide, Set<Integer> fixModIdxes, int pepPos) {
+        Map<Integer, Set<VarPtm>> idxVarModMap = new HashMap<>(ptmFreePeptide.length() + 1, 1);
+        boolean nHasProtPtm = false;
+        boolean cHasProtPtm = false;
+        if (pepPos == -1) {
+            nHasProtPtm = true;
+        } else if (pepPos == 1) {
+            cHasProtPtm = true;
+        }
+        if (pepPos != 0) {
+            int a = 1;
+        }
         for (int i = 0; i < ptmFreePeptide.length(); ++i) {
-            if (!fixModIdxes.contains(i)) {
-                char aa = ptmFreePeptide.charAt(i);
-                if (aa == 'n') {
-                    if (finalPtmMap.containsKey('n')) {
-                        Set<VarModParam> tempSet = new HashSet<>();
-                        for (VarModParam modEntry : finalPtmMap.get('n')) {
-                            if ( (leftFlank != '-' && !modEntry.position.contentEquals("Protein N-term"))
-                                    || (leftFlank == '-')) {
-                                if ((leftFlank != 'K' || Math.abs(massTable.get('K') - modEntry.mass) > ms2Tolerance)
-                                        && (leftFlank != 'R' || Math.abs(massTable.get('R') - modEntry.mass) > ms2Tolerance)
-                                        && (massTable.get(ptmFreePeptide.charAt(1)) + modEntry.mass > ms2Tolerance)) {
-                                    // Fixing missed cleavages caused issue in N-term and the mass of a modified amino acid cannot be 0 or negative. lsz ????
-                                    int a = 1;
-                                }
-                                if (massTable.get(ptmFreePeptide.charAt(1)) + modEntry.mass > ms2Tolerance){
-                                    // Fixing missed cleavages caused issue in N-term and the mass of a modified amino acid cannot be 0 or negative. lsz ????
-                                    tempSet.add(modEntry);
-                                }
-                            }
-                        }
-                        if (!tempSet.isEmpty()) {
-                            idxVarModMap.put(0, tempSet);
+            if (fixModIdxes.contains(i)) continue;
+            char aa = ptmFreePeptide.charAt(i);
+
+            if (finalPtmMap.containsKey(aa)) {
+                Set<VarPtm> dstSet = new HashSet<>();
+                Set<VarPtm> srcSet = finalPtmMap.get(aa);
+                if (i == 0) { //aa at seq n term
+                    for (VarPtm varPtm : srcSet) {
+                        if (massTable.get(ptmFreePeptide.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
+
+                        if (varPtm.position == 4 || varPtm.position == 2 || (varPtm.position == 0 && nHasProtPtm)) { // anywhere or pepN or (protN and pepPos at protN)
+                            dstSet.add(varPtm);
                         }
                     }
-                } else if (aa == 'c') {
-                    if (finalPtmMap.containsKey('c')) {
-                        Set<VarModParam> tempSet = new HashSet<>();
-                        for (VarModParam modEntry : finalPtmMap.get('c')) {
-                            if ( (rightFlank != '-' && !modEntry.position.contentEquals("Protein C-term"))
-                                    || (rightFlank == '-')) {
-                                if ((rightFlank != 'K' || Math.abs(massTable.get('K') - modEntry.mass) > ms2Tolerance)
-                                        && (rightFlank != 'R' || Math.abs(massTable.get('R') - modEntry.mass) > ms2Tolerance)
-                                        && (massTable.get(ptmFreePeptide.charAt(ptmFreePeptide.length() - 2)) + modEntry.mass > ms2Tolerance)) {
-                                    // Fixing missed cleavages caused issue in C-term and the mass of a modified amino acid cannot be 0 or negative
-                                }
-                                if ((massTable.get(ptmFreePeptide.charAt(ptmFreePeptide.length() - 2)) + modEntry.mass > ms2Tolerance)) {
-                                    // Fixing missed cleavages caused issue in C-term and the mass of a modified amino acid cannot be 0 or negative
-                                    tempSet.add(modEntry);
-                                }
-                            }
-                        }
-                        if (!tempSet.isEmpty()) {
-                            idxVarModMap.put(ptmFreePeptide.length() - 1, tempSet);
+                } else if (i == ptmFreePeptide.length()-1) { //aa at seq c term
+                    for (VarPtm varPtm : srcSet) {
+                        if (massTable.get(ptmFreePeptide.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
+
+                        if (varPtm.position == 4 || varPtm.position == 3 || (varPtm.position == 1 && cHasProtPtm)) { // anywhere or pepC or (protC and pepPos at protC)
+                            dstSet.add(varPtm);
                         }
                     }
-                } else {
-                    if (finalPtmMap.containsKey(aa)) {
-                        Set<VarModParam> tempSet = new HashSet<>();
-                        for (VarModParam modEntry : finalPtmMap.get(aa)) {
-                            if (modEntry.position == null) {
-                                int a = 1;
-                            }
-                            if ((massTable.get(ptmFreePeptide.charAt(i)) + modEntry.mass <= ms2Tolerance)) {
-                                // Fixing missed cleavages caused issue in C-term and the mass of a modified amino acid cannot be 0 or negative
-                                continue;
-                            }
-                            if (modEntry.position.contentEquals("Anywhere")) {
-                                tempSet.add(modEntry);
-                            }
-                            if (modEntry.position.contentEquals("Any N-term") && (i == 1)) {
-                                tempSet.add(modEntry);
-                            }
-                            if (modEntry.position.contentEquals("Any C-term") && (i == ptmFreePeptide.length()-2)) {
-                                tempSet.add(modEntry);
-                            }
-                            if (modEntry.position.contentEquals("Protein N-term") && (i == 1) && (leftFlank == '_')) {
-                                tempSet.add(modEntry);
-                            }
-                            if (modEntry.position.contentEquals("Any C-term") && (i == ptmFreePeptide.length()-2) && (rightFlank == '_')) {
-                                tempSet.add(modEntry);
-                            }
-                        }
-                        if (!tempSet.isEmpty()) {
-                            idxVarModMap.put(i, tempSet);
+                } else {//aa at middle
+                    for (VarPtm varPtm : srcSet) {
+                        if (massTable.get(ptmFreePeptide.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
+
+                        if (varPtm.position == 4) { // anywhere
+                            dstSet.add(varPtm);
                         }
                     }
+                }
+                if (!dstSet.isEmpty()) {
+                    idxVarModMap.put(i, dstSet);
                 }
             }
         }

@@ -87,9 +87,13 @@ public class InferSegment {
             if (k.startsWith("mod")) {
                 String v = parameterMap.get(k);
                 if (!v.startsWith("0.0")) {
-                    String[] temp = v.split("@");
+                    //15.994915,M,0,Oxidation
+                    String[] temp = v.split(",");
+//                    if (temp.length == 1) {
+//                        int a = 1;
+//                    }
                     double tempMass = massTable.get(temp[1].charAt(0)) + Double.valueOf(temp[0]);
-                    // check if the mass has conflict
+                    // check if the mass has conflict. Dont allow user specify mod that will make the modified aa conflict with other aa
                     for (double temp2 : modifiedAAMap.keySet()) {
                         if (Math.abs(temp2 - tempMass) <= ms2Tolerance) {
                             throw new Exception(String.format(Locale.US, "%s and %s have conflict mass values(%f vs %f).", v, modifiedAAMap.get(temp2), tempMass, temp2));
@@ -524,7 +528,7 @@ public class InferSegment {
             for (int j = i + 1; j < mzArray.length - 3; ++j) {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
-                if ((intensity1+intensity2)/2 < 0.5) continue;
+                if ((intensity1+intensity2)/2 < 0.2) continue;
                 String aa1 = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
                 if (aa1 != null) {
                     Matcher matcher = pattern.matcher(aa1);
@@ -551,7 +555,7 @@ public class InferSegment {
                     for (int k = j + 1; k < mzArray.length - 2; ++k) {
                         double mz3 = mzArray[k];
                         double intensity3 = intensityArray[k];
-                        if ((intensity2+intensity3)/2 < 0.5) continue;
+                        if ((intensity2+intensity3)/2 < 0.2) continue;
                         String aa2 = inferAA(mz2, mz3, false, false);
                         if (aa2 != null) {
                             mod = 0;
@@ -563,7 +567,7 @@ public class InferSegment {
                             for (int l = k + 1; l < mzArray.length - 1; ++l) {
                                 double mz4 = mzArray[l];
                                 double intensity4 = intensityArray[l];
-                                if ((intensity3+intensity4)/2 < 0.5) continue;
+                                if ((intensity3+intensity4)/2 < 0.2) continue;
                                 String aa3 = inferAA(mz3, mz4, false, Math.abs(mz4 - cTermMz) <= ms2Tolerance);
                                 if (aa3 != null) {
                                     mod = 0;
@@ -575,7 +579,7 @@ public class InferSegment {
                                     for (int m = l + 1; m < mzArray.length; ++m) {
                                         double mz5 = mzArray[m];
                                         double intensity5 = intensityArray[m];
-                                        if ((intensity4+intensity5)/2 < 0.5) continue;
+                                        if ((intensity4+intensity5)/2 < 0.2) continue;
                                         String aa4 = inferAA(mz4, mz5, false, Math.abs(mz5 - cTermMz) <= ms2Tolerance);
                                         if (aa4 != null) {
                                             matcher = pattern.matcher(aa4);
@@ -823,29 +827,30 @@ public class InferSegment {
         double mzDiff = mz2 - mz1;
         for (double mass : deltaMassArray) {
             if (Math.abs(mzDiff - mass) <= 2 * ms2Tolerance) {
-                return modifiedAAMap.get(mass);
+                return modifiedAAMap.get(mass);// including M~
             }
         }
+        // I can also include variable modified aa with n term or c term
 
-        if (nTerm && (nTermPossibleMod != null)) {
-            for (double mass : deltaMassArray) {
-                for (int i = 0; i < nTermPossibleMod.length; ++i) {
-                    if (Math.abs(mzDiff - mass - nTermPossibleMod[i]) <= 2 * ms2Tolerance) {
-                        return "n" + i + modifiedAAMap.get(mass);
-                    }
-                }
-            }
-        }
-
-        if (cTerm && (cTermPossibleMod != null)) {
-            for (double mass : deltaMassArray) {
-                for (int i = 0; i < cTermPossibleMod.length; ++i) {
-                    if (Math.abs(mzDiff - mass - cTermPossibleMod[i]) <= 2 * ms2Tolerance) {
-                        return "c" + i + modifiedAAMap.get(mass);
-                    }
-                }
-            }
-        }
+//        if (nTerm && (nTermPossibleMod != null)) {
+//            for (double mass : deltaMassArray) {
+//                for (int i = 0; i < nTermPossibleMod.length; ++i) {
+//                    if (Math.abs(mzDiff - mass - nTermPossibleMod[i]) <= 2 * ms2Tolerance) {
+//                        return "n" + i + modifiedAAMap.get(mass);
+//                    }
+//                }
+//            }
+//        }
+//
+//        if (cTerm && (cTermPossibleMod != null)) {
+//            for (double mass : deltaMassArray) {
+//                for (int i = 0; i < cTermPossibleMod.length; ++i) {
+//                    if (Math.abs(mzDiff - mass - cTermPossibleMod[i]) <= 2 * ms2Tolerance) {
+//                        return "c" + i + modifiedAAMap.get(mass);
+//                    }
+//                }
+//            }
+//        }
 
         return null;
     }

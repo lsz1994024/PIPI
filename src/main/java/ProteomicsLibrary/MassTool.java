@@ -658,47 +658,21 @@ public class MassTool {
     public double[][] buildIonArray(String sequence, int maxCharge) { // there are n and c in the sequence
         AA[] aaArray = seqToAAList(sequence);
 
-        double[] inverseChargeArray = new double[maxCharge];
-        for (int charge = 1; charge <= maxCharge; ++charge) {
-            inverseChargeArray[charge - 1] = (double) 1 / (double) charge;
-        }
-
-        double[][] peptideIonArray = new double[2 * maxCharge][aaArray.length - 2];
-        // traverse the sequence to get b-ion
-        double bIonMass = massTable.get(aaArray[0].aa) + aaArray[0].ptmDeltaMass; // add N-term modification
-        for (int i = 1; i < aaArray.length - 2; ++i) {
+        double[][] ionArray = new double[2][aaArray.length];
+        //b-ion
+        double bIonMass = PROTON;
+        for (int i = 0; i < aaArray.length; ++i) {
             bIonMass += massTable.get(aaArray[i].aa) + aaArray[i].ptmDeltaMass;
-            for (int charge = 1; charge <= maxCharge; ++charge) {
-                peptideIonArray[2 * (charge - 1)][i - 1]  = bIonMass * inverseChargeArray[charge - 1] + PROTON;
-            }
-        }
-        // calculate the last b-ion with C-term modification
-        bIonMass +=  massTable.get(aaArray[aaArray.length - 2].aa) + aaArray[aaArray.length - 2].ptmDeltaMass + massTable.get(aaArray[aaArray.length - 1].aa) + aaArray[aaArray.length - 1].ptmDeltaMass;
-        for (int charge = 1; charge <= maxCharge; ++charge) {
-            peptideIonArray[2 * (charge - 1)][aaArray.length - 3] = bIonMass * inverseChargeArray[charge - 1] + PROTON;
+            ionArray[0][i] = bIonMass;
         }
 
-        // traverse the sequence with reversed order to get y-ion
-        // the whole sequence
-        double yIonMass = bIonMass + H2O;
-        for (int charge = 1; charge <= maxCharge; ++charge) {
-            peptideIonArray[2 * (charge - 1) + 1][0] = yIonMass * inverseChargeArray[charge - 1] + PROTON;
+        // y-ion
+        double yIonMass = H2O + PROTON; // this is the final bIonMass i.e. the precursor mass
+        for (int i = aaArray.length-1; i >= 0; --i) {
+            yIonMass += massTable.get(aaArray[i].aa) + aaArray[i].ptmDeltaMass;
+            ionArray[1][i] = yIonMass;
         }
-        // delete the first amino acid and N-term modification
-        yIonMass -= massTable.get(aaArray[0].aa) + aaArray[0].ptmDeltaMass + massTable.get(aaArray[1].aa) + aaArray[1].ptmDeltaMass;
-        for (int charge = 1; charge <= maxCharge; ++charge) {
-            peptideIonArray[2 * (charge - 1) + 1][1] = yIonMass * inverseChargeArray[charge - 1] + PROTON;
-        }
-
-        // rest of the sequence
-        for (int i = 2; i < aaArray.length - 2; ++i) {
-            yIonMass -= massTable.get(aaArray[i].aa) + aaArray[i].ptmDeltaMass;
-            for (int charge = 1; charge <= maxCharge; ++charge) {
-                peptideIonArray[2 * (charge - 1) + 1][i] = yIonMass * inverseChargeArray[charge - 1] + PROTON;
-            }
-        }
-
-        return peptideIonArray;
+        return ionArray;
     }
 
     public double[][] buildTheoBYIonsArray(String sequence, int maxCharge) { // there are n and c in the sequence
@@ -790,18 +764,16 @@ public class MassTool {
         if (precursorCharge == 1) {
             rowNum = 2;
         }
-//        System.out.println("\n =========================");
-
         double xcorr = 0;
         for (int i = 0; i < rowNum; ++i) {
             for (int j : jRange) {
                 double peakIntensity = xcorrPL.get(mzToBin(ionMatrix[i][j]));
                 if (peakIntensity > 0.0) {
                     if (0 == i){
-                        matchedBions.put(j+1, peakIntensity);
+                        matchedBions.put(j, peakIntensity);
 //                        System.out.println("b,"+(j)+","+(ionMatrix[i][j]+flankMass)+  ","+ xcorrPL.get(mzToBin(ionMatrix[i][j]+flankMass)));
                     } else if (1 == i){
-                        matchedYions.put(j+1, peakIntensity);
+                        matchedYions.put(j, peakIntensity);
 //                        System.out.println("y,"+(j+1)+","+(ionMatrix[i][j]+flankMass)+  ","+ xcorrPL.get(mzToBin(ionMatrix[i][j]+flankMass)));
                     }
                 }

@@ -146,10 +146,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             Set<Pair<String, Integer>> protPosPairs = tagProtPosMap.get(tagInfo.getPtmFreeAAString());
             for (Pair<String, Integer> protPos : protPosPairs){
                 String protId = protPos.getFirst();
-//                if (protId.contentEquals("sp|P35637|FUS_HUMAN") && lszDebugScanNum.contains(scanNum)) {
-//                    int a = 1;
-//                }
-//                double tagNMass = tagInfo.getHeadLocation();
                 double tagCMass = tagInfo.getTailLocation();
                 int pos = protPos.getSecond();
                 String protSeq = buildIndex.protSeqMap.get(protId);
@@ -170,25 +166,41 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 for (int cPos : cPosSet) {
                     double deltaMass = precursorMass - massTool.calResidueMass(protSeq.substring(pos,cPos+1)) - massTool.H2O;
+                    char rightFlank;
+                    if (cPos == protSeq.length()-1) {
+                        rightFlank = '-';
+                    } else {
+                        rightFlank = protSeq.charAt(cPos+1);
+                    }
+
 //                    int numMissCleave = 0;
                     for (int nPos = pos-1; nPos > 0; nPos--) {
                         if (isX(protSeq.charAt(nPos))) break;
                         deltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                         if (deltaMass > 250) continue;
                         if (deltaMass < -250) break;
-                        String pepSeq = "n"+protSeq.substring(nPos, cPos+1)+"c";
+                        String pepSeq = protSeq.substring(nPos, cPos+1);
+
+                        char leftFlank;
+                        if (nPos == 0 || (nPos == 1 && protSeq.charAt(0) == 'M')){
+                            leftFlank = '-';
+                        } else {
+                            leftFlank = protSeq.charAt(nPos-1);
+                        }
+
                         if (peptideInfoMap.containsKey(pepSeq)) {
                             PeptideInfo pepInfo = peptideInfoMap.get(pepSeq);
+                            if (pepInfo.leftFlank != '-' && pepInfo.rightFlank != '-') {
+                                if (rightFlank == '-' || leftFlank == '-') {
+                                    pepInfo.leftFlank = leftFlank;
+                                    pepInfo.rightFlank = rightFlank;
+                                }
+                            }
                             pepInfo.protIdSet.add(protId);
                             if (!protId.startsWith("DECOY_")) {
                                 pepInfo.isTarget = true;
                             }
                         } else {
-                            char leftFlank = '-';
-                            char rightFlank = '-';
-                            if (nPos-1 >= 0) leftFlank = protSeq.charAt(nPos-1);
-                            if (cPos+1 <= protSeq.length()-1) rightFlank = protSeq.charAt(cPos+1);
-
                             PeptideInfo pepInfo = new PeptideInfo(pepSeq, !protId.startsWith("DECOY_"), leftFlank, rightFlank);
                             pepInfo.protIdSet.add(protId);
                             peptideInfoMap.put(pepSeq, pepInfo);
@@ -196,9 +208,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
             }
-//            if (peptideInfoMap.size() > 100000){
-////                break;
-//            }
         }
         entry.scanName = this.scanName;
         List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);

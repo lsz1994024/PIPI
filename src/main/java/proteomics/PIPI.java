@@ -49,7 +49,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(48176));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(10905));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -235,7 +235,7 @@ public class PIPI {
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 50) {
+                if (Math.abs(scanNum-debugScanNum) < 10) {
                     shouldRun = true;
                 }
             }
@@ -368,9 +368,9 @@ public class PIPI {
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
 
-//            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
+            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
             ii++;
-            if (pair.getSecond() < 100) break;
+            if (pair.getSecond() < 20) break;
             reducedProtIdSet.add(pair.getFirst());
         }
 

@@ -45,8 +45,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     private PositionDeltaMassMap varPTMMap = null;
     private double theoMass = -1;
     private double[][] ionMatrix = null;
-    private double[][] theoIonMatrix = null;
-    private double[] chargeOneBIonArray = null;
     private String varPtmContainingSeq = null;
 
     private String ptmContainingSeq = null;
@@ -74,16 +72,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         hashCode = ptmFreePeptide.hashCode();
     }
 
-//    public Peptide(String ptmFreePeptide, boolean isDecoy, MassTool massTool, int maxMs2Charge, double normalizedCrossCorrelationCoefficient, int globalRank) {
-//        this.ptmFreePeptide = ptmFreePeptide;
-//        this.isDecoy = isDecoy;
-//        this.normalizedPeptideString = InferSegment.normalizeSequence(ptmFreePeptide);
-//        this.massTool = massTool;
-//        this.maxMs2Charge = maxMs2Charge;
-//
-//        hashCode = ptmFreePeptide.hashCode();
-//    }
-
     public void setScanNum(int scanNum) {this.scanNum = scanNum;}
 
     public int getGlobalRank() {
@@ -95,7 +83,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             varPtmContainingSeq = getVarPtmContainingSeq();
             ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
             theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-            chargeOneBIonArray = ionMatrix[0];
         }
         return ionMatrix;
     }
@@ -104,7 +91,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         varPtmContainingSeq = getVarPtmContainingSeqNow();
         ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
         theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-        chargeOneBIonArray = ionMatrix[0];
         return ionMatrix;
     }
 
@@ -146,15 +132,14 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return varPtmContainingSeq;
     }
 
-    public double[][] getTheoIonMatrix() {
-        if (theoIonMatrix == null) {
-            varPtmContainingSeq = getVarPtmContainingSeq();
-            theoIonMatrix = massTool.buildTheoBYIonsArray(varPtmContainingSeq, 1);
-            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-            chargeOneBIonArray = theoIonMatrix[0];
-        }
-        return theoIonMatrix;
-    }
+//    public double[][] getTheoIonMatrix() {
+//        if (theoIonMatrix == null) {
+//            varPtmContainingSeq = getVarPtmContainingSeq();
+//            theoIonMatrix = massTool.buildTheoBYIonsArray(varPtmContainingSeq, 1);
+//            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
+//        }
+//        return theoIonMatrix;
+//    }
 
     public String getNormalizedPeptideString() {
         return normalizedPeptideString;
@@ -169,20 +154,20 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             varPtmContainingSeq = getVarPtmContainingSeq();
             ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
             theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-            chargeOneBIonArray = ionMatrix[0];
+//            chargeOneBIonArray = ionMatrix[0];
         }
         return theoMass;
     }
 
-    public double[] getChargeOneBIonArray() {
-        if (chargeOneBIonArray == null) {
-            varPtmContainingSeq = getVarPtmContainingSeq();
-            ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
-            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-            chargeOneBIonArray = ionMatrix[0];
-        }
-        return chargeOneBIonArray;
-    }
+//    public double[] getChargeOneBIonArray() {
+//        if (chargeOneBIonArray == null) {
+//            varPtmContainingSeq = getVarPtmContainingSeq();
+//            ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+//            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
+//            chargeOneBIonArray = ionMatrix[0];
+//        }
+//        return chargeOneBIonArray;
+//    }
 
     public boolean equals(Object other) {
         if (!(other instanceof Peptide)) {
@@ -223,7 +208,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             // reset these fields to make them being regenerated again.
             theoMass = -1;
             ionMatrix = null;
-            chargeOneBIonArray = null;
+//            chargeOneBIonArray = null;
             varPtmContainingSeq = null;
             ptmContainingSeq = null;
 
