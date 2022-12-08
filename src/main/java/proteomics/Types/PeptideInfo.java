@@ -19,26 +19,27 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class PeptideInfo implements Cloneable{
-    public String seq;
-    public boolean isTarget;
+    public String freeSeq;
+    public boolean isDecoy;
     public Set<String> protIdSet = new HashSet<>();
     public char leftFlank;
     public char rightFlank;
 
-    public PeptideInfo(String seq, boolean isTarget, char leftFlank, char rightFlank) {
-        this.isTarget = isTarget;
+
+    public PeptideInfo(String freeSeq, boolean isDecoy, char leftFlank, char rightFlank) {
+        this.isDecoy = isDecoy;
         this.leftFlank = leftFlank;
         this.rightFlank = rightFlank;
-        this.seq = seq;
+        this.freeSeq = freeSeq;
     }
 
     public PeptideInfo clone() throws CloneNotSupportedException {
-//        if (super == null){
-//
-//        }
         super.clone();
-        PeptideInfo other = new PeptideInfo(seq, isTarget, leftFlank, rightFlank);
+        PeptideInfo other = new PeptideInfo(freeSeq, isDecoy, leftFlank, rightFlank);
+//        other.ptmSeq = this.ptmSeq;
         other.protIdSet.addAll(this.protIdSet);
+//        other.tagsThatHelp.addAll(this.tagsThatHelp);
+//        other.totalTagScore = this.totalTagScore;
         return other;
     }
 

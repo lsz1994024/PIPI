@@ -23,6 +23,7 @@ import com.google.common.collect.Multimap;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import proteomics.FM.FMIndex;
 import proteomics.PTM.InferPTM;
 import proteomics.Types.*;
 import proteomics.Index.BuildIndex;
@@ -46,10 +47,11 @@ public class PIPI {
     private static final Logger logger = LoggerFactory.getLogger(PIPI.class);
     public static final String versionStr = "1.4.7";
     static final boolean useXcorr = false;
-
+    static final boolean nTermSpecific = false;
+    static final int maxMissCleav = 2;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(10905));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(62866));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -368,12 +370,11 @@ public class PIPI {
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
 
-            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
+//            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
             ii++;
             if (pair.getSecond() < 20) break;
             reducedProtIdSet.add(pair.getFirst());
         }
-
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
@@ -381,6 +382,8 @@ public class PIPI {
                 iter.remove();
             }
         }
+
+
 
         //  END Score for Proteins
         //////////==================================================
@@ -487,6 +490,32 @@ public class PIPI {
             lockSpecCoder.unlock();
         }
 
+        // build reduced protein fm index
+//        long t1=System.currentTimeMillis();
+        BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProtReduced.txt"));
+        int dotPos = 0;
+        int dotNum = 0;
+        buildIndex.dotPosArrReduced = new int[buildIndex.protSeqMap.keySet().size()];
+
+        for (String protId : buildIndex.protSeqMap.keySet()) {
+            buildIndex.dotPosArrReduced[dotNum] = dotPos;
+            buildIndex.posProtMapReduced.put(dotNum, protId);
+            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
+            buildIndex.protSeqMap.put(protId, protSeq);
+            writerProt.write("." + protSeq.replace('I', 'L'));
+            dotNum++;
+            dotPos += protSeq.length()+1;
+            int numOfTags = buildIndex.inferSegment.getLongTagNumForProt(protSeq);
+            protLengthMap.put(protId, numOfTags);
+        }
+        writerProt.close();
+//        long t2=System.currentTimeMillis();
+        char[] text = buildIndex.loadFile("catProtReduced.txt", true);
+//        long t3=System.currentTimeMillis();
+        buildIndex.fmIndexReduced = new FMIndex(text);
+//        long t4=System.currentTimeMillis();
+//
+//        System.out.println("time," + (t4-t3) + "," + (t3-t2)+ "," + (t2-t1));
         buildIndex.minPeptideMass = minPeptideMass;
         buildIndex.maxPeptideMass = maxPeptideMass;
         buildIndex.tagProtPosMap = tagProtPosMap;
@@ -562,9 +591,9 @@ public class PIPI {
                 if (task.isDone()) {
                     if (task.get() != null) {
                         PreSearch.Entry entry = task.get();
-                        ptmOnlyCandiMap.put(entry.scanName, entry.ptmOnlyList);
-                        ptmFreeCandiMap.put(entry.scanName, entry.ptmFreeList);
-                        scanNamePeptideInfoMap.put(entry.scanName, entry.peptideInfoMap);
+                        ptmOnlyCandiMap.put(entry.scanName, entry.ptmCandiList);
+                        ptmFreeCandiMap.put(entry.scanName, entry.freeCandiList);
+                        scanNamePeptideInfoMap.put(entry.scanName, entry.peptideInfoMapForRef);
                         if (pcMassScanNameMap.containsKey(entry.precursorMass)) {
                             pcMassScanNameMap.get(entry.precursorMass).add(entry.scanName);
                         }else {
@@ -1134,7 +1163,7 @@ public class PIPI {
         for (ScanRes scanRes : scanResList) {  //scanResList is already ranked
             CandiScore candiScore = scanRes.peptideInfoScoreList.get(0);
             numTPlusD++;
-            if (!candiScore.peptideInfo.isTarget) numD++;
+            if (candiScore.peptideInfo.isDecoy) numD++;
             fdrList.add(2*(double)numD/numTPlusD);
 //            System.out.println(scanRes.scanNum + "," + candiScore.pepScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
         }
@@ -1155,9 +1184,9 @@ public class PIPI {
         for (ScanRes scanRes : scanResList) {
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
             StringBuilder str = new StringBuilder();
-            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(candiScoreList.get(0).peptideInfo.isTarget ? 1 : 0);
+            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(candiScoreList.get(0).peptideInfo.isDecoy ? 0 : 1);
             for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.peptideInfo.seq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+                str.append(","+candiScore.peptideInfo.freeSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
             }
             str.append("\n");
             oriWriter.write(str.toString());
@@ -1180,7 +1209,7 @@ public class PIPI {
         for (ScanRes scanRes : scanResList) {
             CandiScore candiScore = scanRes.peptideInfoScoreList.get(0);
             numTPlusD++;
-            if (!candiScore.peptideInfo.isTarget) numD++;
+            if (candiScore.peptideInfo.isDecoy) numD++;
             fdrList.add(2*(double)numD/numTPlusD);
 //            System.out.println(scanRes.scanNum + "," + candiScore.protScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
         }
@@ -1205,9 +1234,9 @@ public class PIPI {
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
             CandiScore topCandi = candiScoreList.get(0);
             StringBuilder str = new StringBuilder();
-            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(topCandi.peptideInfo.isTarget ? 1 : 0);
+            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(topCandi.peptideInfo.isDecoy ? 0 : 1);
             for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.peptideInfo.seq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+                str.append(","+candiScore.peptideInfo.freeSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
             }
             str.append("\n");
             newWriter.write(str.toString());
@@ -1219,7 +1248,7 @@ public class PIPI {
 //            scanNumFinalScoreMap.put(scanRes.scanNum, new TempRes(topCandi.pepScore, topCandi.protScore, scanRes.qValue, !topCandi.peptideInfo.isTarget, topCandi.peptideInfo.seq, 0)); //isdecoy
             double finalScore = topCandi.pepScore*(topCandi.protScore+1);
             String finalStr = String.format(Locale.US, "%d,%f,%d,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
-                    , scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isTarget ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, df.format(topCandi.pepScore)
+                    , scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isDecoy ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, df.format(topCandi.pepScore)
                     , String.join(";",topCandi.peptideInfo.protIdSet), df.format(topCandi.protScore), ppm, theoMass, scanRes.expMass, scanRes.charge
                     );
 
@@ -1231,7 +1260,7 @@ public class PIPI {
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
         BufferedWriter writer = new BufferedWriter(new FileWriter(spectraPath+".PFM.csv"));
-        writer.write("scanNum,qValue,isDecoy,finalScore,peptide,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
+        writer.write("scanNum,qValue,TorD,finalScore,peptide,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {
             writer.write(pair.getSecond());
         }

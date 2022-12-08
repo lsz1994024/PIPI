@@ -24,7 +24,7 @@ import proteomics.FM.SearchInterval;
 import proteomics.Index.BuildIndex;
 import proteomics.Segment.InferSegment;
 import proteomics.Spectrum.DatasetReader;
-import proteomics.Types.ThreeExpAA;
+import proteomics.Types.ExpTag;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
 import java.util.*;
@@ -88,7 +88,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         if (lszDebugScanNum.contains(this.scanNum)) {
             int a = 1;
         }
-        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 6);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 6);
         if (!allLongTagList.isEmpty()) {
             Entry entry = new Entry();
                 //which top long tags to uses
@@ -103,7 +103,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
                 }
             }
 
-            FMIndex fmIndex = buildIndex.fmIndex;
+            FMIndex fmIndex = buildIndex.fmIndexFull;
 
             ArrayList<Pair<Integer, Double>> posScoreList = new ArrayList<>();
             Set<String> usedLongTags = new HashSet<>();
@@ -111,7 +111,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
             Queue<Pair<String, Double>> tagQueue = new LinkedList<>();
             Map<String, List<Double>> tagIntesIdRangeMap = new HashMap<>();
 
-            for (ThreeExpAA longTag : allLongTagList.subList(0, Math.min(validTagNum, allLongTagList.size()))) {
+            for (ExpTag longTag : allLongTagList.subList(0, Math.min(validTagNum, allLongTagList.size()))) {
                 //            for (ThreeExpAA longTag : allLongTagList) {
                 if (longTag.getTotalIntensity() < longTag.size() * 0.8 + 0.8 && longTag.size() < 10) continue;
 
@@ -119,7 +119,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
                 for (double inte : longTag.intensityArray) {
                     intensityList.add(inte);
                 }
-                String oriTagStr = longTag.getPtmFreeAAString().replace('#', 'L');
+                String oriTagStr = longTag.getFreeAaString().replace('#', 'L');
                 tagIntesIdRangeMap.put(oriTagStr, intensityList);
                 tagQueue.offer(new Pair<>(oriTagStr, longTag.getTotalIntensity()));
             }
@@ -154,14 +154,14 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
                     Set<String> thisRoundProts = new HashSet<>();
                     if (ptnForwardCount > 0) {
                         for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
-                            int res = Arrays.binarySearch(buildIndex.dotPosArr, fmIndex.SA[ii]);
-                            thisRoundProts.add(buildIndex.posProtMap.get(-res - 2));
+                            int res = Arrays.binarySearch(buildIndex.dotPosArrFull, fmIndex.SA[ii]);
+                            thisRoundProts.add(buildIndex.posProtMapFull.get(-res - 2));
                         }
                     }
                     if (ptnBackwardCount > 0) {
                         for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
-                            int res = Arrays.binarySearch(buildIndex.dotPosArr, fmIndex.SA[ii]);
-                            thisRoundProts.add(buildIndex.posProtMap.get(-res - 2));
+                            int res = Arrays.binarySearch(buildIndex.dotPosArrFull, fmIndex.SA[ii]);
+                            thisRoundProts.add(buildIndex.posProtMapFull.get(-res - 2));
                         }
                     }
                     Set<String> group = new HashSet<>();
@@ -241,11 +241,11 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
             Map<String, Double> tagScoreMap = new HashMap<>();
             Map<String, Integer> protTimesMap = new HashMap<>();
             for (Pair<Integer, Double> posScore : posScoreList) {
-                int res = Arrays.binarySearch(buildIndex.dotPosArr, posScore.getFirst());
+                int res = Arrays.binarySearch(buildIndex.dotPosArrFull, posScore.getFirst());
                 if (res > 0) {
                     System.out.println("located on dot sign," + scanNum);
                 }
-                String prot = buildIndex.posProtMap.get(-res - 2);
+                String prot = buildIndex.posProtMapFull.get(-res - 2);
                 if (protScoreMap.containsKey(prot)) {
                     protScoreMap.put(prot, protScoreMap.get(prot) + posScore.getSecond());
                     protTimesMap.put(prot, protTimesMap.get(prot) + 1);

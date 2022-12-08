@@ -41,9 +41,12 @@ public class BuildIndex {
     public final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
     public Map<String, Integer> protLengthMap = new HashMap<>();
-    public FMIndex fmIndex;
-    public int[] dotPosArr;
-    public Map<Integer, String> posProtMap = new HashMap<>();
+    public FMIndex fmIndexFull;
+    public int[] dotPosArrFull;
+    public Map<Integer, String> posProtMapFull = new HashMap<>();
+    public FMIndex fmIndexReduced;
+    public int[] dotPosArrReduced;
+    public Map<Integer, String> posProtMapReduced = new HashMap<>();
     public Map<String, String> protSeqMap;
     public Map<String, Set<Pair<String,Integer>>> tagProtPosMap = new HashMap<>();
     public BuildIndex(Map<String, String> parameterMap) throws Exception {
@@ -72,6 +75,7 @@ public class BuildIndex {
         fixModMap.put('H', Double.valueOf(parameterMap.get("H")));
         fixModMap.put('F', Double.valueOf(parameterMap.get("F")));
         fixModMap.put('R', Double.valueOf(parameterMap.get("R")));
+        fixModMap.put('X', 0.0);  //X for any amino acid, only used for NC term mod on any site, specified by user
         fixModMap.put('Y', Double.valueOf(parameterMap.get("Y")));
         fixModMap.put('W', Double.valueOf(parameterMap.get("W")));
         fixModMap.put('U', Double.valueOf(parameterMap.get("U")));
@@ -97,14 +101,24 @@ public class BuildIndex {
 
         // build database
         inferSegment = new InferSegment(massTool, parameterMap, fixModMap);
+
+//        File allProtChars = new File(String.format("allProtChars_%s.txt", dbPath));
+//        if (allProtChars.exists()){
+//
+//        }else{
+//
+//        }
+//        long t4=System.currentTimeMillis();
+
+//        System.out.println("time," + (t4-t3) + "," + (t3-t2)+ "," + (t2-t1));
         BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProt.txt"));
         int dotPos = 0;
         int dotNum = 0;
-        dotPosArr = new int[protSeqMap.keySet().size()];
+        dotPosArrFull = new int[protSeqMap.keySet().size()];
 
         for (String protId : protSeqMap.keySet()) {
-            dotPosArr[dotNum] = dotPos;
-            posProtMap.put(dotNum, protId);
+            dotPosArrFull[dotNum] = dotPos;
+            posProtMapFull.put(dotNum, protId);
             String protSeq = protSeqMap.get(protId).replace('I', 'L');
             protSeqMap.put(protId, protSeq);
             writerProt.write("." + protSeq.replace('I', 'L'));
@@ -115,8 +129,43 @@ public class BuildIndex {
         }
         writerProt.close();
         char[] text = loadFile("catProt.txt", true);
-        fmIndex = new FMIndex(text);
+        fmIndexFull = new FMIndex(text);
         System.out.println("Finish build FM index");
+
+//        try {
+//            File fileOne=new File("fileone");
+//            FileOutputStream fos=new FileOutputStream(fileOne);
+//            ObjectOutputStream oos=new ObjectOutputStream(fos);
+//
+//            oos.writeObject(fmIndexFull);
+//            oos.flush();
+//            oos.close();
+//            fos.close();
+//        } catch(Exception e) {
+//            int a = 1;
+//            System.out.println(e);
+//        }
+//        int a = 1;
+//        //read from file
+//        try {
+//            File toRead=new File("fileone");
+//            FileInputStream fis=new FileInputStream(toRead);
+//            ObjectInputStream ois=new ObjectInputStream(fis);
+//
+//            FMIndex fmIndexNew =(FMIndex)ois.readObject();
+//
+//            ois.close();
+//            fis.close();
+//            //print All data in MAP
+////            for(Map.Entry<String,String> m :mapInFile.entrySet()){
+////                System.out.println(m.getKey()+" : "+m.getValue());
+////            }
+//            int a = 1;
+//        } catch(Exception e) {
+//            System.out.println(e);
+//            int a = 1;
+//        }
+
     }
 
     public static char[] loadFile(String file, boolean appendTerminalCharacter) throws IOException{

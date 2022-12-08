@@ -154,7 +154,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             for (Peptide peptide : ptmOnlyList) {
                 pepInfo = peptideInfoMap.get(peptide.getPTMFreePeptide());
 
-                PeptidePTMPattern peptidePTMPattern = inferPTM.findPTM(scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr()
+                PeptidePTMPattern peptidePTMPattern = inferPTM.findPtmNew(scanNum, expProcessedPL, plMap, precursorMass, peptide.getPTMFreePeptide(), peptide.isDecoy(), peptide.getNormalizedCrossCorr()
                         , pepInfo.leftFlank, pepInfo.rightFlank, peptide.getGlobalRank(), precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
 
                 if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {

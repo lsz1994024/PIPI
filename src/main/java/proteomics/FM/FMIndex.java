@@ -1,10 +1,11 @@
 package proteomics.FM;
 
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class FMIndex {
+public class FMIndex implements Serializable {
 
     public static long space = 0;
 
@@ -24,6 +25,16 @@ public class FMIndex {
 
     public WaveletTreeNode waveletTreeRoot;
 
+//    @Override
+//    public boolean equals(Object o) {
+//        FMIndex c = (FMIndex) o;
+//        boolean res = true;
+//        if (space != c.space) return false;
+//        for (char cc : S){
+//
+//        }
+//        return
+//    }
 
 
     public FMIndex(char[] text){

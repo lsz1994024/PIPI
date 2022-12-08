@@ -23,19 +23,21 @@ import ProteomicsLibrary.MassTool;
 import java.util.*;
 
 public class Peptide implements Comparable<Peptide>, Cloneable{
+    public double nDeltaMass = 0.0;
+    public double cDeltaMass = 0.0;
     public boolean isTarget;
-    public Set<String> protIdSet = new HashSet<>();
-    public char leftFlank;
-    public char rightFlank;
+    public ExpTag tagFinder = null;
+    public int posInPepSeq = -1;
 
     public int scanNum = 0;
-    private final String ptmFreePeptide;
-    private final boolean isDecoy;
+    private final String freeSeq;
+    public String ptmSeq;
+    public boolean isDecoy;
     private final String normalizedPeptideString;
     private final MassTool massTool;
     private final int maxMs2Charge;
     private final int globalRank;
-    private final double normalizedCrossCorrelationCoefficient;
+    private final double tagVecScore;
     public double absDeltaMass = 0d;
     public Peptide bestPep = null;
     private int hashCode;
@@ -60,16 +62,17 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public Map<Integer, Double> matchedBions = new HashMap<>();
     public Map<Integer, Double> matchedYions = new HashMap<>();
 
-    public Peptide(String ptmFreePeptide, boolean isDecoy, MassTool massTool, int maxMs2Charge, double normalizedCrossCorrelationCoefficient, int globalRank) {
-        this.ptmFreePeptide = ptmFreePeptide;
+    public Peptide(String freeSeq, boolean isDecoy, MassTool massTool, int maxMs2Charge, double tagVecScore, int globalRank) {
+        this.freeSeq = freeSeq;
+        this.ptmSeq = freeSeq;
         this.isDecoy = isDecoy;
-        this.normalizedPeptideString = InferSegment.normalizeSequence(ptmFreePeptide);
-        this.normalizedCrossCorrelationCoefficient = normalizedCrossCorrelationCoefficient;
+        this.normalizedPeptideString = InferSegment.normalizeSequence(freeSeq);
+        this.tagVecScore = tagVecScore;
         this.massTool = massTool;
         this.maxMs2Charge = maxMs2Charge;
         this.globalRank = globalRank;
 
-        hashCode = ptmFreePeptide.hashCode();
+        hashCode = freeSeq.hashCode();
     }
 
     public void setScanNum(int scanNum) {this.scanNum = scanNum;}
@@ -96,38 +99,38 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
     public String getVarPtmContainingSeqNow() {
         if (varPTMMap != null) {
-            StringBuilder sb = new StringBuilder(ptmFreePeptide.length() * 5);
+            StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
             int tempIdx = varPTMMap.firstKey().y;
             if (tempIdx > 1) {
-                sb.append(ptmFreePeptide.substring(0, tempIdx - 1));
+                sb.append(freeSeq.substring(0, tempIdx - 1));
             }
             int i = tempIdx - 1;
             tempIdx = varPTMMap.lastKey().y;
-            while (i < ptmFreePeptide.length()) {
+            while (i < freeSeq.length()) {
                 boolean hasMod = false;
                 if (tempIdx > i) {
                     for (Coordinate co : varPTMMap.keySet()) {
                         if (co.y - 1 == i) {
-                            sb.append(String.format(Locale.US, "%c(%.3f)", ptmFreePeptide.charAt(i), varPTMMap.get(co)));
+                            sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPTMMap.get(co)));
                             hasMod = true;
                             ++i;
                             break;
                         }
                     }
                     if (!hasMod) {
-                        sb.append(ptmFreePeptide.charAt(i));
+                        sb.append(freeSeq.charAt(i));
                         ++i;
                     }
                 } else {
                     break;
                 }
             }
-            if (tempIdx < ptmFreePeptide.length()) {
-                sb.append(ptmFreePeptide.substring(tempIdx));
+            if (tempIdx < freeSeq.length()) {
+                sb.append(freeSeq.substring(tempIdx));
             }
             varPtmContainingSeq = sb.toString();
         } else {
-            varPtmContainingSeq = ptmFreePeptide;
+            varPtmContainingSeq = freeSeq;
         }
         return varPtmContainingSeq;
     }
@@ -180,7 +183,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
     public Peptide clone() throws CloneNotSupportedException {
         super.clone();//???
-        Peptide other = new Peptide(ptmFreePeptide, isDecoy, massTool, maxMs2Charge, normalizedCrossCorrelationCoefficient, globalRank);
+        Peptide other = new Peptide(freeSeq, isDecoy, massTool, maxMs2Charge, tagVecScore, globalRank);
         if (varPTMMap != null) {
             other.setVarPTM(varPTMMap.clone());
             other.setScore(score);
@@ -199,7 +202,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     }
 
     public int length() {
-        return ptmFreePeptide.length();
+        return freeSeq.length();
     }
 
     public void setVarPTM(PositionDeltaMassMap ptmMap) {
@@ -212,16 +215,16 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             varPtmContainingSeq = null;
             ptmContainingSeq = null;
 
-            String toString = ptmFreePeptide + "." + ptmMap.toString();
+            String toString = freeSeq + "." + ptmMap.toString();
             hashCode = toString.hashCode();
         }
     }
 
     public String toString() {
         if (varPTMMap == null) {
-            return ptmFreePeptide;
+            return freeSeq;
         }
-        return ptmFreePeptide + "." + varPTMMap.toString();
+        return freeSeq + "." + varPTMMap.toString();
     }
 
     public boolean hasVarPTM() {
@@ -237,7 +240,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     }
 
     public String getPTMFreePeptide() {
-        return ptmFreePeptide;
+        return freeSeq;
     }
 
     public PositionDeltaMassMap getVarPTMs() {
@@ -247,7 +250,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     private String getVarPtmContainingSeq() {
         if (varPtmContainingSeq == null) {
             if (varPTMMap != null) {
-                StringBuilder sb = new StringBuilder(ptmFreePeptide.length() * 5);
+                StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
 
                 int tempIdx = 0;
                 try {
@@ -257,35 +260,35 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
                     System.out.println("error");
                 }
                 if (tempIdx > 1) {
-                    sb.append(ptmFreePeptide.substring(0, tempIdx - 1));
+                    sb.append(freeSeq.substring(0, tempIdx - 1));
                 }
                 int i = tempIdx - 1;
                 tempIdx = varPTMMap.lastKey().y;
-                while (i < ptmFreePeptide.length()) {
+                while (i < freeSeq.length()) {
                     boolean hasMod = false;
                     if (tempIdx > i) {
                         for (Coordinate co : varPTMMap.keySet()) {
                             if (co.y - 1 == i) {
-                                sb.append(String.format(Locale.US, "%c(%.3f)", ptmFreePeptide.charAt(i), varPTMMap.get(co)));
+                                sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPTMMap.get(co)));
                                 hasMod = true;
                                 ++i;
                                 break;
                             }
                         }
                         if (!hasMod) {
-                            sb.append(ptmFreePeptide.charAt(i));
+                            sb.append(freeSeq.charAt(i));
                             ++i;
                         }
                     } else {
                         break;
                     }
                 }
-                if (tempIdx < ptmFreePeptide.length()) {
-                    sb.append(ptmFreePeptide.substring(tempIdx));
+                if (tempIdx < freeSeq.length()) {
+                    sb.append(freeSeq.substring(tempIdx));
                 }
                 varPtmContainingSeq = sb.toString();
             } else {
-                varPtmContainingSeq = ptmFreePeptide;
+                varPtmContainingSeq = freeSeq;
             }
         }
 
@@ -306,7 +309,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     }
 
     public double getNormalizedCrossCorr() {
-        return normalizedCrossCorrelationCoefficient;
+        return tagVecScore;
     }
 
     public void setScore(double score) {
@@ -385,9 +388,9 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
                         return 1;
                     } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
                         return -1;
-                    } else if (normalizedCrossCorrelationCoefficient > peptide.getNormalizedCrossCorr()) {
+                    } else if (tagVecScore > peptide.getNormalizedCrossCorr()) {
                         return 1;
-                    } else if (normalizedCrossCorrelationCoefficient < peptide.getNormalizedCrossCorr()) {
+                    } else if (tagVecScore < peptide.getNormalizedCrossCorr()) {
                         return -1;
                     } else {
                         if (!isDecoy && peptide.isDecoy()) {

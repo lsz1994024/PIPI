@@ -62,7 +62,7 @@ public class Search {
             }
             double deltaMass = massTool.calResidueMass(pepSeq) + massTool.H2O - precursorMass; // caution: the order matters under ms1ToleranceUnit == 1 situation
 
-            if (cand.isTarget) {
+            if (!cand.isDecoy) {
                 if ((Math.abs(deltaMass) <= 0.01)) {
                     // PTM-free
                     if (ptmFreeQueue.size() < rankNum) {
@@ -116,8 +116,8 @@ public class Search {
 //        }
 
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
-            entry.ptmOnlyList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
-            entry.ptmFreeList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
+            entry.ptmCandiList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+            entry.freeCandiList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
     }
 
@@ -139,7 +139,7 @@ public class Search {
         return res;
     }
     public Search(Entry entry, int scanNum, BuildIndex buildIndex, double precursorMass, SparseVector scanCode, MassTool massTool, double ms1Tolerance
-            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ThreeExpAA> ncTags) {
+            , double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge, List<ExpTag> ncTags) {
 
         PriorityQueue<ResultEntry> ptmFreeQueue = new PriorityQueue<>(rankNum * 2);
         PriorityQueue<ResultEntry> ptmOnlyQueue = new PriorityQueue<>(rankNum * 2);
@@ -246,8 +246,8 @@ public class Search {
 //        }
 
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
-            entry.ptmOnlyList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
-            entry.ptmFreeList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
+            entry.ptmCandiList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+            entry.freeCandiList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
     }
 //    private void mergeResult(PriorityQueue<ResultEntry> ptmFreeQueue, PriorityQueue<ResultEntry> ptmOnlyQueue, Map<String, PepInfo> peptide0Map) {

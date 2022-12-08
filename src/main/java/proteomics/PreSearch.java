@@ -18,12 +18,12 @@ package proteomics;
 
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
-import ProteomicsLibrary.Types.SparseVector;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import proteomics.FM.FMIndex;
+import proteomics.FM.SearchInterval;
 import proteomics.Index.BuildIndex;
-import proteomics.Search.Search;
 import proteomics.Segment.InferSegment;
 import proteomics.Spectrum.DatasetReader;
 import proteomics.Types.*;
@@ -33,7 +33,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static proteomics.PIPI.lszDebugScanNum;
+import static proteomics.PIPI.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final Logger logger = LoggerFactory.getLogger(PreSearch.class);
@@ -58,7 +58,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private final SpecProcessor specProcessor;
     private final int scanNum;
     private String truth;
-
 
     public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
@@ -98,6 +97,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         if (lszDebugScanNum.contains(this.scanNum)) {
             int a = 1;
         }
+
+        double minPcMass = -1 * ms1Tolerance;
+        double maxPcMass = ms1Tolerance;
+        if (ms1ToleranceUnit == 1) {
+            minPcMass = (precursorMass * leftInverseMs1Tolerance);
+            maxPcMass = (precursorMass * rightInverseMs1Tolerance);
+        }
+
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
 
         if (plMap.isEmpty()) return null;
@@ -105,144 +112,317 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
-        List<ThreeExpAA> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
-        Collections.sort(tag4List, Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+        List<ExpTag> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
 
-        String truth = "DNVFENNRLAFEVAEK";
-        if (lszDebugScanNum.contains(scanNum)){
-            for (ThreeExpAA tagInfo : tag4List){
-                String seq = tagInfo.getPtmFreeAAString();
-                String revSeq = (new StringBuilder(seq)).reverse().toString();
-                if (truth.contains(seq) || truth.contains(revSeq)) {
-                    System.out.println(seq +"  1");
-                }
-            }
-        }
-        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = buildIndex.tagProtPosMap;
-        Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(50000);
+//        Collections.sort(tag4List, Comparator.comparingDouble(ExpTag::getTotalIntensity).reversed());
 
-        if (tag4List.isEmpty())  return null;
+//        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = buildIndex.tagProtPosMap;
+
+
+        if (allLongTagList.isEmpty())  return null;
         Entry entry = new Entry();
 
 
         double totalMass = precursorMass + 2 * MassTool.PROTON;
-        List<ThreeExpAA> compTag4List = new ArrayList<>(2* Math.min(75, tag4List.size())); // only take top 100 candidates.
-        compTag4List.addAll(tag4List.subList(0, Math.min(75, tag4List.size())));
-        for (ThreeExpAA tag4 : tag4List.subList(0, Math.min(75, tag4List.size()))) {
-            compTag4List.add(tag4.revTag(totalMass));
-        }   // duplicate reverse tags for every tag, then dont need to care the both direction of a tag because already contained in this compTag4List
+//        double pcMassL = precursorMass - 250;
+//        double pcMassR = precursorMass + 250;
 
-//        logger.info(scanNum+",starts,"+compTag4List.size());
-        double pcMassL = precursorMass - 250;
-        double pcMassR = precursorMass + 250;
-        String tag;
-        for (ThreeExpAA tagInfo : compTag4List) {
-            tag = tagInfo.getPtmFreeAAString();
+        FMIndex fmIndex = buildIndex.fmIndexReduced;
+        Set<String> usedLongTags = new HashSet<>();
 
-            if (!tagProtPosMap.containsKey(tagInfo.getPtmFreeAAString())) {
-                int a = 1;
-                continue;
-            }
-            Set<Pair<String, Integer>> protPosPairs = tagProtPosMap.get(tagInfo.getPtmFreeAAString());
-            for (Pair<String, Integer> protPos : protPosPairs){
-                String protId = protPos.getFirst();
-                double tagCMass = tagInfo.getTailLocation();
-                int pos = protPos.getSecond();
-                String protSeq = buildIndex.protSeqMap.get(protId);
-                Set<Integer> cPosSet = new HashSet<>();
+        Map<String, List<Peptide>> ptmPeptideListMap = new HashMap<>();
+        Map<String, List<Peptide>> freePeptideListMap = new HashMap<>();
+        Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(50000);
 
-                if (isKR(protSeq.charAt(pos+4)) && tagCMass <= pcMassR && tagCMass  >= pcMassL) {
-                    cPosSet.add(pos+4);
-                }
-                for (int i = pos+tag.length(); i < protSeq.length(); i++) {  //
-                    if (isX(protSeq.charAt(i))) break;
+        for (ExpTag tagInfo : allLongTagList){
+            String tag = tagInfo.getFreeAaString();
+            String revTagStr = new StringBuilder(tag).reverse().toString();
 
-                    tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
-                    if (tagCMass < pcMassL) continue;
-                    if (tagCMass > pcMassR) break;
-                    if (isKR(protSeq.charAt(i))) {
-                        cPosSet.add(i);
+            int ptnForwardCount = 0;
+            int ptnBackwardCount = 0;
+            SearchInterval searchForward = null;
+            SearchInterval searchBackward = null;
+
+            Set<String> protIdSet = new HashSet<>();
+
+            Set<String> peptidesFoundByThisTag = new HashSet<>();
+            if (tagInfo.isNorC == -1) { //n tag
+                char[] tagChar = tag.toCharArray();
+                searchForward = fmIndex.fmSearch(tagChar);
+                if (searchForward != null) {
+//                    ptnForwardCount = searchForward.ep - searchForward.sp + 1;
+                    for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
+                        int absTagPos = fmIndex.SA[ii];
+                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
+                        // fmIndex.SA[ii]  the index of tag's first aa in the whole long proteins string
+                        // -res-2  the dot sign index which the tag index is closed to
+                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
+                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
+
+                        updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
+//                        protIdSet.add(protId);
                     }
                 }
-                for (int cPos : cPosSet) {
-                    double deltaMass = precursorMass - massTool.calResidueMass(protSeq.substring(pos,cPos+1)) - massTool.H2O;
-                    char rightFlank;
-                    if (cPos == protSeq.length()-1) {
-                        rightFlank = '-';
-                    } else {
-                        rightFlank = protSeq.charAt(cPos+1);
+            } else if (tagInfo.isNorC == 1) { // c tag
+                char[] revTagChar = revTagStr.toCharArray();
+                searchBackward = fmIndex.fmSearch(revTagChar);
+                if (searchBackward != null) {
+//                    ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
+                    for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
+                        int absTagPos = fmIndex.SA[ii];
+                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
+                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
+                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
+                        if (relPos == 21478) {
+                            int a = 1;
+                        }
+                        updateCandiList(protId, relPos, tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag); // put the reversed tag
                     }
+                }
+            } else { // non-nc tag
+                char[] tagChar = tag.toCharArray();
+                searchForward = fmIndex.fmSearch(tagChar);
+                if (searchForward != null) {
+                    for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
+                        int absTagPos = fmIndex.SA[ii];
+                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
+                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
+                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
 
-//                    int numMissCleave = 0;
-                    for (int nPos = pos-1; nPos > 0; nPos--) {
-                        if (isX(protSeq.charAt(nPos))) break;
-                        deltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
-                        if (deltaMass > 250) continue;
-                        if (deltaMass < -250) break;
-                        String pepSeq = protSeq.substring(nPos, cPos+1);
+                        updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
+                    }
+                }
 
-                        char leftFlank;
-                        if (nPos == 0 || (nPos == 1 && protSeq.charAt(0) == 'M')){
-                            leftFlank = '-';
-                        } else {
-                            leftFlank = protSeq.charAt(nPos-1);
-                        }
+                char[] revTagChar = revTagStr.toCharArray();
+                searchBackward = fmIndex.fmSearch(revTagChar);
+                if (searchBackward != null) {
+                    for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
+                        int absTagPos = fmIndex.SA[ii];
+                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
+                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
+                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
 
-                        if (peptideInfoMap.containsKey(pepSeq)) {
-                            PeptideInfo pepInfo = peptideInfoMap.get(pepSeq);
-                            if (pepInfo.leftFlank != '-' && pepInfo.rightFlank != '-') {
-                                if (rightFlank == '-' || leftFlank == '-') {
-                                    pepInfo.leftFlank = leftFlank;
-                                    pepInfo.rightFlank = rightFlank;
-                                }
-                            }
-                            pepInfo.protIdSet.add(protId);
-                            if (!protId.startsWith("DECOY_")) {
-                                pepInfo.isTarget = true;
-                            }
-                        } else {
-                            PeptideInfo pepInfo = new PeptideInfo(pepSeq, !protId.startsWith("DECOY_"), leftFlank, rightFlank);
-                            pepInfo.protIdSet.add(protId);
-                            peptideInfoMap.put(pepSeq, pepInfo);
-                        }
+                        updateCandiList(protId, relPos, tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag); // put the reversed tag
                     }
                 }
             }
         }
+
         entry.scanName = this.scanName;
-        List<ThreeExpAA> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
+//        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
 
         Map<String, Double> scanTagStrMap = inferSegment.getTagStrMap(allLongTagList);
-        Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, peptideInfoMap);
-//        entry.peptideInfoMap = peptideInfoMap;
+//        Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, peptideInfoMap);
         if (lszDebugScanNum.contains(scanNum)){
             if (peptideInfoMap.containsKey(truth)) {
                 int a = 1;
             }
         }
-        for (Peptide pep : entry.ptmOnlyList ) {
-            entry.peptideInfoMap.put(pep.getPTMFreePeptide(), peptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+
+        List<Pair<String, Double>> ptmPeptideTotalScoreList = new LinkedList<>();
+        List<Pair<String, Double>> freePeptideTotalScoreList = new LinkedList<>();
+        for (String seq : ptmPeptideListMap.keySet()) {
+            double totalScore = 0;
+            for (Peptide peptide : ptmPeptideListMap.get(seq)) {
+                totalScore += peptide.tagFinder.getTotalIntensity();
+            }
+            ptmPeptideTotalScoreList.add(new Pair<>(seq, totalScore));
         }
-        for (Peptide pep : entry.ptmFreeList ) {
-            entry.peptideInfoMap.put(pep.getPTMFreePeptide(), peptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+        for (String seq : freePeptideListMap.keySet()) {
+            double totalScore = 0;
+            for (Peptide peptide : freePeptideListMap.get(seq)) {
+                totalScore += peptide.tagFinder.getTotalIntensity();
+            }
+            freePeptideTotalScoreList.add(new Pair<>(seq, totalScore));
+        }
+        Collections.sort(ptmPeptideTotalScoreList, Comparator.comparing(o -> o.getValue(), Comparator.reverseOrder()));
+        Collections.sort(freePeptideTotalScoreList, Comparator.comparing(o -> o.getValue(), Comparator.reverseOrder()));
+        for (int i = 0; i < Math.min(ptmPeptideTotalScoreList.size(), 10); i++) {
+            String seq = ptmPeptideTotalScoreList.get(i).getKey();
+            for (Peptide peptide : ptmPeptideListMap.get(seq)) {
+                peptide.isDecoy = peptideInfoMap.get(seq).isDecoy; //override the fake isDecoy with true one
+                entry.peptideInfoMapForRef.put(seq, peptideInfoMap.get(seq));
+                entry.ptmCandiList.add(peptide);
+            }
+        }
+        for (int i = 0; i < Math.min(freePeptideTotalScoreList.size(), 10); i++) {
+            String seq = freePeptideTotalScoreList.get(i).getKey();
+            for (Peptide peptide : freePeptideListMap.get(seq)) {
+                peptide.isDecoy = peptideInfoMap.get(seq).isDecoy; //override the fake isDecoy with true one
+                entry.peptideInfoMapForRef.put(seq, peptideInfoMap.get(seq));
+                entry.freeCandiList.add(peptide);
+            }
         }
         int c = 1;
         return entry;
     }
 
+    private void updateCandiList(String protId, int pos, ExpTag tag, double minPcMass, double maxPcMass
+            , Map<String, List<Peptide>> ptmPeptideListMap, Map<String, List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag) {
+
+
+        double tagCMass = tag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
+        String protSeq = buildIndex.protSeqMap.get(protId);
+        Map<Integer, Double> cPoscMassMap = new HashMap<>();
+        if (pos+tag.size() >= protSeq.length()) {
+            int a = 1;
+        }
+        if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < 250) {
+            cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
+        }
+
+        int missCleav = getNumOfMissCleavSite(tag.getFreeAaString());
+        if (tag.isNorC != 1) { // only when oriTag is not C oriTag can it extend to c
+            for (int i = pos+tag.size(); i < protSeq.length(); i++) {  //
+
+                //the if-block is in order, dont change the order.
+                if (isX(protSeq.charAt(i))) break;
+                tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
+                if (tagCMass > precursorMass+250) break;
+
+                if (isKR(protSeq.charAt(i))) {
+                    missCleav++; //current num of missed cleavage
+                }
+                if (tagCMass >= precursorMass-250 && isKR(protSeq.charAt(i))) {
+                    cPoscMassMap.put(i, tagCMass);
+                }
+                if (missCleav > maxMissCleav) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+                    break;         // stop extend to C term
+                }
+            }
+        }
+
+        for (int cPos : cPoscMassMap.keySet()) {
+            double nDeltaMass = precursorMass - cPoscMassMap.get(cPos) + tag.getHeadLocation() -MassTool.PROTON;
+            char rightFlank;
+            if (cPos == protSeq.length()-1) {
+                rightFlank = '-';
+            } else {
+                rightFlank = protSeq.charAt(cPos+1);
+            }
+//                    int numMissCleave = 0; // todo miss cleavage
+            missCleav = getNumOfMissCleavSite(protSeq.substring(pos, cPos)) ; //dont contain the c-term K, it does not count as miss cleav
+
+            int min_nPos = (tag.isNorC == -1) ? pos : 0;
+            int max_nPos = (tag.isNorC == -1) ? pos : pos-1;
+            for (int nPos = max_nPos; nPos >= min_nPos; nPos--) {
+                if (isX(protSeq.charAt(nPos))) break;
+                if (nPos < pos){
+                    nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
+                }
+                if (nDeltaMass < -250) break;
+                if (nDeltaMass > 250) continue;
+
+                if (nTermSpecific) {
+                    if (nPos != 0 && !isKR(protSeq.charAt(nPos-1))) {// n term must be specific
+                        continue;
+                    }
+                }
+
+                if (isKR(protSeq.charAt(nPos))) {
+                    missCleav++; //current num of missed cleavage
+                }
+                if (missCleav > maxMissCleav) {
+                    break;         // stop extend to n term
+                }
+                if (cPos+1-nPos < 6) {
+                    continue;
+                }
+                String freePepSeq = protSeq.substring(nPos, cPos+1);
+
+                if (freePepSeq.contentEquals("TNVNPSEVGDLVVGSVLAPGAQR")) {
+                    int a = 1;
+                }
+                StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
+                ptmPepSeqSB.replace(pos-nPos, pos-nPos+tag.size(), tag.getPtmAaString());
+
+                char leftFlank;
+                if (nPos == 0 || (nPos == 1 && protSeq.charAt(0) == 'M')){
+                    leftFlank = '-';
+                } else {
+                    leftFlank = protSeq.charAt(nPos-1);
+                }
+
+                //update peptideInfoMapForRef,  just the flanks and proteins, these are standard info should be independent of peptide candidates.
+                if (peptideInfoMap.containsKey(freePepSeq)) {
+                    PeptideInfo peptideInfo = peptideInfoMap.get(freePepSeq);
+                    if (!peptideInfo.protIdSet.contains(protId)) { //if this pep with prot is not recorded, add this prot
+                        if (peptideInfo.leftFlank != '-' && peptideInfo.rightFlank != '-') {
+                            if (rightFlank == '-' || leftFlank == '-') {
+                                peptideInfo.leftFlank = leftFlank;
+                                peptideInfo.rightFlank = rightFlank;
+                            }
+                        }
+                        peptideInfo.protIdSet.add(protId);
+                        if (!protId.startsWith("DECOY_")) {
+                            peptideInfo.isDecoy = false;
+                        }
+                    }
+                } else {
+                    PeptideInfo peptideInfo = new PeptideInfo(freePepSeq, protId.startsWith("DECOY_"), leftFlank, rightFlank);
+                    peptideInfo.protIdSet.add(protId);
+                    peptideInfoMap.put(freePepSeq, peptideInfo);
+                }
+
+                double theoTotalMassWithPtm = massTool.calLabeledSeqMass(ptmPepSeqSB.toString()) + massTool.H2O;
+                if (peptidesFoundByThisTag.contains(freePepSeq)){
+                    continue;
+                } else {
+                    peptidesFoundByThisTag.add(freePepSeq);
+                }
+
+                Peptide peptide = new Peptide(freePepSeq, true, massTool, 1, 0.999, 0);
+                // these paras are dummy answer will be deleted
+                peptide.posInPepSeq = pos-nPos;
+                peptide.ptmSeq = ptmPepSeqSB.toString();
+                peptide.tagFinder = tag;
+                peptide.cDeltaMass = precursorMass - MassTool.PROTON- cPoscMassMap.get(cPos);
+                peptide.nDeltaMass = nDeltaMass;
+                if (theoTotalMassWithPtm > minPcMass && theoTotalMassWithPtm < maxPcMass){
+                    //free
+                    List<Peptide> peptideList = freePeptideListMap.get(freePepSeq);
+                    if (peptideList == null){
+                        peptideList = new ArrayList<>();
+                        peptideList.add(peptide);
+                        freePeptideListMap.put(freePepSeq, peptideList);
+                    } else {
+                        peptideList.add(peptide);
+                    }
+                } else {
+                    //ptm
+                    List<Peptide> peptideList = ptmPeptideListMap.get(freePepSeq);
+                    if (peptideList == null){
+                        peptideList = new ArrayList<>();
+                        peptideList.add(peptide);
+                        ptmPeptideListMap.put(freePepSeq, peptideList);
+                    } else {
+                        peptideList.add(peptide);
+                    }
+                }
+            }
+        }
+    }
+
+    private int getNumOfMissCleavSite(String seq) {
+        String str1 = seq.substring(0,seq.length());
+        String str2 = str1.replaceAll("[KR]","");
+        return str1.length()-str2.length();
+    }
     private boolean isKR(char aa){
         return aa == 'K' || aa == 'R';
     }
+
     private boolean isX(char aa){
         return aa == 'X';
     }
     public class Entry {
 
-        public Map<String, PeptideInfo> peptideInfoMap = new HashMap<>();
+        public Map<String, PeptideInfo> peptideInfoMapForRef = new HashMap<>();
         public double precursorMass = PreSearch.this.precursorMass;
         public int precursorCharge = PreSearch.this.precursorCharge;
-        public List<Peptide> ptmOnlyList = new ArrayList<>();
-        public List<Peptide> ptmFreeList = new ArrayList<>();
+        public List<Peptide> ptmCandiList = new ArrayList<>();
+        public List<Peptide> freeCandiList = new ArrayList<>();
 
         public String scanName;
         Entry() {

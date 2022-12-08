@@ -21,6 +21,8 @@ import ProteomicsLibrary.DbTool;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Types.*;
 import org.apache.commons.math3.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import proteomics.Types.*;
 
 import java.util.*;
@@ -30,24 +32,24 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class InferSegment {
-
+    private static final Logger logger = LoggerFactory.getLogger(InferSegment.class);
     private static final int minTagNum = 200;
     private static final int regionNum = 10;
     private static final int topNumInEachRegion = 20;
     private static final Pattern pattern = Pattern.compile("([nc][0-9a-i])?([A-Z#$].?)");
-    public Map<String, Set<String>> tagPepMap = new HashMap<>();
-    public Map<String, Set<String>> tag4ProtMap = new HashMap<>();
-    public Map<String, Set<String>> tag7ProtMap = new HashMap<>();
-    public Map<String, Set<String>> tag6ProtMap = new HashMap<>();
-    public Map<String, Set<String>> tag8ProtMap = new HashMap<>();
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();
-    private Map<Double, String> modifiedAAMap = new HashMap<>(35, 1);
-    private final Double[] deltaMassArray;
-    private Map<String, Double> modifiedAAMassMap = new HashMap<>(35, 1);
+    private Map<Double, String> augedMassAaMap = new HashMap<>(35, 1);// augmented amino acid map. Normal aa plus aa with mod
+    private final Double[] augedMassArray;
+    private Map<String, Double> extraAaMassMap = new HashMap<>(35, 1);
     private double[] nTermPossibleMod = null;
     private double[] cTermPossibleMod = null;
     private MassTool massTool;
+    public String aaModLabel = "~!@#$%^&*";
+    public String nModLabel = "qwertyuio";
+    public String cModLabel = "asdfghjkl";
+
+//    public Map<Character, Double> labelMassMap = new HashMap<>();
 
     public InferSegment(MassTool massTool, Map<String, String> parameterMap, Map<Character, Double> fixModMap) throws Exception {
         this.massTool = massTool;
@@ -56,14 +58,14 @@ public class InferSegment {
 
         char[] standardAaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
 
-        Map<Double, Character> massAaMap = new HashMap<>(25, 1);
+        Map<Double, Character> oriMassAaMap = new HashMap<>(25, 1);
         for (char aa : standardAaArray) {
             // # = I/L.
-            massAaMap.put(massTable.get(aa), aa);
+            oriMassAaMap.put(massTable.get(aa), aa);
 
         }
 
-        Character[] aaArray = massAaMap.values().toArray(new Character[0]);
+        Character[] aaArray = oriMassAaMap.values().toArray(new Character[0]);
 
         for (char aa1 : aaArray) {
             for (char aa2 : aaArray) {
@@ -80,80 +82,160 @@ public class InferSegment {
         }
 
         // generate a mass aa map containing modified amino acid
-        for (double k : massAaMap.keySet()) {
-            modifiedAAMap.put(k, massAaMap.get(k).toString());
+        for (double k : oriMassAaMap.keySet()) {
+            augedMassAaMap.put(k, oriMassAaMap.get(k).toString());
         }
+        int iLabelAa = 0;
+        int iLabelN = 0;
+        int iLabelC = 0;
         for (String k : parameterMap.keySet()) {
-            if (k.startsWith("mod")) {
-                String v = parameterMap.get(k);
-                if (!v.startsWith("0.0")) {
-                    //15.994915,M,0,Oxidation
-                    String[] temp = v.split(",");
-//                    if (temp.length == 1) {
-//                        int a = 1;
-//                    }
-                    double tempMass = massTable.get(temp[1].charAt(0)) + Double.valueOf(temp[0]);
-                    // check if the mass has conflict. Dont allow user specify mod that will make the modified aa conflict with other aa
-                    for (double temp2 : modifiedAAMap.keySet()) {
-                        if (Math.abs(temp2 - tempMass) <= ms2Tolerance) {
-                            throw new Exception(String.format(Locale.US, "%s and %s have conflict mass values(%f vs %f).", v, modifiedAAMap.get(temp2), tempMass, temp2));
+            if (!k.startsWith("mod")) continue;
+
+            String v = parameterMap.get(k);
+            if (v.startsWith("0.0")) break;
+
+                //15.994915,M,0,Oxidation
+            String[] modStr = v.split(",");
+            double modMass = Double.valueOf(modStr[0]);
+            char modSite = modStr[1].charAt(0);
+            char label;
+            int modPosition = Integer.valueOf(modStr[2]);
+            if (modPosition == 4) {//  position anywhere, highest prority
+                //must happen in one aa, X (any aa) not allowed
+                boolean added = false;
+                label = aaModLabel.charAt(iLabelAa); // todo limit the max ilabel
+                double augedMass = massTable.get(modSite) + modMass;
+                boolean shouldAdd = true;
+                for (double tempMass : augedMassAaMap.keySet()) {
+                    if (Math.abs(tempMass - augedMass) <= ms2Tolerance) {
+                        logger.warn(String.format(Locale.US, "%s is bad. %s and %s have conflict mass values(%f vs %f).", v, modSite, augedMassAaMap.get(tempMass), augedMass, tempMass));
+                        shouldAdd = false;
+                    }
+                }
+                if (Math.abs(fixModMap.get(modSite)) < 0.1 && shouldAdd) {
+                    String augedAa = ""+modSite+label;
+                    augedMassAaMap.put(augedMass, augedAa);
+                    extraAaMassMap.put(augedAa, modMass);
+                    added = true;
+                    massTool.labelMassMap.put(label, modMass);
+                }
+
+                if (added) {
+                    iLabelAa++;
+                    massTool.labelMassMap.put(label, modMass);
+                }
+
+            } else if (modPosition == 0 || modPosition == 2) {// position N term, middle  prority // when find tags we can't differ pepN from protN
+                label = nModLabel.charAt(iLabelN);
+                boolean added = false;
+                if (modSite == 'X') { //on any aa
+                    for (char oriAa : aaArray){
+                        double augedMass = massTable.get(oriAa) + modMass;
+                        boolean shouldAdd = true;
+                        for (double tempMass : augedMassAaMap.keySet()) {
+                            if (Math.abs(tempMass - augedMass) <= ms2Tolerance) {
+//                                        throw new Exception(String.format(Locale.US, "%s is bad. %s and %s have conflict mass values(%f vs %f).", v, oriAa, augedMassAaMap.get(tempMass), augedMass, tempMass));
+                                logger.warn(String.format(Locale.US, "%s is bad. %s and %s have conflict mass values(%f vs %f).", v, oriAa, augedMassAaMap.get(tempMass), augedMass, tempMass));
+                                shouldAdd = false;
+                            }
+                        }
+                        if (Math.abs(fixModMap.get(oriAa)) < 0.1 && shouldAdd) {
+                            // fix modification and var modification cannot be coexist
+                            String augedAa = ""+oriAa+label;
+                            augedMassAaMap.put(augedMass, augedAa);
+                            extraAaMassMap.put(augedAa, modMass);
+                            added = true;
                         }
                     }
-                    if (Math.abs(fixModMap.get(temp[1].charAt(0))) < 0.1) {
+                } else { //on single aa
+                    double augedMass = massTable.get(modSite) + modMass;
+                    boolean shouldAdd = true;
+                    for (double tempMass : augedMassAaMap.keySet()) {
+                        if (Math.abs(tempMass - augedMass) <= ms2Tolerance) {
+                            logger.warn(String.format(Locale.US, "%s and %s have conflict mass values(%f vs %f).", v, augedMassAaMap.get(tempMass), augedMass, tempMass));
+                            shouldAdd = false;
+                        }
+                    }
+                    if (Math.abs(fixModMap.get(modSite)) < 0.1 && shouldAdd) {
                         // fix modification and var modification cannot be coexist
-
-                            modifiedAAMap.put(tempMass, temp[1]);
-                            modifiedAAMassMap.put(temp[1], Double.valueOf(temp[0]));
-
+                        String augedAa = ""+modSite+label;
+                        augedMassAaMap.put(augedMass, augedAa);
+                        extraAaMassMap.put(augedAa, modMass);
+                        added = true;
                     }
                 }
-            } else if (k.contentEquals("Nterm")) {
-                if (Math.abs(fixModMap.get('n')) < 0.1) {
-                    // fix modification and var modification cannot be coexist
-                    if (!parameterMap.get(k).startsWith("0.0")) {
-                        String[] tempArray = parameterMap.get(k).split(",");
-                        nTermPossibleMod = new double[tempArray.length];
-                        for (int i = 0; i < tempArray.length; ++i) {
-                            nTermPossibleMod[i] = Double.valueOf(tempArray[i].trim());
+
+                if (added) {
+                    iLabelN++;
+                    massTool.labelMassMap.put(label, modMass);
+                }
+            } else {// position C term, lowest  prority
+                label = cModLabel.charAt(iLabelC);
+                boolean added = false;
+                if (modSite == 'X') { //on any aa
+                    for (char oriAa : aaArray){
+                        double augedMass = massTable.get(oriAa) + modMass;
+                        boolean shouldAdd = true;
+                        for (double tempMass : augedMassAaMap.keySet()) {
+                            if (Math.abs(tempMass - augedMass) <= ms2Tolerance) {
+                                logger.warn(String.format(Locale.US, "%s is bad. %s and %s have conflict mass values(%f vs %f).", v, oriAa, augedMassAaMap.get(tempMass), augedMass, tempMass));
+                                shouldAdd = false;
+                            }
                         }
+                        if (Math.abs(fixModMap.get(oriAa)) < 0.1 && shouldAdd) {
+                            // fix modification and var modification cannot be coexist
+                            String augedAa = ""+oriAa+label;
+                            augedMassAaMap.put(augedMass, augedAa);
+                            extraAaMassMap.put(augedAa, modMass);
+                            added = true;
+                        }
+                    }
+                } else {
+                    double augedMass = massTable.get(modSite) + modMass;
+                    boolean shouldAdd = true;
+                    for (double tempMass : augedMassAaMap.keySet()) {
+                        if (Math.abs(tempMass - augedMass) <= ms2Tolerance) {
+                            logger.warn(String.format(Locale.US, "%s and %s have conflict mass values(%f vs %f).", v, augedMassAaMap.get(tempMass), augedMass, tempMass));
+                            shouldAdd = false;
+                        }
+                    }
+                    if (Math.abs(fixModMap.get(modSite)) < 0.1 && shouldAdd) {
+                        // fix modification and var modification cannot be coexist
+                        String augedAa = ""+modSite+label;
+                        augedMassAaMap.put(augedMass, augedAa);
+                        extraAaMassMap.put(augedAa, modMass);
+                        added = true;
                     }
                 }
-            } else if (k.contentEquals("Cterm")) {
-                if (Math.abs(fixModMap.get('c')) < 0.1) {
-                    // fix modification and var modification cannot be coexist
-                    if (!parameterMap.get(k).startsWith("0.0")) {
-                        String[] tempArray = parameterMap.get(k).split(",");
-                        cTermPossibleMod = new double[tempArray.length];
-                        for (int i = 0; i < tempArray.length; ++i) {
-                            cTermPossibleMod[i] = Double.valueOf(tempArray[i].trim());
-                        }
-                    }
+                if (added) {
+                    iLabelC++;
+                    massTool.labelMassMap.put(label, modMass);
                 }
             }
         }
-        deltaMassArray = modifiedAAMap.keySet().toArray(new Double[0]);
+        augedMassArray = augedMassAaMap.keySet().toArray(new Double[0]);
     }
 
-    public List<ThreeExpAA> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
+    public List<ExpTag> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
         return inferThreeAAFromSpectrum(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON);
     }
 
-    public List<ThreeExpAA> getAllTag4(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
+    public List<ExpTag> getAllTag4(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
         return getTag4(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum);
     }
 
-    public List<ThreeExpAA> getAllTag5(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
+    public List<ExpTag> getAllTag5(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
         return getTag5(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum);
     }
 
-    public SparseVector generateSegmentIntensityVector(List<ThreeExpAA> inputList) {
+    public SparseVector generateSegmentIntensityVector(List<ExpTag> inputList) {
         SparseVector finalVector = new SparseVector();
         if (inputList.isEmpty()) {
             return finalVector;
         } else {
-            for (ThreeExpAA expAaList : inputList) {
+            for (ExpTag expAaList : inputList) {
                 double totalIntensity = expAaList.getTotalIntensity();
-                int idx = aaVectorTemplate.get(new Segment(expAaList.getPtmFreeAAString()));
+                int idx = aaVectorTemplate.get(new Segment(expAaList.getFreeAaString()));
                 double value = Math.max(totalIntensity, finalVector.get(idx));
                 finalVector.put(idx, value);
             }
@@ -163,12 +245,12 @@ public class InferSegment {
 
     private int minTagLen = 3;
     private int maxTagLen = 6;
-    public Map<String, Double> getTagStrMap(List<ThreeExpAA> longTagList) {
+    public Map<String, Double> getTagStrMap(List<ExpTag> longTagList) {
         Map<String, Double> finalMap = new HashMap<>();
         if (!longTagList.isEmpty()) {
             Segment tempSeg;
-            for (ThreeExpAA tag : longTagList) {
-                String seq = tag.getPtmFreeAAString();
+            for (ExpTag tag : longTagList) {
+                String seq = tag.getFreeAaString();
                 for (int i = minTagLen; i <= Math.min(tag.size(), maxTagLen); i++){
                     for (int j = 0; j <= tag.size()-i; j++){
                         tempSeg = new Segment(seq.substring(j, j+i));
@@ -235,26 +317,26 @@ public class InferSegment {
         return seq.replaceAll("I", "L");
     }
 
-    private List<ThreeExpAA> inferThreeAAFromSpectrum(TreeMap<Double, Double> plMap, double cTermMz) throws Exception {
+    private List<ExpTag> inferThreeAAFromSpectrum(TreeMap<Double, Double> plMap, double cTermMz) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
-        Set<ThreeExpAA> tempSet = new HashSet<>();
-        List<ThreeExpAA> outputList = new LinkedList<>();
+        Set<ExpTag> tempSet = new HashSet<>();
+        List<ExpTag> outputList = new LinkedList<>();
         for (int i = 0; i < mzArray.length - 3; ++i) {
             double mz1 = mzArray[i];
             double intensity1 = intensityArray[i];
             for (int j = i + 1; j < mzArray.length - 2; ++j) {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
-                String aa1 = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                String aa1 = inferAA(mz1, mz2, 0);
                 if (aa1 != null) {
                     Matcher matcher = pattern.matcher(aa1);
                     char ptmFreeAA = '\0';
                     double mod = 0;
                     double nTermMod = 0;
                     if (matcher.matches()) {
-                        if (modifiedAAMassMap.containsKey(matcher.group(2))) {
-                            mod = modifiedAAMassMap.get(matcher.group(2));
+                        if (extraAaMassMap.containsKey(matcher.group(2))) {
+                            mod = extraAaMassMap.get(matcher.group(2));
                         }
                         ptmFreeAA = matcher.group(2).charAt(0);
                         if (matcher.group(1) != null) {
@@ -267,31 +349,31 @@ public class InferSegment {
                     } else {
                         throw new NullPointerException(String.format(Locale.US, "Cannot find the PTM free amino acid for %s.", aa1));
                     }
-                    ExpAA expAa1 = new ExpAA(aa1, ptmFreeAA, mz1, mz2, intensity1, intensity2, -1, mod, nTermMod, 0);
-                    List<List<ExpAA>> tempAasList2 = new LinkedList<>();
+                    ExpAa expAa1 = new ExpAa(aa1, ptmFreeAA, mz1, mz2, intensity1, intensity2, 0);
+                    List<List<ExpAa>> tempAasList2 = new LinkedList<>();
                     for (int k = j + 1; k < mzArray.length - 1; ++k) {
                         double mz3 = mzArray[k];
                         double intensity3 = intensityArray[k];
-                        String aa2 = inferAA(mz2, mz3, false, false);
+                        String aa2 = inferAA(mz2, mz3, 0);
                         if (aa2 != null) {
                             mod = 0;
-                            if (modifiedAAMassMap.containsKey(aa2)) {
-                                mod = modifiedAAMassMap.get(aa2);
+                            if (extraAaMassMap.containsKey(aa2)) {
+                                mod = extraAaMassMap.get(aa2);
                             }
-                            ExpAA expAa2 = new ExpAA(aa2, aa2.charAt(0), mz2, mz3, intensity2, intensity3, -1, mod, 0, 0);
-                            List<ExpAA> tempAasList3 = new LinkedList<>();
+                            ExpAa expAa2 = new ExpAa(aa2, aa2.charAt(0), mz2, mz3, intensity2, intensity3, 0);
+                            List<ExpAa> tempAasList3 = new LinkedList<>();
                             for (int l = k + 1; l < mzArray.length; ++l) {
                                 double mz4 = mzArray[l];
                                 double intensity4 = intensityArray[l];
-                                String aa3 = inferAA(mz3, mz4, false, Math.abs(mz4 - cTermMz) <= ms2Tolerance);
+                                String aa3 = inferAA(mz3, mz4, 0);
                                 if (aa3 != null) {
                                     matcher = pattern.matcher(aa3);
                                     ptmFreeAA = '\0';
                                     mod = 0;
                                     double cTermMod = 0;
                                     if (matcher.matches()) {
-                                        if (modifiedAAMassMap.containsKey(matcher.group(2))) {
-                                            mod = modifiedAAMassMap.get(matcher.group(2));
+                                        if (extraAaMassMap.containsKey(matcher.group(2))) {
+                                            mod = extraAaMassMap.get(matcher.group(2));
                                         }
                                         ptmFreeAA = matcher.group(2).charAt(0);
                                         if (matcher.group(1) != null) {
@@ -304,29 +386,29 @@ public class InferSegment {
                                     } else {
                                         throw new NullPointerException(String.format(Locale.US, "Cannot find the PTM free amino acid for %s.", aa3));
                                     }
-                                    ExpAA expAa3 = new ExpAA(aa3, ptmFreeAA, mz3, mz4, intensity3, intensity4, -1, mod, 0, cTermMod);
+                                    ExpAa expAa3 = new ExpAa(aa3, ptmFreeAA, mz3, mz4, intensity3, intensity4, 0);
                                     tempAasList3.add(expAa3);
                                 }
                             }
-                            for (ExpAA expAas3 : tempAasList3) {
-                                List<ExpAA> tempList2 = new LinkedList<>();
+                            for (ExpAa expAas3 : tempAasList3) {
+                                List<ExpAa> tempList2 = new LinkedList<>();
                                 tempList2.add(expAa2);
                                 tempList2.add(expAas3);
                                 tempAasList2.add(tempList2);
                             }
                         }
                     }
-                    for (List<ExpAA> expAas2 : tempAasList2) {
-                        ThreeExpAA threeExpAa = new ThreeExpAA(expAa1, expAas2.get(0), expAas2.get(1));
-                        tempSet.add(threeExpAa);
+                    for (List<ExpAa> expAas2 : tempAasList2) {
+                        ExpTag expTag = new ExpTag(expAa1, expAas2.get(0), expAas2.get(1));
+                        tempSet.add(expTag);
                     }
                 }
             }
         }
 
         // eliminate "overlapped" tags
-        ThreeExpAA[] tempArray = tempSet.toArray(new ThreeExpAA[0]);
-        List<ThreeExpAA> tempList = new LinkedList<>();
+        ExpTag[] tempArray = tempSet.toArray(new ExpTag[0]);
+        List<ExpTag> tempList = new LinkedList<>();
         for (int i = 0; i < tempArray.length; ++i) {
             boolean keep = true;
             for (int j = 0; j < tempArray.length; ++j) {
@@ -347,14 +429,14 @@ public class InferSegment {
         if (tempList.size() > minTagNum) {
             double minMz = plMap.firstKey();
             double regionWindow = Math.ceil((plMap.lastKey() - minMz) / regionNum);
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 expAa.setRegionIdx((int) Math.floor((expAa.getHeadLocation() - minMz) / regionWindow));
             }
             List<List<Double>> regionIntensityList = new ArrayList<>(20);
             for (int i = 0; i < regionNum; ++i) {
                 regionIntensityList.add(new ArrayList<>(100));
             }
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 regionIntensityList.get(expAa.getRegionIdx()).add(expAa.getTotalIntensity());
             }
             double[] intensityTArray = new double[regionNum];
@@ -365,7 +447,7 @@ public class InferSegment {
                     intensityTArray[i] = intensityList.get(topNumInEachRegion);
                 }
             }
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 if (expAa.getTotalIntensity() > intensityTArray[expAa.getRegionIdx()]) {
                     outputList.add(expAa);
                 }
@@ -375,25 +457,31 @@ public class InferSegment {
             return tempList;
         }
     }
-    public List<ThreeExpAA> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtract) throws Exception {
+    public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtract) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
-        List<ThreeExpAA> outputList = new LinkedList<>();
+        List<ExpTag> outputList = new LinkedList<>();
 
         Set<Pair<Integer, Integer>> edgeSet = new HashSet<>();
         Set<Integer> nodeSet = new HashSet<>();
         Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
-        Map<Pair<Integer, Integer>, ExpAA> edgeInfoMap = new HashMap<>();
+        Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
         for (int i = 0; i < mzArray.length - 1; ++i) {
             double mz1 = mzArray[i];
+            int isNorC = 0;
+            if (Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance) {
+                isNorC = -1;
+            } else if (Math.abs(mz1 - MassTool.PROTON - massTool.H2O) <= ms2Tolerance) {
+                isNorC = 1;
+            }
             double intensity1 = intensityArray[i];
             for (int j = i + 1; j < mzArray.length; ++j) {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
-                if ( (intensity1 + intensity2)/2 < 0.5) continue;
+                if ( (intensity1 + intensity2)/2 < 0.5) continue;  //todo
 
-                String aa = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                String aa = inferAA(mz1, mz2, isNorC);
                 if (aa != null ) {
                     Pair<Integer, Integer> edge = new Pair<>(i,j);
                     edgeSet.add(edge);
@@ -401,7 +489,7 @@ public class InferSegment {
                     nodeSet.add(j);
                     startNodeSet.remove(j);
                     endNodeSet.remove(i);
-                    edgeInfoMap.put(edge, new ExpAA(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, -1, 0, 0, 0));
+                    edgeInfoMap.put(edge, new ExpAa(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, isNorC));
                 }
             }
         }
@@ -412,27 +500,27 @@ public class InferSegment {
 //        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
             if (path.size() < minTagLenToExtract+1) continue; //aa length is 6 . peaks number is 7.
-            List<ExpAA> expAAList = new ArrayList<>();
+            List<ExpAa> expAaList = new ArrayList<>();
             for (int i = 0; i < path.size()-1; i++){
                 int j = i + 1;
-                expAAList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+                expAaList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
             }
-            outputList.add(new ThreeExpAA(expAAList));
+            outputList.add(new ExpTag(expAaList));
         }
-        outputList.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+        outputList.sort(Comparator.comparingDouble(ExpTag::getTotalIntensity).reversed());
         boolean[] shouldKeep = new boolean[outputList.size()];
         Set<String> addedTags = new HashSet<>();
         int i = 0;
-        for(ThreeExpAA tag : outputList) {
-            if (addedTags.contains(tag.getPtmFreeAAString())) {
+        for(ExpTag tag : outputList) {
+            if (addedTags.contains(tag.getFreeAaString())) {
                 shouldKeep[i] = false;
             } else {
                 shouldKeep[i] = true;
-                addedTags.add(tag.getPtmFreeAAString());
+                addedTags.add(tag.getFreeAaString());
             }
             i++;
         }
-        List<ThreeExpAA> finalList = new LinkedList<>();
+        List<ExpTag> finalList = new LinkedList<>();
         for (int j = 0; j < outputList.size(); j++){
             if (shouldKeep[j]) {
                 finalList.add(outputList.get(j));
@@ -441,23 +529,29 @@ public class InferSegment {
         return finalList;
     }
 
-    public List<ThreeExpAA> getLongDenoisedTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, Set<Pair<Integer, Integer>> edgeToDel) throws Exception {
+    public List<ExpTag> getLongDenoisedTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, Set<Pair<Integer, Integer>> edgeToDel) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
-        List<ThreeExpAA> outputList = new LinkedList<>();
+        List<ExpTag> outputList = new LinkedList<>();
 
         Set<Pair<Integer, Integer>> edgeSet = new HashSet<>();
         Set<Integer> nodeSet = new HashSet<>();
         Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
-        Map<Pair<Integer, Integer>, ExpAA> edgeInfoMap = new HashMap<>();
+        Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
         for (int i = 0; i < mzArray.length - 1; ++i) {
             double mz1 = mzArray[i];
             double intensity1 = intensityArray[i];
             for (int j = i + 1; j < mzArray.length; ++j) {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
-                String aa = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                int isNorC = 0;
+                if (Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance) {
+                    isNorC = -1;
+                } else if (Math.abs(mz1 - MassTool.PROTON - massTool.H2O) <= ms2Tolerance) {
+                    isNorC = 1;
+                }
+                String aa = inferAA(mz1, mz2, isNorC);
                 if (aa != null) {
                     Pair<Integer, Integer> edge = new Pair<>(i,j);
                     if (!edgeToDel.contains(edge)) edgeSet.add(edge);
@@ -465,7 +559,7 @@ public class InferSegment {
                     nodeSet.add(j);
                     startNodeSet.remove(j);
                     endNodeSet.remove(i);
-                    edgeInfoMap.put(edge, new ExpAA(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, -1, 0, 0, 0));
+                    edgeInfoMap.put(edge, new ExpAa(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, 0));
                 }
             }
         }
@@ -476,27 +570,27 @@ public class InferSegment {
 //        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
             if (path.size() < 7) continue; //aa length is 6 . peaks number is 7.
-            List<ExpAA> expAAList = new ArrayList<>();
+            List<ExpAa> expAaList = new ArrayList<>();
             for (int i = 0; i < path.size()-1; i++){
                 int j = i + 1;
-                expAAList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+                expAaList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
             }
-            outputList.add(new ThreeExpAA(expAAList));
+            outputList.add(new ExpTag(expAaList));
         }
-        outputList.sort(Comparator.comparingDouble(ThreeExpAA::getTotalIntensity).reversed());
+        outputList.sort(Comparator.comparingDouble(ExpTag::getTotalIntensity).reversed());
         boolean[] shouldKeep = new boolean[outputList.size()];
         Set<String> addedTags = new HashSet<>();
         int i = 0;
-        for(ThreeExpAA tag : outputList) {
-            if (addedTags.contains(tag.getPtmFreeAAString())) {
+        for(ExpTag tag : outputList) {
+            if (addedTags.contains(tag.getFreeAaString())) {
                 shouldKeep[i] = false;
             } else {
                 shouldKeep[i] = true;
-                addedTags.add(tag.getPtmFreeAAString());
+                addedTags.add(tag.getFreeAaString());
             }
             i++;
         }
-        List<ThreeExpAA> finalList = new LinkedList<>();
+        List<ExpTag> finalList = new LinkedList<>();
         for (int j = 0; j < outputList.size(); j++){
             if (shouldKeep[j]) {
                 finalList.add(outputList.get(j));
@@ -517,11 +611,11 @@ public class InferSegment {
 
         return tagSet.size();
     }
-    private List<ThreeExpAA> getTag4(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
+    private List<ExpTag> getTag4(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
-        Set<ThreeExpAA> tempSet = new HashSet<>();
-        List<ThreeExpAA> outputList = new LinkedList<>();
+        Set<ExpTag> tempSet = new HashSet<>();
+        List<ExpTag> outputList = new LinkedList<>();
         for (int i = 0; i < mzArray.length - 4; ++i) {
             double mz1 = mzArray[i];
             double intensity1 = intensityArray[i];
@@ -529,15 +623,15 @@ public class InferSegment {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
                 if ((intensity1+intensity2)/2 < 0.2) continue;
-                String aa1 = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                String aa1 = inferAA(mz1, mz2, 0);
                 if (aa1 != null) {
                     Matcher matcher = pattern.matcher(aa1);
                     char ptmFreeAA = '\0';
                     double mod = 0;
                     double nTermMod = 0;
                     if (matcher.matches()) {
-                        if (modifiedAAMassMap.containsKey(matcher.group(2))) {
-                            mod = modifiedAAMassMap.get(matcher.group(2));
+                        if (extraAaMassMap.containsKey(matcher.group(2))) {
+                            mod = extraAaMassMap.get(matcher.group(2));
                         }
                         ptmFreeAA = matcher.group(2).charAt(0);
                         if (matcher.group(1) != null) {
@@ -550,45 +644,45 @@ public class InferSegment {
                     } else {
                         throw new NullPointerException(String.format(Locale.US, "Cannot find the PTM free amino acid for %s.", aa1));
                     }
-                    ExpAA expAa1 = new ExpAA(aa1, ptmFreeAA, mz1, mz2, intensity1, intensity2, -1, mod, nTermMod, 0);
-                    List<List<ExpAA>> tempAasList2 = new LinkedList<>();
+                    ExpAa expAa1 = new ExpAa(aa1, ptmFreeAA, mz1, mz2, intensity1, intensity2, 0);
+                    List<List<ExpAa>> tempAasList2 = new LinkedList<>();
                     for (int k = j + 1; k < mzArray.length - 2; ++k) {
                         double mz3 = mzArray[k];
                         double intensity3 = intensityArray[k];
                         if ((intensity2+intensity3)/2 < 0.2) continue;
-                        String aa2 = inferAA(mz2, mz3, false, false);
+                        String aa2 = inferAA(mz2, mz3, 0);
                         if (aa2 != null) {
                             mod = 0;
-                            if (modifiedAAMassMap.containsKey(aa2)) {
-                                mod = modifiedAAMassMap.get(aa2);
+                            if (extraAaMassMap.containsKey(aa2)) {
+                                mod = extraAaMassMap.get(aa2);
                             }
-                            ExpAA expAa2 = new ExpAA(aa2, aa2.charAt(0), mz2, mz3, intensity2, intensity3, -1, mod, 0, 0);
-                            List<ExpAA> tempAasList4 = new LinkedList<>();
+                            ExpAa expAa2 = new ExpAa(aa2, aa2.charAt(0), mz2, mz3, intensity2, intensity3,  0);
+                            List<ExpAa> tempAasList4 = new LinkedList<>();
                             for (int l = k + 1; l < mzArray.length - 1; ++l) {
                                 double mz4 = mzArray[l];
                                 double intensity4 = intensityArray[l];
                                 if ((intensity3+intensity4)/2 < 0.2) continue;
-                                String aa3 = inferAA(mz3, mz4, false, Math.abs(mz4 - cTermMz) <= ms2Tolerance);
+                                String aa3 = inferAA(mz3, mz4, 0);
                                 if (aa3 != null) {
                                     mod = 0;
-                                    if (modifiedAAMassMap.containsKey(matcher.group(2))) {
-                                        mod = modifiedAAMassMap.get(matcher.group(2));
+                                    if (extraAaMassMap.containsKey(matcher.group(2))) {
+                                        mod = extraAaMassMap.get(matcher.group(2));
                                     }
-                                    ExpAA expAa3 = new ExpAA(aa3, aa3.charAt(0), mz3, mz4, intensity3, intensity4, -1, mod, 0, 0);
+                                    ExpAa expAa3 = new ExpAa(aa3, aa3.charAt(0), mz3, mz4, intensity3, intensity4,  0);
                                     tempAasList4.add(expAa3);
                                     for (int m = l + 1; m < mzArray.length; ++m) {
                                         double mz5 = mzArray[m];
                                         double intensity5 = intensityArray[m];
                                         if ((intensity4+intensity5)/2 < 0.2) continue;
-                                        String aa4 = inferAA(mz4, mz5, false, Math.abs(mz5 - cTermMz) <= ms2Tolerance);
+                                        String aa4 = inferAA(mz4, mz5, 0);
                                         if (aa4 != null) {
                                             matcher = pattern.matcher(aa4);
                                             ptmFreeAA = '\0';
                                             mod = 0;
                                             double cTermMod = 0;
                                             if (matcher.matches()) {
-                                                if (modifiedAAMassMap.containsKey(matcher.group(2))) {
-                                                    mod = modifiedAAMassMap.get(matcher.group(2));
+                                                if (extraAaMassMap.containsKey(matcher.group(2))) {
+                                                    mod = extraAaMassMap.get(matcher.group(2));
                                                 }
                                                 ptmFreeAA = matcher.group(2).charAt(0);
                                                 if (matcher.group(1) != null) {
@@ -601,9 +695,9 @@ public class InferSegment {
                                             } else {
                                                 throw new NullPointerException(String.format(Locale.US, "Cannot find the PTM free amino acid for %s.", aa4));
                                             }
-                                            ExpAA expAa4 = new ExpAA(aa4, ptmFreeAA, mz4, mz5, intensity4, intensity5, -1, mod, 0, cTermMod);
+                                            ExpAa expAa4 = new ExpAa(aa4, ptmFreeAA, mz4, mz5, intensity4, intensity5, 0);
                                             tempAasList4.add(expAa4);
-                                            tempSet.add(new ThreeExpAA(expAa1, expAa2, expAa3, expAa4));
+                                            tempSet.add(new ExpTag(expAa1, expAa2, expAa3, expAa4));
                                         }
                                     }
                                 }
@@ -615,8 +709,8 @@ public class InferSegment {
         }
 
         // eliminate "overlapped" tags
-        ThreeExpAA[] tempArray = tempSet.toArray(new ThreeExpAA[0]);
-        List<ThreeExpAA> tempList = new LinkedList<>();
+        ExpTag[] tempArray = tempSet.toArray(new ExpTag[0]);
+        List<ExpTag> tempList = new LinkedList<>();
         for (int i = 0; i < tempArray.length; ++i) {
             boolean keep = true;
             for (int j = 0; j < tempArray.length; ++j) {
@@ -637,14 +731,14 @@ public class InferSegment {
         if (tempList.size() > minTagNum) {
             double minMz = plMap.firstKey();
             double regionWindow = Math.ceil((plMap.lastKey() - minMz) / regionNum);
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 expAa.setRegionIdx((int) Math.floor((expAa.getHeadLocation() - minMz) / regionWindow));
             }
             List<List<Double>> regionIntensityList = new ArrayList<>(20);
             for (int i = 0; i < regionNum; ++i) {
                 regionIntensityList.add(new ArrayList<>(100));
             }
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 regionIntensityList.get(expAa.getRegionIdx()).add(expAa.getTotalIntensity());
             }
             double[] intensityTArray = new double[regionNum];
@@ -655,7 +749,7 @@ public class InferSegment {
                     intensityTArray[i] = intensityList.get(topNumInEachRegion);
                 }
             }
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 if (expAa.getTotalIntensity() > intensityTArray[expAa.getRegionIdx()]) {
                     outputList.add(expAa);
                 }
@@ -666,11 +760,11 @@ public class InferSegment {
         }
     }
 
-    private List<ThreeExpAA> getTag5(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
+    private List<ExpTag> getTag5(TreeMap<Double, Double> plMap, double cTermMz, int scanNum) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
-        Set<ThreeExpAA> tempSet = new HashSet<>();
-        List<ThreeExpAA> outputList = new LinkedList<>();
+        Set<ExpTag> tempSet = new HashSet<>();
+        List<ExpTag> outputList = new LinkedList<>();
         for (int i = 0; i < mzArray.length - 5; ++i) {
             double mz1 = mzArray[i];
             double intensity1 = intensityArray[i];
@@ -678,7 +772,7 @@ public class InferSegment {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
                 if ((intensity1+intensity2)/2 < 0.5) continue;
-                String aa1 = inferAA(mz1, mz2, Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance, false);
+                String aa1 = inferAA(mz1, mz2, 0);
                 if (aa1 != null) {
 //                    Matcher matcher = pattern.matcher(aa1);
 //                    char ptmFreeAA = '\0';
@@ -699,45 +793,45 @@ public class InferSegment {
 //                    } else {
 //                        throw new NullPointerException(String.format(Locale.US, "Cannot find the PTM free amino acid for %s.", aa1));
 //                    }
-                    ExpAA expAa1 = new ExpAA(aa1, aa1.charAt(0), mz1, mz2, intensity1, intensity2, -1, 0, 0, 0);
+                    ExpAa expAa1 = new ExpAa(aa1, aa1.charAt(0), mz1, mz2, intensity1, intensity2, 0);
                     for (int k = j + 1; k < mzArray.length - 3; ++k) {
                         double mz3 = mzArray[k];
                         double intensity3 = intensityArray[k];
                         if ((intensity2+intensity3)/2 < 0.5) continue;
-                        String aa2 = inferAA(mz2, mz3, false, false);
+                        String aa2 = inferAA(mz2, mz3, 0);
                         if (aa2 != null) {
 //                            mod = 0;
 //                            if (modifiedAAMassMap.containsKey(aa2)) {
 //                                mod = modifiedAAMassMap.get(aa2);
 //                            }
-                            ExpAA expAa2 = new ExpAA(aa2, aa2.charAt(0), mz2, mz3, intensity2, intensity3, -1, 0, 0, 0);
+                            ExpAa expAa2 = new ExpAa(aa2, aa2.charAt(0), mz2, mz3, intensity2, intensity3, 0);
                             for (int l = k + 1; l < mzArray.length - 2; ++l) {
                                 double mz4 = mzArray[l];
                                 double intensity4 = intensityArray[l];
                                 if ((intensity3+intensity4)/2 < 0.5) continue;
-                                String aa3 = inferAA(mz3, mz4, false, Math.abs(mz4 - cTermMz) <= ms2Tolerance);
+                                String aa3 = inferAA(mz3, mz4, 0);
                                 if (aa3 != null) {
 //                                    mod = 0;
 //                                    if (modifiedAAMassMap.containsKey(matcher.group(2))) {
 //                                        mod = modifiedAAMassMap.get(matcher.group(2));
 //                                    }
-                                    ExpAA expAa3 = new ExpAA(aa3, aa3.charAt(0), mz3, mz4, intensity3, intensity4, -1, 0, 0, 0);
+                                    ExpAa expAa3 = new ExpAa(aa3, aa3.charAt(0), mz3, mz4, intensity3, intensity4, 0);
                                     for (int m = l + 1; m < mzArray.length; ++m) {
                                         double mz5 = mzArray[m];
                                         double intensity5 = intensityArray[m];
                                         if ((intensity4+intensity5)/2 < 0.5) continue;
-                                        String aa4 = inferAA(mz4, mz5, false, Math.abs(mz5 - cTermMz) <= ms2Tolerance);
+                                        String aa4 = inferAA(mz4, mz5, 0);
                                         if (aa4 != null) {
 //                                            mod = 0;
 //                                            if (modifiedAAMassMap.containsKey(matcher.group(2))) {
 //                                                mod = modifiedAAMassMap.get(matcher.group(2));
 //                                            }
-                                            ExpAA expAa4 = new ExpAA(aa4, aa4.charAt(0), mz4, mz5, intensity4, intensity5, -1, 0, 0, 0);
+                                            ExpAa expAa4 = new ExpAa(aa4, aa4.charAt(0), mz4, mz5, intensity4, intensity5, 0);
                                             for (int n = m + 1; n < mzArray.length; ++n) {
                                                 double mz6 = mzArray[n];
                                                 double intensity6 = intensityArray[n];
                                                 if ((intensity5+intensity6)/2 < 0.5) continue;
-                                                String aa5 = inferAA(mz5, mz6, false, Math.abs(mz6 - cTermMz) <= ms2Tolerance);
+                                                String aa5 = inferAA(mz5, mz6, 0);
                                                 if (aa5 != null) {
 //                                                    matcher = pattern.matcher(aa5);
 //                                                    ptmFreeAA = '\0';
@@ -758,8 +852,8 @@ public class InferSegment {
 //                                                    } else {
 //                                                        throw new NullPointerException(String.format(Locale.US, "Cannot find the PTM free amino acid for %s.", aa4));
 //                                                    }
-                                                    ExpAA expAa5 = new ExpAA(aa5, aa5.charAt(0), mz5, mz6, intensity5, intensity6, -1, 0, 0, 0);
-                                                    tempSet.add(new ThreeExpAA(expAa1, expAa2, expAa3, expAa4, expAa5));
+                                                    ExpAa expAa5 = new ExpAa(aa5, aa5.charAt(0), mz5, mz6, intensity5, intensity6, 0);
+                                                    tempSet.add(new ExpTag(expAa1, expAa2, expAa3, expAa4, expAa5));
                                                 }
                                             }
                                         }
@@ -773,8 +867,8 @@ public class InferSegment {
         }
 
         // eliminate "overlapped" tags
-        ThreeExpAA[] tempArray = tempSet.toArray(new ThreeExpAA[0]);
-        List<ThreeExpAA> tempList = new LinkedList<>();
+        ExpTag[] tempArray = tempSet.toArray(new ExpTag[0]);
+        List<ExpTag> tempList = new LinkedList<>();
         for (int i = 0; i < tempArray.length; ++i) {
             boolean keep = true;
             for (int j = 0; j < tempArray.length; ++j) {
@@ -795,14 +889,14 @@ public class InferSegment {
         if (tempList.size() > minTagNum) {
             double minMz = plMap.firstKey();
             double regionWindow = Math.ceil((plMap.lastKey() - minMz) / regionNum);
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 expAa.setRegionIdx((int) Math.floor((expAa.getHeadLocation() - minMz) / regionWindow));
             }
             List<List<Double>> regionIntensityList = new ArrayList<>(20);
             for (int i = 0; i < regionNum; ++i) {
                 regionIntensityList.add(new ArrayList<>(100));
             }
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 regionIntensityList.get(expAa.getRegionIdx()).add(expAa.getTotalIntensity());
             }
             double[] intensityTArray = new double[regionNum];
@@ -813,7 +907,7 @@ public class InferSegment {
                     intensityTArray[i] = intensityList.get(topNumInEachRegion);
                 }
             }
-            for (ThreeExpAA expAa : tempList) {
+            for (ExpTag expAa : tempList) {
                 if (expAa.getTotalIntensity() > intensityTArray[expAa.getRegionIdx()]) {
                     outputList.add(expAa);
                 }
@@ -823,36 +917,27 @@ public class InferSegment {
             return tempList;
         }
     }
-    private String inferAA(double mz1, double mz2, boolean nTerm, boolean cTerm) {
+    private String inferAA(double mz1, double mz2, int isNorC) {
         double mzDiff = mz2 - mz1;
-        for (double mass : deltaMassArray) {
-            if (Math.abs(mzDiff - mass) <= 2 * ms2Tolerance) {
-                return modifiedAAMap.get(mass);// including M~
+        String aa = null;
+        for (Map.Entry<Double, String> massAa : augedMassAaMap.entrySet()) {
+            String augedAa = massAa.getValue();
+            if ((isNorC == -1 && cModLabel.contains(augedAa.substring(augedAa.length()-1)))  // use n peak then should no C mod
+                || (isNorC == 1 && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use c peak then should no N mod
+                || (isNorC == 0 && cModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no C mod
+                || (isNorC == 0 && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no N mod
+            ) {
+                continue;
+            }
+            if (Math.abs(mzDiff - massAa.getKey()) <= 2 * ms2Tolerance) {
+                aa = massAa.getValue();// including M~
             }
         }
-        // I can also include variable modified aa with n term or c term
 
-//        if (nTerm && (nTermPossibleMod != null)) {
-//            for (double mass : deltaMassArray) {
-//                for (int i = 0; i < nTermPossibleMod.length; ++i) {
-//                    if (Math.abs(mzDiff - mass - nTermPossibleMod[i]) <= 2 * ms2Tolerance) {
-//                        return "n" + i + modifiedAAMap.get(mass);
-//                    }
-//                }
-//            }
-//        }
-//
-//        if (cTerm && (cTermPossibleMod != null)) {
-//            for (double mass : deltaMassArray) {
-//                for (int i = 0; i < cTermPossibleMod.length; ++i) {
-//                    if (Math.abs(mzDiff - mass - cTermPossibleMod[i]) <= 2 * ms2Tolerance) {
-//                        return "c" + i + modifiedAAMap.get(mass);
-//                    }
-//                }
-//            }
-//        }
-
-        return null;
+        if (aa != null && aa.length() > 1) {
+            int a = 1;
+        }
+        return aa;
     }
 
     public TreeMap<Double, Double> addVirtualPeaks(double precursorMass, TreeMap<Double, Double> plMap) {
