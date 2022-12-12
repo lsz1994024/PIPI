@@ -23,11 +23,11 @@ import ProteomicsLibrary.MassTool;
 import java.util.*;
 
 public class Peptide implements Comparable<Peptide>, Cloneable{
-    public double nDeltaMass = 0.0;
-    public double cDeltaMass = 0.0;
+    public double nDeltaMass = -0.99;
+    public double cDeltaMass = -0.99;
     public boolean isTarget;
-    public ExpTag tagFinder = null;
-    public int posInPepSeq = -1;
+    public ExpTag finderTag = null;
+    public int tagPosInPep = -1;
 
     public int scanNum = 0;
     private final String freeSeq;
@@ -239,7 +239,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         }
     }
 
-    public String getPTMFreePeptide() {
+    public String getFreeSeq() {
         return freeSeq;
     }
 
@@ -308,7 +308,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return ptmContainingSeq;
     }
 
-    public double getNormalizedCrossCorr() {
+    public double getTagVecScore() {
         return tagVecScore;
     }
 
@@ -388,9 +388,9 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
                         return 1;
                     } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
                         return -1;
-                    } else if (tagVecScore > peptide.getNormalizedCrossCorr()) {
+                    } else if (tagVecScore > peptide.getTagVecScore()) {
                         return 1;
-                    } else if (tagVecScore < peptide.getNormalizedCrossCorr()) {
+                    } else if (tagVecScore < peptide.getTagVecScore()) {
                         return -1;
                     } else {
                         if (!isDecoy && peptide.isDecoy()) {

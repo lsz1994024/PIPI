@@ -10,7 +10,7 @@ db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Prote
 database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1 # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
 add_contaminant = 1 # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
-missed_cleavage = 3 # Maximum number of allowed missed cleavage.
+missed_cleavage = 4 # Maximum number of allowed missed cleavage.l
 min_peptide_length = 6 # Minimum length of a peptide chain.
 max_peptide_length = 50 # Maximum length of a peptide chain.
 
@@ -26,7 +26,7 @@ min_clear_mz = 112.5 # Clear out all peaks in the specified m/z range, mainly fo
 max_clear_mz = 121.5
 
 # Modification related
-min_ptm_mass = -250 # Min allowed PTM mass.
+min_ptm_mass = -150 # Min allowed PTM mass.
 max_ptm_mass = 250 # Max allowed PTM mass.
 
 # Isotopic labelling strategy
@@ -61,8 +61,6 @@ mod09 = 526.123892,X,0,N_X526
 # Empty ones must with value 0.0.
 # The maximum number for each terminal is 9.
 # Please only specify enriched PTM and chemical labelling PTM.
-Nterm = 0.0
-Cterm = 0.0
 
 # Fix modification
 G = 0

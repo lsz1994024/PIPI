@@ -225,14 +225,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         for (String seq : ptmPeptideListMap.keySet()) {
             double totalScore = 0;
             for (Peptide peptide : ptmPeptideListMap.get(seq)) {
-                totalScore += peptide.tagFinder.getTotalIntensity();
+                totalScore += peptide.finderTag.getTotalIntensity();
             }
             ptmPeptideTotalScoreList.add(new Pair<>(seq, totalScore));
         }
         for (String seq : freePeptideListMap.keySet()) {
             double totalScore = 0;
             for (Peptide peptide : freePeptideListMap.get(seq)) {
-                totalScore += peptide.tagFinder.getTotalIntensity();
+                totalScore += peptide.finderTag.getTotalIntensity();
             }
             freePeptideTotalScoreList.add(new Pair<>(seq, totalScore));
         }
@@ -374,10 +374,10 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
                 Peptide peptide = new Peptide(freePepSeq, true, massTool, 1, 0.999, 0);
                 // these paras are dummy answer will be deleted
-                peptide.posInPepSeq = pos-nPos;
+                peptide.tagPosInPep = pos-nPos;
                 peptide.ptmSeq = ptmPepSeqSB.toString();
-                peptide.tagFinder = tag;
-                peptide.cDeltaMass = precursorMass - MassTool.PROTON- cPoscMassMap.get(cPos);
+                peptide.finderTag = tag;
+                peptide.cDeltaMass = precursorMass - cPoscMassMap.get(cPos);
                 peptide.nDeltaMass = nDeltaMass;
                 if (theoTotalMassWithPtm > minPcMass && theoTotalMassWithPtm < maxPcMass){
                     //free

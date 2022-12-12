@@ -88,7 +88,10 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         if (lszDebugScanNum.contains(this.scanNum)) {
             int a = 1;
         }
+//        System.out.println("in, "+ scanNum);
         List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 6);
+//        System.out.println("out, "+ scanNum);
+
         if (!allLongTagList.isEmpty()) {
             Entry entry = new Entry();
                 //which top long tags to uses

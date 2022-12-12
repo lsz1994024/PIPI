@@ -22,16 +22,16 @@ import java.util.TreeSet;
 public class PeptidePTMPattern {
     private int maxNumOfPtmPatterns = 10;
 
-    public final String ptmFreePeptide;
+    public final String freeSeq;
     public Peptide bestPep = null;
     public TreeSet<Peptide> peptideTreeSet = new TreeSet<>(Comparator.reverseOrder());
 
-    public PeptidePTMPattern(String ptmFreePeptide) {
-        this.ptmFreePeptide = ptmFreePeptide;
+    public PeptidePTMPattern(String freeSeq) {
+        this.freeSeq = freeSeq;
     }
 
-    public PeptidePTMPattern(String ptmFreePeptide, int maxNumOfPtmPatterns) {
-        this.ptmFreePeptide = ptmFreePeptide;
+    public PeptidePTMPattern(String freeSeq, int maxNumOfPtmPatterns) {
+        this.freeSeq = freeSeq;
         this.maxNumOfPtmPatterns = maxNumOfPtmPatterns;
     }
     public Peptide getTopPepPtn() {

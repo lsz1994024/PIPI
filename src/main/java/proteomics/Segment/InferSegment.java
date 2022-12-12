@@ -40,6 +40,7 @@ public class InferSegment {
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();
     private Map<Double, String> augedMassAaMap = new HashMap<>(35, 1);// augmented amino acid map. Normal aa plus aa with mod
+    private double maxAugedMass = 0;
     private final Double[] augedMassArray;
     private Map<String, Double> extraAaMassMap = new HashMap<>(35, 1);
     private double[] nTermPossibleMod = null;
@@ -214,6 +215,7 @@ public class InferSegment {
             }
         }
         augedMassArray = augedMassAaMap.keySet().toArray(new Double[0]);
+        maxAugedMass = Collections.max(augedMassAaMap.keySet()) + ms2Tolerance;
     }
 
     public List<ExpTag> inferSegmentLocationFromSpectrum(double precursorMass, TreeMap<Double, Double> finalPlMap, int scanNum) throws Exception {
@@ -467,6 +469,8 @@ public class InferSegment {
         Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
+        int numEdges = 0;
+        double minEdgeWeight = 0.0;
         for (int i = 0; i < mzArray.length - 1; ++i) {
             double mz1 = mzArray[i];
             int isNorC = 0;
@@ -478,8 +482,10 @@ public class InferSegment {
             double intensity1 = intensityArray[i];
             for (int j = i + 1; j < mzArray.length; ++j) {
                 double mz2 = mzArray[j];
+                if (mz2 > mz1 + maxAugedMass + 5) break; // no need to try further because the can not match to any aa
                 double intensity2 = intensityArray[j];
-                if ( (intensity1 + intensity2)/2 < 0.5) continue;  //todo
+
+                if ( (intensity1 + intensity2) < 0.5) continue;  //todo
 
                 String aa = inferAA(mz1, mz2, isNorC);
                 if (aa != null ) {
@@ -493,6 +499,29 @@ public class InferSegment {
                 }
             }
         }
+        if (edgeInfoMap.size() > 120){ //only use the top 100 edges
+            List<Map.Entry<Pair<Integer, Integer>, ExpAa>> edgeInfoList = new ArrayList<>(edgeInfoMap.entrySet());
+            Collections.sort(edgeInfoList, Comparator.comparing(o -> o.getValue().getTotalIntensity(), Comparator.reverseOrder()));
+            nodeSet.clear();
+            edgeSet.clear();
+            startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
+            endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
+            int i = 0;
+            for (Map.Entry<Pair<Integer, Integer>, ExpAa> entry : edgeInfoList){
+                if (i > 120) {
+                    edgeInfoMap.remove(entry.getKey());
+                } else {
+                    edgeSet.add(entry.getKey());
+                    nodeSet.add(entry.getKey().getFirst());
+                    nodeSet.add(entry.getKey().getSecond());
+                    startNodeSet.remove(entry.getKey().getSecond());
+                    endNodeSet.remove(entry.getKey().getFirst());
+                }
+                i++;
+            }
+
+        }
+
         startNodeSet.retainAll(nodeSet);
         endNodeSet.retainAll(nodeSet);
         Graph g = new Graph(edgeSet, nodeSet);

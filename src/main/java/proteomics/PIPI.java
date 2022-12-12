@@ -48,10 +48,10 @@ public class PIPI {
     public static final String versionStr = "1.4.7";
     static final boolean useXcorr = false;
     static final boolean nTermSpecific = false;
-    static final int maxMissCleav = 2;
+    static final int maxMissCleav = 4;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(62866));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(62940,62866,72612));
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -204,7 +204,7 @@ public class PIPI {
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             //change thread 1
-//            threadNumX = 1;
+//            threadNum_0 = 1;
         }
         System.out.println("thread NUM "+ threadNum_0);
 
@@ -237,7 +237,7 @@ public class PIPI {
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 10) {
+                if (Math.abs(scanNum-debugScanNum) < 2) {
                     shouldRun = true;
                 }
             }
@@ -383,6 +383,7 @@ public class PIPI {
             }
         }
 
+        System.out.println("Protein size: "+protLengthMap.size()+" reduced to " + reducedProtIdSet.size());
 
 
         //  END Score for Proteins
@@ -561,7 +562,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 200) {
+                if (Math.abs(scanNum-debugScanNum) < 2) {
                     shouldRun = true;
                 }
             }
@@ -671,13 +672,13 @@ public class PIPI {
                 Map<String, PeptideInfo> realPeptideInfoMap = new HashMap<>();
                 for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
                     realPtmOnlyList.add(pep.clone());
-                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
-                    allPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                    realPeptideInfoMap.put(pep.getFreeSeq(), thisScanPeptideInfoMap.get(pep.getFreeSeq()).clone());
+                    allPeptideInfoMap.put(pep.getFreeSeq(), thisScanPeptideInfoMap.get(pep.getFreeSeq()).clone());
                 }
                 for (Peptide pep : ptmFreeCandiMap.get(thisScanName)) {
                     realPtmFreeList.add(pep.clone());
-                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
-                    allPeptideInfoMap.put(pep.getPTMFreePeptide(), thisScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                    realPeptideInfoMap.put(pep.getFreeSeq(), thisScanPeptideInfoMap.get(pep.getFreeSeq()).clone());
+                    allPeptideInfoMap.put(pep.getFreeSeq(), thisScanPeptideInfoMap.get(pep.getFreeSeq()).clone());
                 }
                 for (int i = -3; i <= 3; i++) {
                     for (Set<String> otherScanNameSet : pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - 0.02, true, mass + i*MassTool.PROTON + 0.02, true).values()) {
@@ -693,7 +694,7 @@ public class PIPI {
                                     } else {
                                         realPtmOnlyList.add(pep.clone());
                                     }
-                                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), otherScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                                    realPeptideInfoMap.put(pep.getFreeSeq(), otherScanPeptideInfoMap.get(pep.getFreeSeq()).clone());
                                 }
                                 for (Peptide pep : ptmFreeCandiMap.get(otherScanName)) {
                                     if (Math.abs(pep.getTheoMass()-precursorMassMap.get(thisScanName)) < 0.02) {
@@ -701,7 +702,7 @@ public class PIPI {
                                     } else {
                                         realPtmOnlyList.add(pep.clone());
                                     }
-                                    realPeptideInfoMap.put(pep.getPTMFreePeptide(), otherScanPeptideInfoMap.get(pep.getPTMFreePeptide()).clone());
+                                    realPeptideInfoMap.put(pep.getFreeSeq(), otherScanPeptideInfoMap.get(pep.getFreeSeq()).clone());
                                 }
                             }
                         }

@@ -108,4 +108,7 @@ public class ExpAa implements Comparable<ExpAa> {
     public double getTailIntensity() {
         return tailIntensity;
     }
+    public double getTotalIntensity() {
+        return tailIntensity + headIntensity;
+    }
 }
