@@ -193,7 +193,11 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             other.setaScore(aScore);
             other.setQValue(qValue);
         }
-
+        other.nDeltaMass = this.nDeltaMass;
+        other.cDeltaMass = this.cDeltaMass;
+        other.isTarget = this.isTarget;
+        other.finderTag = new ExpTag(this.finderTag.expAaList);
+        other.tagPosInPep = this.tagPosInPep;
         return other;
     }
 

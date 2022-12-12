@@ -161,7 +161,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                     for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {
                         tempPeptide.bestPep = peptidePTMPattern.bestPep;
                         ExpTag tag = peptide.finderTag;
-                        if (tag.getPtmAaString().length() != tag.getFreeAaString().length()) { // means the tag is with label var mod, need to put this mod on the final pep
+                        if (tag != null && tag.getPtmAaString().length() != tag.getFreeAaString().length()) { // means the tag is with label var mod, need to put this mod on the final pep
                             PositionDeltaMassMap newPtmPtn = new PositionDeltaMassMap(peptide.getFreeSeq().length());
                             for (Coordinate coor : peptide.getVarPTMs().keySet()) {
                                 //copy the old var mod in the untaged region
