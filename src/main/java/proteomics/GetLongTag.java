@@ -32,6 +32,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static proteomics.PIPI.lszDebugScanNum;
+import static proteomics.PIPI.minTagLenToReduceProtDb;
 
 public class GetLongTag implements Callable<GetLongTag.Entry> {
     private static final int candisNum = 20;
@@ -89,7 +90,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
             int a = 1;
         }
 //        System.out.println("in, "+ scanNum);
-        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 6);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToReduceProtDb);
 //        System.out.println("out, "+ scanNum);
 
         if (!allLongTagList.isEmpty()) {

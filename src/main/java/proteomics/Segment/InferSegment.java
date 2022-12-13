@@ -50,8 +50,6 @@ public class InferSegment {
     public String nModLabel = "qwertyuio";
     public String cModLabel = "asdfghjkl";
 
-//    public Map<Character, Double> labelMassMap = new HashMap<>();
-
     public InferSegment(MassTool massTool, Map<String, String> parameterMap, Map<Character, Double> fixModMap) throws Exception {
         this.massTool = massTool;
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
@@ -63,7 +61,6 @@ public class InferSegment {
         for (char aa : standardAaArray) {
             // # = I/L.
             oriMassAaMap.put(massTable.get(aa), aa);
-
         }
 
         Character[] aaArray = oriMassAaMap.values().toArray(new Character[0]);

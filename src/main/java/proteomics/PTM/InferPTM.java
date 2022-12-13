@@ -48,6 +48,8 @@ public class InferPTM {
     private Set<VarPtm> varPtmSet = new HashSet<>();
     private final double minPtmMass;
     private final double maxPtmMass;
+    public double minUserPtmMass = 0;
+    public double maxUserPtmMass = 530;
     private final double ms2Tolerance;
     private Map<Character, List<VarPtm>> finalPtmMap = new HashMap<>();
     private final Set<Character> aaCharSet = new HashSet<>(Arrays.asList('A','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','Y'));
@@ -56,24 +58,12 @@ public class InferPTM {
         elementTable = massTool.getElementTable();
         massTable = massTool.getMassTable();
         this.fixModMap = fixModMap;
+//        this.minPtmMass = Math.min(Double.valueOf(parameterMap.get("min_ptm_mass")), -600);// todo, this is correct way to handle user specified big mass PTM
         this.minPtmMass = Double.valueOf(parameterMap.get("min_ptm_mass"));
+
         this.maxPtmMass = Double.valueOf(parameterMap.get("max_ptm_mass"));
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
-        // Generate a varModParamSet from the parameterMap
-//        for (String k : parameterMap.keySet()) {
-//            if (k.startsWith("mod")) {
-//                String v = parameterMap.get(k);
-//                if (!v.startsWith("0.0")) {
-//                    String[] temp = v.split(",");
-////                    System.out.println(temp[1].charAt(0));
-//                    if (Math.abs(fixModMap.get(temp[1].charAt(0))) < 0.1) {
-//                        // fix modification and var modification cannot be coexist
-////                            public VarModParam(double mass, char site, int position,  String name, String classification, int priority) {
-//                        varPtmSet.add(new VarPtm(Double.valueOf(temp[0]), temp[1].charAt(0), Integer.valueOf(temp[2]), temp[3], "ByUser", 1)); // var mods from the parameter file have the highest priority, those PTM can exist in peptide terminal.
-//                    }  // todo varPtmSet should be transformed to 5 mod set
-//                }
-//            }
-//        }
+
         char[] aaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
         for (String k : parameterMap.keySet()) {
             if (!k.startsWith("mod")) continue;
@@ -113,9 +103,6 @@ public class InferPTM {
         // update ptm table with the high priority mods in the parameter file.
         for (VarPtm varPtm : varPtmSet) {
             if (finalPtmMap.containsKey(varPtm.site)) {
-//                if (finalPtmMap.get(varPtm.site).contains(varPtm)) {
-//                    finalPtmMap.get(varPtm.site).remove(varPtm); // remove old one add new one with priority
-//                }
                 finalPtmMap.get(varPtm.site).add(varPtm);
             } else {
                 List<VarPtm> tempList = new LinkedList<>();
@@ -123,35 +110,6 @@ public class InferPTM {
                 finalPtmMap.put(varPtm.site, tempList);
             }
         }
-
-        // remove abundant records that are on the same site with lower level positions
-        //  when mass is same, users must be higher than that from unimod.
-        // when both are from user, or from unimod, and mass is the same, aa sub is higher than others because it can happen anywhere
-        // when both are from user, or from unimod, and mass is the same, and both are aa sub or other, 4 is higher than 2 than 0, 4 is higher than 3 than 1
-//        for (Character site : finalPtmMap.keySet()) {
-//            Set<VarPtm> toRemove = new HashSet<>();
-//            Iterator<VarPtm> iterI = finalPtmMap.get(site).iterator();
-//            while (iterI.hasNext()) {
-//                VarPtm ptmI = iterI.next();
-//                Iterator<VarPtm> iterJ = finalPtmMap.get(site).iterator();
-//                String nameI = ptmI.toString().substring(0, ptmI.toString().length()-1);
-//                int posI = Integer.valueOf(ptmI.toString().charAt(ptmI.toString().length()-1));
-//                while (iterJ.hasNext()) {
-//                    VarPtm ptmJ = iterJ.next();
-//                    String nameJ = ptmJ.toString().substring(0, ptmJ.toString().length()-1);
-//                    int posJ = Integer.valueOf(ptmJ.toString().charAt(ptmJ.toString().length()-1));
-//                    if (!ptmI.toString().contentEquals(ptmJ.toString()) && nameI.contentEquals(nameJ)) {
-//                        if (posI < posJ) {
-//                            toRemove.add(ptmI);
-//                        } else {
-//                            toRemove.add(ptmJ);
-//                        }
-//                    }
-//                }
-//            }
-//            finalPtmMap.get(site).removeAll(toRemove);
-//        }
-        int a = 1;
     }
 
     public PeptidePTMPattern findPtmNew1(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, Peptide candiPep, PeptideInfo peptideInfo

@@ -112,24 +112,15 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
-        List<ExpTag> tag4List = inferSegment.getAllTag4(precursorMass, finalPlMap, scanNum);
         List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
-
-//        Collections.sort(tag4List, Comparator.comparingDouble(ExpTag::getTotalIntensity).reversed());
-
-//        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = buildIndex.tagProtPosMap;
-
 
         if (allLongTagList.isEmpty())  return null;
         Entry entry = new Entry();
 
 
         double totalMass = precursorMass + 2 * MassTool.PROTON;
-//        double pcMassL = precursorMass - 250;
-//        double pcMassR = precursorMass + 250;
 
         FMIndex fmIndex = buildIndex.fmIndexReduced;
-        Set<String> usedLongTags = new HashSet<>();
 
         Map<String, List<Peptide>> ptmPeptideListMap = new HashMap<>();
         Map<String, List<Peptide>> freePeptideListMap = new HashMap<>();
@@ -139,12 +130,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             String tag = tagInfo.getFreeAaString();
             String revTagStr = new StringBuilder(tag).reverse().toString();
 
-            int ptnForwardCount = 0;
-            int ptnBackwardCount = 0;
             SearchInterval searchForward = null;
             SearchInterval searchBackward = null;
 
-            Set<String> protIdSet = new HashSet<>();
 
             Set<String> peptidesFoundByThisTag = new HashSet<>();
             if (tagInfo.isNorC == -1) { //n tag
@@ -161,7 +149,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                         int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
 
                         updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
-//                        protIdSet.add(protId);
                     }
                 }
             } else if (tagInfo.isNorC == 1) { // c tag
@@ -258,6 +245,21 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         return entry;
     }
 
+    private boolean isCMassValid(double mass) {
+        double deltaMass = mass - precursorMass;
+        if (deltaMass > minPtmMass - 530 && mass < maxPtmMass) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isNMassValid(double mass) {
+        double deltaMass = mass - precursorMass;
+        if (deltaMass > minPtmMass - 530 && mass < maxPtmMass) {
+            return true;
+        }
+        return false;
+    }
     private void updateCandiList(String protId, int pos, ExpTag tag, double minPcMass, double maxPcMass
             , Map<String, List<Peptide>> ptmPeptideListMap, Map<String, List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag) {
 
@@ -279,12 +281,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 //the if-block is in order, dont change the order.
                 if (isX(protSeq.charAt(i))) break;
                 tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
-                if (tagCMass > precursorMass+250) break;
+                if (tagCMass > precursorMass+maxPtmMass) break; // the total max minus ptm is -250. although the max minus ptm for single ptm is -156
 
                 if (isKR(protSeq.charAt(i))) {
                     missCleav++; //current num of missed cleavage
                 }
-                if (tagCMass >= precursorMass-250 && isKR(protSeq.charAt(i))) {
+                if (tagCMass >= precursorMass-600 && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
                     cPoscMassMap.put(i, tagCMass);
                 }
                 if (missCleav > maxMissCleav) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
@@ -312,7 +314,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                 }
                 if (nDeltaMass < -250) break;
-                if (nDeltaMass > 250) continue;
+                if (nDeltaMass > 600) continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
 
                 if (nTermSpecific) {
                     if (nPos != 0 && !isKR(protSeq.charAt(nPos-1))) {// n term must be specific
