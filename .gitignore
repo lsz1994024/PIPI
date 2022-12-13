@@ -28,4 +28,5 @@ target
 *.mzXML
 src/main/resources/log.txt
 catProt.txt
+catProtReduced.txt
 *.TD.fasta
