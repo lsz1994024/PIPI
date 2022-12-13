@@ -49,7 +49,7 @@ public class InferPTM {
     private final double minPtmMass;
     private final double maxPtmMass;
     private final double ms2Tolerance;
-    private Map<Character, Set<VarPtm>> finalPtmMap = new HashMap<>();
+    private Map<Character, List<VarPtm>> finalPtmMap = new HashMap<>();
     private final Set<Character> aaCharSet = new HashSet<>(Arrays.asList('A','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','Y'));
     public InferPTM(MassTool massTool, Map<Character, Double> fixModMap, Map<String, String> parameterMap) throws Exception{
         this.massTool = massTool;
@@ -113,41 +113,44 @@ public class InferPTM {
         // update ptm table with the high priority mods in the parameter file.
         for (VarPtm varPtm : varPtmSet) {
             if (finalPtmMap.containsKey(varPtm.site)) {
-                if (finalPtmMap.get(varPtm.site).contains(varPtm)) {
-                    finalPtmMap.get(varPtm.site).remove(varPtm); // remove old one add new one with priority
-                }
+//                if (finalPtmMap.get(varPtm.site).contains(varPtm)) {
+//                    finalPtmMap.get(varPtm.site).remove(varPtm); // remove old one add new one with priority
+//                }
                 finalPtmMap.get(varPtm.site).add(varPtm);
             } else {
-                Set<VarPtm> tempSet = new HashSet<>();
-                tempSet.add(varPtm);
-                finalPtmMap.put(varPtm.site, tempSet);
+                List<VarPtm> tempList = new LinkedList<>();
+                tempList.add(varPtm);
+                finalPtmMap.put(varPtm.site, tempList);
             }
         }
 
         // remove abundant records that are on the same site with lower level positions
-        for (Character site : finalPtmMap.keySet()) {
-            Set<VarPtm> toRemove = new HashSet<>();
-            Iterator<VarPtm> iterI = finalPtmMap.get(site).iterator();
-            while (iterI.hasNext()) {
-                VarPtm ptmI = iterI.next();
-                Iterator<VarPtm> iterJ = finalPtmMap.get(site).iterator();
-                String nameI = ptmI.toString().substring(0, ptmI.toString().length()-1);
-                int posI = Integer.valueOf(ptmI.toString().charAt(ptmI.toString().length()-1));
-                while (iterJ.hasNext()) {
-                    VarPtm ptmJ = iterJ.next();
-                    String nameJ = ptmJ.toString().substring(0, ptmJ.toString().length()-1);
-                    int posJ = Integer.valueOf(ptmJ.toString().charAt(ptmJ.toString().length()-1));
-                    if (!ptmI.toString().contentEquals(ptmJ.toString()) && nameI.contentEquals(nameJ)) {
-                        if (posI < posJ) {
-                            toRemove.add(ptmI);
-                        } else {
-                            toRemove.add(ptmJ);
-                        }
-                    }
-                }
-            }
-            finalPtmMap.get(site).removeAll(toRemove);
-        }
+        //  when mass is same, users must be higher than that from unimod.
+        // when both are from user, or from unimod, and mass is the same, aa sub is higher than others because it can happen anywhere
+        // when both are from user, or from unimod, and mass is the same, and both are aa sub or other, 4 is higher than 2 than 0, 4 is higher than 3 than 1
+//        for (Character site : finalPtmMap.keySet()) {
+//            Set<VarPtm> toRemove = new HashSet<>();
+//            Iterator<VarPtm> iterI = finalPtmMap.get(site).iterator();
+//            while (iterI.hasNext()) {
+//                VarPtm ptmI = iterI.next();
+//                Iterator<VarPtm> iterJ = finalPtmMap.get(site).iterator();
+//                String nameI = ptmI.toString().substring(0, ptmI.toString().length()-1);
+//                int posI = Integer.valueOf(ptmI.toString().charAt(ptmI.toString().length()-1));
+//                while (iterJ.hasNext()) {
+//                    VarPtm ptmJ = iterJ.next();
+//                    String nameJ = ptmJ.toString().substring(0, ptmJ.toString().length()-1);
+//                    int posJ = Integer.valueOf(ptmJ.toString().charAt(ptmJ.toString().length()-1));
+//                    if (!ptmI.toString().contentEquals(ptmJ.toString()) && nameI.contentEquals(nameJ)) {
+//                        if (posI < posJ) {
+//                            toRemove.add(ptmI);
+//                        } else {
+//                            toRemove.add(ptmJ);
+//                        }
+//                    }
+//                }
+//            }
+//            finalPtmMap.get(site).removeAll(toRemove);
+//        }
         int a = 1;
     }
 
@@ -1258,8 +1261,6 @@ public class InferPTM {
                 if (name.contentEquals("Diethylphosphothione")) {
                     int a =1;
                 }
-                Set<Integer> recordIdWithPsiName = new HashSet<> (Arrays.asList(1,2,3,4,5,6,7,8,9,10,11,12,13,17,20,21,23,24,25,26,27,28,29,30,31,34,35,36,37,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,58,59,60,61,62,63,64,65,66,89,90,91,92,93,94,95,97,105,106,107,108,118,119,121,122,123,124,126,127,128,129,130,131,134,135,136,137,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,170,171,172,176,178,184,185,186,187,188,193,194,195,196,197,198,199,200,205,206,207,208,209,211,212,213,214,243,253,254,255,256,258,259,260,261,262,264,267,268,269,270,271,272,275,276,278,280,281,284,285,286,288,289,290,291,292,293,294,295,298,299,301,302,303,305,307,308,309,310,311,312,313,314,316,318,319,320,323,324,325,327,329,330,332,333,335,337,340,342,344,345,348,349,350,351,352,354,359,360,362,363,364,365,366,368,369,371,372,374,375,376,377,378,379,380,381,382,385,387,388,389,390,391,392,393,394,395,396,397,398,400,401,402,403,405,407,408,409,410,411,412,413,414,415,416,417,419,420,421,422,423,424,425,426,428,429,431,432,433,434,435,436,437,438,439,440,442,443,444,445,447,448,449,450,451,452,453,454,455,457,464,472,476,477,478,481,488,490,493,494,495,498,499,500,501,510,512,513,514,515,518,519,520,522,523,526,528,529,530,531,532,533,534,535,687,695,696,772));
-                int recordId = Integer.valueOf(modElem.attributeValue("record_id"));
                 double mass = Double.valueOf(modElem.element("delta").attributeValue("mono_mass"));
                 if (mass < minPtmMass || mass > maxPtmMass) continue;
                 if (Math.abs(mass - 56.0626) <0.01) {
@@ -1297,7 +1298,7 @@ public class InferPTM {
                             if (finalPtmMap.containsKey(site)) {
                                 finalPtmMap.get(site).add(temp);
                             } else {
-                                Set<VarPtm> varPtmSet = new HashSet<>();
+                                List<VarPtm> varPtmSet = new LinkedList<>();
                                 varPtmSet.add(temp);
                                 finalPtmMap.put(site, varPtmSet);
                             }
@@ -1308,7 +1309,7 @@ public class InferPTM {
                         if (finalPtmMap.containsKey(site)) {
                             finalPtmMap.get(site).add(temp);
                         } else {
-                            Set<VarPtm> varPtmSet = new HashSet<>();
+                            List<VarPtm> varPtmSet = new LinkedList<>();
                             varPtmSet.add(temp);
                             finalPtmMap.put(site, varPtmSet);
                         }
@@ -1410,14 +1411,22 @@ public class InferPTM {
             char aa = ptmFreePeptide.charAt(i);
 
             if (finalPtmMap.containsKey(aa)) {
-                Set<VarPtm> dstSet = new HashSet<>();
-                Set<VarPtm> srcSet = finalPtmMap.get(aa);
+                Map<String, VarPtm> dstMap = new HashMap<>();
+                List<VarPtm> srcSet = finalPtmMap.get(aa);
                 if (i == 0) { //aa at seq n term
                     for (VarPtm varPtm : srcSet) {
                         if (massTable.get(ptmFreePeptide.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
 
                         if (varPtm.position == 4 || varPtm.position == 2 || (varPtm.position == 0 && nHasProtPtm)) { // anywhere or pepN or (protN and pepPos at protN)
-                            dstSet.add(varPtm);
+                            String varPtmStr = varPtm.getStr();
+                            if (dstMap.containsKey(varPtmStr)) {
+                                VarPtm oldVarPtm = dstMap.get(varPtmStr);
+                                if (varPtm.priority > oldVarPtm.priority){
+                                    dstMap.put(varPtmStr, varPtm);
+                                }
+                            } else {
+                                dstMap.put(varPtmStr, varPtm);
+                            }
                         }
                     }
                 } else if (i == ptmFreePeptide.length()-1) { //aa at seq c term
@@ -1425,7 +1434,15 @@ public class InferPTM {
                         if (massTable.get(ptmFreePeptide.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
 
                         if (varPtm.position == 4 || varPtm.position == 3 || (varPtm.position == 1 && cHasProtPtm)) { // anywhere or pepC or (protC and pepPos at protC)
-                            dstSet.add(varPtm);
+                            String varPtmStr = varPtm.getStr();
+                            if (dstMap.containsKey(varPtmStr)) {
+                                VarPtm oldVarPtm = dstMap.get(varPtmStr);
+                                if (varPtm.priority > oldVarPtm.priority){
+                                    dstMap.put(varPtmStr, varPtm);
+                                }
+                            } else {
+                                dstMap.put(varPtmStr, varPtm);
+                            }
                         }
                     }
                 } else {//aa at middle
@@ -1433,12 +1450,20 @@ public class InferPTM {
                         if (massTable.get(ptmFreePeptide.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
 
                         if (varPtm.position == 4) { // anywhere
-                            dstSet.add(varPtm);
+                            String varPtmStr = varPtm.getStr();
+                            if (dstMap.containsKey(varPtmStr)) {
+                                VarPtm oldVarPtm = dstMap.get(varPtmStr);
+                                if (varPtm.priority > oldVarPtm.priority){
+                                    dstMap.put(varPtmStr, varPtm);
+                                }
+                            } else {
+                                dstMap.put(varPtmStr, varPtm);
+                            }
                         }
                     }
                 }
-                if (!dstSet.isEmpty()) {
-                    idxVarModMap.put(i, dstSet);
+                if (!dstMap.isEmpty()) {
+                    idxVarModMap.put(i, new HashSet<>(dstMap.values()));
                 }
             }
         }

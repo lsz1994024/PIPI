@@ -17,7 +17,7 @@
 package proteomics.Types;
 
 
-public class VarPtm {
+public class VarPtm implements Comparable<VarPtm>{
 
     public final double mass;
     public final char site;
@@ -38,10 +38,13 @@ public class VarPtm {
         this.classification = classification;
         this.onlyProteinTerminalIfnc = false;
         this.name = name;
-        toString = mass + "@" + site+ "@" + position; //var mod only differ by mass and site
-        hashCode = toString.hashCode();
+        toString = mass + "@" + site+ "@" + position;
+        hashCode = (mass + "@" + site).hashCode();//var mod only differ by mass and site
     }
 
+    public String getStr(){
+        return mass + "@" + site;
+    }
     public int hashCode() {
         return hashCode;
     }
@@ -58,5 +61,11 @@ public class VarPtm {
         } else {
             return false;
         }
+    }
+
+    @Override
+    public int compareTo(VarPtm other) {
+//        if (this.mass != )
+        return 0;
     }
 }
