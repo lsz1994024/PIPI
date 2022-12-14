@@ -202,7 +202,9 @@ public class ExpTag implements Comparable<ExpTag> {
         for (int i = expAaArray.length-1; i>=0; i--) {
             revExpAaList.add(expAaArray[i].revAA(totalMass));
         }
-        return new ExpTag(revExpAaList);
+        ExpTag revedTag = new ExpTag(revExpAaList);
+        revedTag.isNorC = isNorC;
+        return revedTag;
     }
 
     public double getIntesFrom(int aaId1, int aaId2){

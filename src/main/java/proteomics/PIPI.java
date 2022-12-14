@@ -373,7 +373,7 @@ public class PIPI {
 
 //            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
             ii++;
-            if (pair.getSecond() < 10) break;
+            if (pair.getSecond() < 20) break;
             reducedProtIdSet.add(pair.getFirst());
         }
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
