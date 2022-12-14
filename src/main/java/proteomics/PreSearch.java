@@ -267,15 +267,21 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         double tagCMass = tag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
         String protSeq = buildIndex.protSeqMap.get(protId);
         Map<Integer, Double> cPoscMassMap = new HashMap<>();
-        if (pos+tag.size() >= protSeq.length()) {
-            int a = 1;
+        if ( (pos+tag.size() >= protSeq.length() && tag.isNorC != 1)  // not C tag but found at prot Cterm, impossible
+                || (pos == 0 && tag.isNorC != -1) // not N tag but found at prot Cterm, impossible
+        ) {
+            return;
         }
-        if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < 250) {
-            cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
-        }
+//        if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < maxPtmMass) {
+//            cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
+//        }
 
         int missCleav = getNumOfMissCleavSite(tag.getFreeAaString());
-        if (tag.isNorC != 1) { // only when oriTag is not C oriTag can it extend to c
+        if (tag.isNorC == 1){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+            if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < 0.02) { //fixme, should use MS1 tolerance not MS2 tolerance
+                cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
+            }
+        } else { // only when oriTag is not C oriTag can it extend to c
             for (int i = pos+tag.size(); i < protSeq.length(); i++) {  //
 
                 //the if-block is in order, dont change the order.
@@ -296,7 +302,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
 
         for (int cPos : cPoscMassMap.keySet()) {
-            double nDeltaMass = precursorMass - cPoscMassMap.get(cPos) + tag.getHeadLocation() -MassTool.PROTON;
+            double nDeltaMass = tag.getHeadLocation() -MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
             char rightFlank;
             if (cPos == protSeq.length()-1) {
                 rightFlank = '-';
@@ -381,8 +387,10 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 peptide.finderTag = tag;
                 peptide.cDeltaMass = precursorMass - cPoscMassMap.get(cPos);
                 peptide.nDeltaMass = nDeltaMass;
-                if (theoTotalMassWithPtm > minPcMass && theoTotalMassWithPtm < maxPcMass){
-                    //free
+//                if (theoTotalMassWithPtm > minPcMass && theoTotalMassWithPtm < maxPcMass){// fixme, should it be cDeltaMass==0 and nDeltaMass==0 ?
+                if (Math.abs(peptide.cDeltaMass) <= 0.1 && Math.abs(peptide.nDeltaMass) <= 0.1){// fixme, should it be cDeltaMass==0 and nDeltaMass==0 ?
+
+                        //free
                     List<Peptide> peptideList = freePeptideListMap.get(freePepSeq);
                     if (peptideList == null){
                         peptideList = new ArrayList<>();
@@ -404,6 +412,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
             }
         }
+        return;
     }
 
     private int getNumOfMissCleavSite(String seq) {
