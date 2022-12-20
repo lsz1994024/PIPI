@@ -18,6 +18,7 @@ package ProteomicsLibrary;
 
 import ProteomicsLibrary.Types.AA;
 import ProteomicsLibrary.Types.SparseVector;
+import proteomics.Types.VarPtm;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -32,7 +33,8 @@ public class MassTool {
     public static final double PROTON = 1.00727646688;
     public static final double C13_DIFF = 1.00335483;
     public static final double N1514_DIFF = 15.0001088 - 14.0030732;
-    public Map<Character, Double> labelMassMap = new HashMap<>();
+    public Map<Character, VarPtm> labelVarPtmMap = new HashMap<>(); //todo replace labelMassMap with labelVarPtmMap
+//    public Map<Character, VarPtm> labelVarPtmMap = new HashMap<>();
     public static final Map<Character, Double> n1514DiffMap = new HashMap<>(); // This map only contains amino acids. The PTM different are considered in the identification (PIPI).
     static {
         n1514DiffMap.put('G', N1514_DIFF);
@@ -509,7 +511,7 @@ public class MassTool {
     public double calLabeledSeqMass(String sequence) { // n and c are also AA. Consider fixed modification automatically
         double totalMass = 0;
         for (char aaOrLabel : sequence.toCharArray()) {
-            totalMass += massTable.getOrDefault(aaOrLabel, 0.0) + labelMassMap.getOrDefault(aaOrLabel,0.0);
+            totalMass += massTable.getOrDefault(aaOrLabel, 0.0) + (labelVarPtmMap.containsKey(aaOrLabel) ? labelVarPtmMap.get(aaOrLabel).mass : 0.0);
         }
         return totalMass;
     }

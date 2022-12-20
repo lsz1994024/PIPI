@@ -52,7 +52,7 @@ public class PIPI {
     static final int maxMissCleav = 4;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(62940,62866,72612, 72611));
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(71038,61695,41849));//62940,62866,72612, 72611
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -238,7 +238,7 @@ public class PIPI {
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 2) {
+                if (Math.abs(scanNum-debugScanNum) < 1) {
                     shouldRun = true;
                 }
             }
@@ -563,7 +563,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 2) {
+                if (Math.abs(scanNum-debugScanNum) < 1) {
                     shouldRun = true;
                 }
             }
@@ -648,7 +648,7 @@ public class PIPI {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-//            change thread 3
+//            change thread ptmSearch
             threadNum = 1;
         }
         ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);

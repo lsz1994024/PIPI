@@ -263,7 +263,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private void updateCandiList(String protId, int pos, ExpTag tag, double minPcMass, double maxPcMass
             , Map<String, List<Peptide>> ptmPeptideListMap, Map<String, List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag) {
 
-
+        if (tag.getFreeAaString().contentEquals("LPNLN")
+            && (protId.contentEquals("XP_003519282.1") || protId.contentEquals("NP_001241115.1"))
+            && scanNum == 72611) {
+            int a = 1;
+        }
         double tagCMass = tag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
         String protSeq = buildIndex.protSeqMap.get(protId);
         Map<Integer, Double> cPoscMassMap = new HashMap<>();
@@ -339,9 +343,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 String freePepSeq = protSeq.substring(nPos, cPos+1);
 
-                if (freePepSeq.contentEquals("TNVNPSEVGDLVVGSVLAPGAQR")) {
-                    int a = 1;
-                }
+//                if (freePepSeq.contentEquals("TNVNPSEVGDLVVGSVLAPGAQR")) {
+//                    int a = 1;
+//                }
                 StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
                 ptmPepSeqSB.replace(pos-nPos, pos-nPos+tag.size(), tag.getPtmAaString());
 

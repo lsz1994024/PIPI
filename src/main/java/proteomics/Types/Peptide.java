@@ -44,7 +44,8 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public boolean shouldPTM = false;
 
     // these fields need to be changed every time PTM changed.
-    private PositionDeltaMassMap varPTMMap = null;
+    private PosMassMap varPtmMap = null;
+    public TreeMap<Coordinate, VarPtm> posVarPtmResMap = null;
     private double theoMass = -1;
     private double[][] ionMatrix = null;
     private String varPtmContainingSeq = null;
@@ -98,20 +99,20 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     }
 
     public String getVarPtmContainingSeqNow() {
-        if (varPTMMap != null) {
+        if (varPtmMap != null) {
             StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
-            int tempIdx = varPTMMap.firstKey().y;
+            int tempIdx = varPtmMap.firstKey().y;
             if (tempIdx > 1) {
                 sb.append(freeSeq.substring(0, tempIdx - 1));
             }
             int i = tempIdx - 1;
-            tempIdx = varPTMMap.lastKey().y;
+            tempIdx = varPtmMap.lastKey().y;
             while (i < freeSeq.length()) {
                 boolean hasMod = false;
                 if (tempIdx > i) {
-                    for (Coordinate co : varPTMMap.keySet()) {
+                    for (Coordinate co : varPtmMap.keySet()) {
                         if (co.y - 1 == i) {
-                            sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPTMMap.get(co)));
+                            sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPtmMap.get(co)));
                             hasMod = true;
                             ++i;
                             break;
@@ -184,14 +185,15 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public Peptide clone() throws CloneNotSupportedException {
         super.clone();//???
         Peptide other = new Peptide(freeSeq, isDecoy, massTool, maxMs2Charge, tagVecScore, globalRank);
-        if (varPTMMap != null) {
-            other.setVarPTM(varPTMMap.clone());
+        if (varPtmMap != null) {
+            other.setVarPTM(varPtmMap.clone());
             other.setScore(score);
             other.setMatchedHighestIntensityFrac(matchedHighestIntensityFrac);
             other.setExplainedAaFrac(explainedAaFrac);
             other.setIonFrac(ionFrac);
             other.setaScore(aScore);
             other.setQValue(qValue);
+            other.posVarPtmResMap = new TreeMap<>(this.posVarPtmResMap);
         }
         other.nDeltaMass = this.nDeltaMass;
         other.cDeltaMass = this.cDeltaMass;
@@ -209,8 +211,8 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return freeSeq.length();
     }
 
-    public void setVarPTM(PositionDeltaMassMap ptmMap) {
-        this.varPTMMap = ptmMap;
+    public void setVarPTM(PosMassMap ptmMap) {
+        this.varPtmMap = ptmMap;
         if (ptmMap != null) {
             // reset these fields to make them being regenerated again.
             theoMass = -1;
@@ -224,20 +226,27 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         }
     }
 
+    private int getTotalPriority(){//todo
+        int res = 0;
+//        for (int )
+
+        return res;
+    }
+
     public String toString() {
-        if (varPTMMap == null) {
+        if (varPtmMap == null) {
             return freeSeq;
         }
-        return freeSeq + "." + varPTMMap.toString();
+        return freeSeq + "." + varPtmMap.toString();
     }
 
     public boolean hasVarPTM() {
-        return varPTMMap != null;
+        return varPtmMap != null;
     }
 
     private int getVarPTMNum() {
         if (hasVarPTM()) {
-            return varPTMMap.size();
+            return varPtmMap.size();
         } else {
             return 0;
         }
@@ -247,18 +256,18 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return freeSeq;
     }
 
-    public PositionDeltaMassMap getVarPTMs() {
-        return varPTMMap;
+    public PosMassMap getVarPTMs() {
+        return varPtmMap;
     }
 
     private String getVarPtmContainingSeq() {
         if (varPtmContainingSeq == null) {
-            if (varPTMMap != null) {
+            if (varPtmMap != null) {
                 StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
 
                 int tempIdx = 0;
                 try {
-                    tempIdx = varPTMMap.firstKey().y;
+                    tempIdx = varPtmMap.firstKey().y;
 
                 } catch (Exception ex){
                     System.out.println("error");
@@ -267,13 +276,13 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
                     sb.append(freeSeq.substring(0, tempIdx - 1));
                 }
                 int i = tempIdx - 1;
-                tempIdx = varPTMMap.lastKey().y;
+                tempIdx = varPtmMap.lastKey().y;
                 while (i < freeSeq.length()) {
                     boolean hasMod = false;
                     if (tempIdx > i) {
-                        for (Coordinate co : varPTMMap.keySet()) {
+                        for (Coordinate co : varPtmMap.keySet()) {
                             if (co.y - 1 == i) {
-                                sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPTMMap.get(co)));
+                                sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPtmMap.get(co)));
                                 hasMod = true;
                                 ++i;
                                 break;

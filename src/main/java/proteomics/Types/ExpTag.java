@@ -17,8 +17,11 @@
 package proteomics.Types;
 
 
+import ProteomicsLibrary.Types.Coordinate;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 public class ExpTag implements Comparable<ExpTag> {
     public int isNorC = 0; //N -1, none 0, C 1;
@@ -27,6 +30,7 @@ public class ExpTag implements Comparable<ExpTag> {
     private final double totalIntensity;
     private final String freeAaString;
     private final String ptmAaString;
+//    public TreeMap<Coordinate, VarPtm> posVarPtmMapOnTag = new TreeMap<>();
     private int regionIdx;
 //    public Map<Integer, Double> bAlignPosMassMap = new HashMap<>();
 //    public Map<Integer, Double> yAlignPosMassMap = new HashMap<>();

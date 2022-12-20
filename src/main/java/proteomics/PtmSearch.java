@@ -154,35 +154,12 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             for (Peptide peptide : ptmOnlyList) {
                 peptideInfo = peptideInfoMap.get(peptide.getFreeSeq());
 
-                PeptidePTMPattern peptidePTMPattern = inferPTM.findPtmNew2(scanNum, expProcessedPL, plMap, precursorMass, peptide, peptideInfo
+                ModPeptides modPeptides = inferPTM.findPtmNew2(scanNum, expProcessedPL, plMap, precursorMass, peptide, peptideInfo
                                                                         , precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
 
-                if (!peptidePTMPattern.getPeptideTreeSet().isEmpty()) {
-                    for (Peptide tempPeptide : peptidePTMPattern.getPeptideTreeSet()) {
-                        tempPeptide.bestPep = peptidePTMPattern.bestPep;
-                        ExpTag tag = peptide.finderTag;
-                        if (tag != null && tag.getPtmAaString().length() != tag.getFreeAaString().length()) { // means the tag is with label var mod, need to put this mod on the final pep
-                            PositionDeltaMassMap newPtmPtn = new PositionDeltaMassMap(peptide.getFreeSeq().length());
-                            if (peptide.hasVarPTM()){
-                                for (Coordinate coor : peptide.getVarPTMs().keySet()) {
-                                    //copy the old var mod in the untaged region
-                                    newPtmPtn.put(new Coordinate(coor.x, coor.y), peptide.getVarPTMs().get(coor));
-                                }
-                            }
-                            int idOfAa = -1;
-                            for (char letter : tag.getPtmAaString().toCharArray()) {
-                                if (Character.isUpperCase(letter)) {
-                                    idOfAa += 1;
-                                } else {
-                                    newPtmPtn.put(new Coordinate(peptide.tagPosInPep+idOfAa, peptide.tagPosInPep+idOfAa + 1), massTool.labelMassMap.get(letter));
-                                }
-                            }
-                            peptide.setVarPTM(newPtmPtn);
-                        }
-
-//                        if (Math.abs(massTool.calResidueMass(tempPeptide.getVarPtmContainingSeqNow())+ massTool.H2O - precursorMass) > 1) {
-//                            continue;// skip the unsettle peptides
-//                        }
+                if (!modPeptides.getPeptideTreeSet().isEmpty()) {
+                    for (Peptide tempPeptide : modPeptides.getPeptideTreeSet()) {
+                        tempPeptide.bestPep = modPeptides.bestPep;
                         if (tempPeptide.getScore() > 0) {
                             if (peptideSet.size() < candisNum) {
                                 peptideSet.add(tempPeptide);
@@ -193,7 +170,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                         }
                     }
                     // record scores with different PTM patterns for calculating PTM delta score.
-                    modSequences.put(peptidePTMPattern.freeSeq, peptidePTMPattern.getPeptideTreeSet());
+                    modSequences.put(modPeptides.freeSeq, modPeptides.getPeptideTreeSet());
                 }
             }
             // Calculate Score for PTM free peptide  for PTM free score is calXcorr score, for PTM only score is PTM score
@@ -201,21 +178,21 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 ExpTag tag = peptide.finderTag;
 
                 if ( tag != null && tag.getPtmAaString().length() != tag.getFreeAaString().length()) { // means the tag is with label var mod, need to put this mod on the final pep
-                    PositionDeltaMassMap newPtmPtn = new PositionDeltaMassMap(peptide.getFreeSeq().length());
+                    PosMassMap newPtmPtn = new PosMassMap(peptide.getFreeSeq().length());
                     int idOfAa = -1;
                     for (char letter : tag.getPtmAaString().toCharArray()) {
                         if (Character.isUpperCase(letter)) {
                             idOfAa += 1;
                         } else {
-                            newPtmPtn.put(new Coordinate(peptide.tagPosInPep+idOfAa, peptide.tagPosInPep+idOfAa + 1), massTool.labelMassMap.get(letter));
+                            newPtmPtn.put(new Coordinate(peptide.tagPosInPep+idOfAa, peptide.tagPosInPep+idOfAa + 1), massTool.labelVarPtmMap.get(letter).mass);
                         }
                     }
                     peptide.setVarPTM(newPtmPtn);
                     modSequences.put(peptide.getFreeSeq(), new TreeSet<>(Arrays.asList(peptide))); // just a dummy
                 }
-                double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), precursorCharge, expProcessedPL);
+                double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL);
                 if (score > 0) {
-                    peptide.setScore(score + peptide.getTagVecScore());
+                    peptide.setScore(score + 0);
                     double[][] temp =peptide.getIonMatrix();
                     if (temp.length == 1) {
                         int a = 1;

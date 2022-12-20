@@ -98,6 +98,7 @@ public class InferSegment {
             char modSite = modStr[1].charAt(0);
             char label;
             int modPosition = Integer.valueOf(modStr[2]);
+            VarPtm varPtmByUser = new VarPtm(modMass, modSite, modPosition, modStr[3], "ByUser", 1);
             if (modPosition == 4) {//  position anywhere, highest prority
                 //must happen in one aa, X (any aa) not allowed
                 boolean added = false;
@@ -115,12 +116,12 @@ public class InferSegment {
                     augedMassAaMap.put(augedMass, augedAa);
                     extraAaMassMap.put(augedAa, modMass);
                     added = true;
-                    massTool.labelMassMap.put(label, modMass);
+//                    massTool.labelMassMap.put(label, modMass);
                 }
 
                 if (added) {
                     iLabelAa++;
-                    massTool.labelMassMap.put(label, modMass);
+                    massTool.labelVarPtmMap.put(label, varPtmByUser);
                 }
 
             } else if (modPosition == 0 || modPosition == 2) {// position N term, middle  prority // when find tags we can't differ pepN from protN
@@ -165,7 +166,7 @@ public class InferSegment {
 
                 if (added) {
                     iLabelN++;
-                    massTool.labelMassMap.put(label, modMass);
+                    massTool.labelVarPtmMap.put(label, varPtmByUser);
                 }
             } else {// position C term, lowest  prority
                 label = cModLabel.charAt(iLabelC);
@@ -207,7 +208,7 @@ public class InferSegment {
                 }
                 if (added) {
                     iLabelC++;
-                    massTool.labelMassMap.put(label, modMass);
+                    massTool.labelVarPtmMap.put(label, varPtmByUser);
                 }
             }
         }

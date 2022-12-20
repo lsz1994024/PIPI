@@ -79,7 +79,7 @@ public class WritePepXml {
                                 "\t\t\t\t\t<search_score name=\"labelling\" value=\"%s\"/>\r\n", scanNum, scanNum, scanNum, expMass, precursorCharge, scanNum, ptmFreePeptide.replaceAll("[nc]+", ""), pepInfo.leftFlank, pepInfo.rightFlank, String.join(";", proteinIdSet), pepInfo.proteins.length, sqlResultSet.getInt("matchedPeakNum"), (ptmFreePeptide.length() - 2) * 2 * Math.max(1, precursorCharge - 1), theoMass, PIPI.getMassDiff(expMass, theoMass, MassTool.C13_DIFF), sqlResultSet.getDouble("score"), aScore, percolatorEntry == null ? null : percolatorEntry.percolatorScore, percolatorEntry == null ? "null" : percolatorEntry.PEP, percolatorEntry == null ? "null" : percolatorEntry.qValue, sqlResultSet.getString("labelling")));
 
                 if (!aScore.contentEquals("-")) {
-                    PositionDeltaMassMap ptmMap = new PositionDeltaMassMap(ptmFreePeptide.length());
+                    PosMassMap ptmMap = new PosMassMap(ptmFreePeptide.length());
                     AA[] aaArray = MassTool.seqToAAList(peptide);
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < aaArray.length; ++i) {

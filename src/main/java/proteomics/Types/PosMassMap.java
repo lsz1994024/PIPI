@@ -22,11 +22,11 @@ import ProteomicsLibrary.Types.Coordinate;
 import java.util.Locale;
 import java.util.TreeMap;
 
-public class PositionDeltaMassMap extends TreeMap<Coordinate, Double> {
+public class PosMassMap extends TreeMap<Coordinate, Double> {
 
     public final int peptideLength;
 
-    public PositionDeltaMassMap(int peptideLength) {
+    public PosMassMap(int peptideLength) {
         super();
         this.peptideLength = peptideLength;
     }
@@ -60,17 +60,17 @@ public class PositionDeltaMassMap extends TreeMap<Coordinate, Double> {
     }
 
     public boolean equals(Object other) {
-        if (other instanceof PositionDeltaMassMap) {
-            PositionDeltaMassMap temp = (PositionDeltaMassMap) other;
+        if (other instanceof PosMassMap) {
+            PosMassMap temp = (PosMassMap) other;
             return temp.hashCode() == this.hashCode();
         } else {
             return false;
         }
     }
 
-    public PositionDeltaMassMap clone() {
+    public PosMassMap clone() {
         super.clone();
-        PositionDeltaMassMap other = new PositionDeltaMassMap(peptideLength);
+        PosMassMap other = new PosMassMap(peptideLength);
         other.clear();
         for (Coordinate co : this.keySet()) {
             other.put(co, this.get(co));
