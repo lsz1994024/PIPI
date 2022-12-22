@@ -36,6 +36,9 @@ public class InferSegment {
     private static final int minTagNum = 200;
     private static final int regionNum = 10;
     private static final int topNumInEachRegion = 20;
+    public static final byte N_TAG = -1;
+    public static final byte NON_NC_TAG = 0;
+    public static final byte C_TAG = 1;
     private static final Pattern pattern = Pattern.compile("([nc][0-9a-i])?([A-Z#$].?)");
     private final double ms2Tolerance;
     private TreeMap<Segment, Integer> aaVectorTemplate = new TreeMap<>();

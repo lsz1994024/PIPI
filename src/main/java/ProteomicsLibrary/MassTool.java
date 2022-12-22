@@ -735,17 +735,59 @@ public class MassTool {
         if (precursorCharge == 1) {
             rowNum = 2;
         }
-
         double xcorr = 0;
         for (int i = 0; i < rowNum; ++i) {
             for (int j = 0; j < colNum; ++j) {
-                if (xcorrPL.get(mzToBin(ionMatrix[i][j])) > 0) {
-//                    System.out.println(i+","+j+","+ionMatrix[i][j]+  ","+ xcorrPL.get(mzToBin(ionMatrix[i][j])));
-                }
                 xcorr += xcorrPL.get(mzToBin(ionMatrix[i][j]));
             }
         }
+        return xcorr * 0.25;
+    }
 
+    public double buildVectorAndCalXCorr(double[][] ionMatrix, int precursorCharge, SparseVector xcorrPL,Map<Integer, Double> matchedBions, Map<Integer, Double> matchedYions) {
+        int colNum = ionMatrix[0].length;
+        int rowNum = Math.min(ionMatrix.length / 2, precursorCharge - 1) * 2;
+        if (precursorCharge == 1) {
+            rowNum = 2;
+        }
+        double xcorr = 0;
+        for (int i = 0; i < rowNum; ++i) {
+            for (int j = 0; j < colNum; ++j) {
+                double peakIntensity = xcorrPL.get(mzToBin(ionMatrix[i][j]));
+                if (peakIntensity > 0.0) {
+                    if (0 == i){
+                        matchedBions.put(j, peakIntensity);
+                    } else if (1 == i){
+                        matchedYions.put(j, peakIntensity);
+                    }
+                }
+                xcorr += peakIntensity;
+            }
+        }
+        return xcorr * 0.25;
+    }
+
+    public double buildVectorAndCalXCorr(double[][] ionMatrix, int precursorCharge, SparseVector xcorrPL, Map<Integer, Double> matchedBions, Map<Integer, Double> matchedYions,  Set<Integer> jRange) {
+        int colNum = ionMatrix[0].length;
+        int rowNum = Math.min(ionMatrix.length / 2, precursorCharge - 1) * 2;
+        if (precursorCharge == 1) {
+            rowNum = 2;
+        }
+        double xcorr = 0;
+        for (int i = 0; i < rowNum; ++i) {
+            for (int j : jRange) {
+                double peakIntensity = xcorrPL.get(mzToBin(ionMatrix[i][j]));
+                if (peakIntensity > 0.0) {
+                    if (0 == i){
+                        matchedBions.put(j, peakIntensity);
+                    } else if (1 == i){
+                        matchedYions.put(j, peakIntensity);
+                    }
+                }
+                xcorr += peakIntensity;
+            }
+        }
+//        System.out.println("=========================");
         return xcorr * 0.25;
     }
 
@@ -769,31 +811,7 @@ public class MassTool {
         return xcorr * 0.25;
     }
 
-    public double buildVectorAndCalXCorr(double[][] ionMatrix, int precursorCharge, SparseVector xcorrPL, Map<Integer, Double> matchedBions, Map<Integer, Double> matchedYions,  Set<Integer> jRange) {
-        int colNum = ionMatrix[0].length;
-        int rowNum = Math.min(ionMatrix.length / 2, precursorCharge - 1) * 2;
-        if (precursorCharge == 1) {
-            rowNum = 2;
-        }
-        double xcorr = 0;
-        for (int i = 0; i < rowNum; ++i) {
-            for (int j : jRange) {
-                double peakIntensity = xcorrPL.get(mzToBin(ionMatrix[i][j]));
-                if (peakIntensity > 0.0) {
-                    if (0 == i){
-                        matchedBions.put(j, peakIntensity);
-//                        System.out.println("b,"+(j)+","+(ionMatrix[i][j]+flankMass)+  ","+ xcorrPL.get(mzToBin(ionMatrix[i][j]+flankMass)));
-                    } else if (1 == i){
-                        matchedYions.put(j, peakIntensity);
-//                        System.out.println("y,"+(j+1)+","+(ionMatrix[i][j]+flankMass)+  ","+ xcorrPL.get(mzToBin(ionMatrix[i][j]+flankMass)));
-                    }
-                }
-                xcorr += xcorrPL.get(mzToBin(ionMatrix[i][j]));
-            }
-        }
-//        System.out.println("=========================");
-        return xcorr * 0.25;
-    }
+
 
     public double buildVectorAndCalXCorr(double[][] ionMatrix, int precursorCharge, SparseVector xcorrPL, Map<Integer, Double> matchedBions, Map<Integer, Double> matchedYions,  Set<Integer> jRangeB, Set<Integer> jRangeY) {
         int colNum = ionMatrix[0].length;

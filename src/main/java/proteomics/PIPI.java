@@ -52,7 +52,7 @@ public class PIPI {
     static final int maxMissCleav = 4;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(71038,61695,41849));//62940,62866,72612, 72611
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(27711, 34586, 45843, 35588));//62940,62866,72612, 72611
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -373,7 +373,7 @@ public class PIPI {
 
 //            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
             ii++;
-            if (pair.getSecond() < 10) break;
+            if (pair.getSecond() < 0) break;
             reducedProtIdSet.add(pair.getFirst());
         }
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
@@ -563,7 +563,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 1) {
+                if (Math.abs(scanNum-debugScanNum) < 200) {
                     shouldRun = true;
                 }
             }

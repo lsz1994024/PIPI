@@ -45,7 +45,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
     // these fields need to be changed every time PTM changed.
     private PosMassMap varPtmMap = null;
-    public TreeMap<Coordinate, VarPtm> posVarPtmResMap = null;
+    public TreeMap<Coordinate, VarPtm> posVarPtmResMap = new TreeMap<>();
     private double theoMass = -1;
     private double[][] ionMatrix = null;
     private String varPtmContainingSeq = null;
@@ -82,6 +82,13 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return globalRank;
     }
 
+    public int getPriority(){
+        int res = 0;
+        for (VarPtm varPtm : posVarPtmResMap.values()){
+            res += varPtm.priority;
+        }
+        return res;
+    }
     public double[][] getIonMatrix() {
         if (ionMatrix == null) {
             varPtmContainingSeq = getVarPtmContainingSeq();
@@ -193,12 +200,17 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             other.setIonFrac(ionFrac);
             other.setaScore(aScore);
             other.setQValue(qValue);
-            other.posVarPtmResMap = new TreeMap<>(this.posVarPtmResMap);
+            if (this.posVarPtmResMap != null){
+                other.posVarPtmResMap = new TreeMap<>(this.posVarPtmResMap);
+            }
         }
         other.nDeltaMass = this.nDeltaMass;
         other.cDeltaMass = this.cDeltaMass;
         other.isTarget = this.isTarget;
-        other.finderTag = new ExpTag(this.finderTag.expAaList);
+        other.finderTag = null;
+        if (this.finderTag != null){
+            other.finderTag = new ExpTag(this.finderTag.expAaList);
+        }
         other.tagPosInPep = this.tagPosInPep;
         return other;
     }

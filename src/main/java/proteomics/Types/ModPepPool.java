@@ -19,18 +19,18 @@ package proteomics.Types;
 import java.util.Comparator;
 import java.util.TreeSet;
 
-public class ModPeptides {
+public class ModPepPool {
     private int maxNumOfPtmPatterns = 10;
 
     public final String freeSeq;
     public Peptide bestPep = null;
     public TreeSet<Peptide> peptideTreeSet = new TreeSet<>(Comparator.reverseOrder());
 
-    public ModPeptides(String freeSeq) {
+    public ModPepPool(String freeSeq) {
         this.freeSeq = freeSeq;
     }
 
-    public ModPeptides(String freeSeq, int maxNumOfPtmPatterns) {
+    public ModPepPool(String freeSeq, int maxNumOfPtmPatterns) {
         this.freeSeq = freeSeq;
         this.maxNumOfPtmPatterns = maxNumOfPtmPatterns;
     }

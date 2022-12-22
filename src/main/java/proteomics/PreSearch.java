@@ -34,6 +34,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static proteomics.PIPI.*;
+import static proteomics.Segment.InferSegment.C_TAG;
+import static proteomics.Segment.InferSegment.N_TAG;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final Logger logger = LoggerFactory.getLogger(PreSearch.class);
@@ -133,9 +135,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             SearchInterval searchForward = null;
             SearchInterval searchBackward = null;
 
-
             Set<String> peptidesFoundByThisTag = new HashSet<>();
-            if (tagInfo.isNorC == -1) { //n tag
+            if (tagInfo.isNorC == N_TAG) { //n tag
                 char[] tagChar = tag.toCharArray();
                 searchForward = fmIndex.fmSearch(tagChar);
                 if (searchForward != null) {
@@ -151,7 +152,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                         updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
                     }
                 }
-            } else if (tagInfo.isNorC == 1) { // c tag
+            } else if (tagInfo.isNorC == C_TAG) { // c tag
                 char[] revTagChar = revTagStr.toCharArray();
                 searchBackward = fmIndex.fmSearch(revTagChar);
                 if (searchBackward != null) {
@@ -161,9 +162,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                         int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
                         String protId = buildIndex.posProtMapReduced.get(dotIndex);
                         int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
-                        if (relPos == 21478) {
-                            int a = 1;
-                        }
                         updateCandiList(protId, relPos, tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag); // put the reversed tag
                     }
                 }

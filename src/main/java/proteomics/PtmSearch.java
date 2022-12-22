@@ -154,12 +154,12 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             for (Peptide peptide : ptmOnlyList) {
                 peptideInfo = peptideInfoMap.get(peptide.getFreeSeq());
 
-                ModPeptides modPeptides = inferPTM.findPtmNew2(scanNum, expProcessedPL, plMap, precursorMass, peptide, peptideInfo
+                ModPepPool modPepPool = inferPTM.findPtmNew2(scanNum, expProcessedPL, plMap, precursorMass, peptide, peptideInfo
                                                                         , precursorCharge, localMaxMs2Charge, localMS1ToleranceL, localMS1ToleranceR);
 
-                if (!modPeptides.getPeptideTreeSet().isEmpty()) {
-                    for (Peptide tempPeptide : modPeptides.getPeptideTreeSet()) {
-                        tempPeptide.bestPep = modPeptides.bestPep;
+                if (!modPepPool.getPeptideTreeSet().isEmpty()) {
+                    for (Peptide tempPeptide : modPepPool.getPeptideTreeSet()) {
+                        tempPeptide.bestPep = modPepPool.bestPep;
                         if (tempPeptide.getScore() > 0) {
                             if (peptideSet.size() < candisNum) {
                                 peptideSet.add(tempPeptide);
@@ -170,7 +170,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                         }
                     }
                     // record scores with different PTM patterns for calculating PTM delta score.
-                    modSequences.put(modPeptides.freeSeq, modPeptides.getPeptideTreeSet());
+                    modSequences.put(modPepPool.freeSeq, modPepPool.getPeptideTreeSet());
                 }
             }
             // Calculate Score for PTM free peptide  for PTM free score is calXcorr score, for PTM only score is PTM score
@@ -217,11 +217,18 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             for (int j = pepList.size()-1; j >= 1; j--) {
                 for (int i = 0; i < j; i++) {
                     if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
-                        boolean isIGood = Math.abs(massTool.calResidueMass(pepList.get(i).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
-                        boolean isJGood = Math.abs(massTool.calResidueMass(pepList.get(j).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
-                        if (!isIGood && isJGood) {
+//                        boolean isIGood = Math.abs(massTool.calResidueMass(pepList.get(i).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
+//                        boolean isJGood = Math.abs(massTool.calResidueMass(pepList.get(j).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
+//                        if (!isIGood && isJGood) {
+//                            pepList.remove(i);
+//                        } else {
+//                            pepList.remove(j);
+//                        }
+                        int iPriority = pepList.get(i).getPriority();
+                        int jPriority = pepList.get(i).getPriority();
+                        if (iPriority < jPriority) {
                             pepList.remove(i);
-                        } else {
+                        } else  {
                             pepList.remove(j);
                         }
                         break;
