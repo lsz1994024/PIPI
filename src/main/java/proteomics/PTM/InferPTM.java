@@ -445,10 +445,10 @@ public class InferPTM {
             }
         }
 
-        if (!matchedBions.isEmpty()) {
+        if (matchedBions.size() > 1) {  // should has at least two peaks to be trusted
             lb = Collections.max(matchedBions.keySet()) + 1;
         }
-        if (!matchedYions.isEmpty()) {
+        if (matchedYions.size() > 1) {
             rb = Collections.min(matchedYions.keySet()) - 1;
         }
 
@@ -465,6 +465,9 @@ public class InferPTM {
         }
         if (rb < lb) {
             rb = freeSeq.length() - 1;
+            lb = 0;
+        }
+        if (ncPart == N_PART) { // if this is nPart and there is n-term enriched ptm, then lb of modzone on npart must be 0
             lb = 0;
         }
         return IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());

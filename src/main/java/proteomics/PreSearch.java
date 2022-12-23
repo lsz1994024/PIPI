@@ -129,51 +129,69 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(50000);
 
         for (ExpTag tagInfo : allLongTagList){
-            String tag = tagInfo.getFreeAaString();
-            String revTagStr = new StringBuilder(tag).reverse().toString();
+            String tagStr = tagInfo.getFreeAaString();
+            String revTagStr = new StringBuilder(tagStr).reverse().toString();
 
             SearchInterval searchForward = null;
             SearchInterval searchBackward = null;
 
             Set<String> pepStringFoundByThisTag = new HashSet<>();
             if (tagInfo.isNorC == N_TAG) { //n tag
-                char[] tagChar = tag.toCharArray();
+                char[] tagChar = tagStr.toCharArray();
                 int numRes = searchAndSave(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
-                if (numRes == 0 && tag.length() > 8){ // if the tag was already long
+                if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
                     for (int subTime = 1; subTime <= 3; subTime++){
-                        char[] subTagChar = tag.substring(0, tag.length()-subTime).toCharArray();
-                        int numResSub = searchAndSave(tagInfo.subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+                        char[] subTagChar = tagStr.substring(0, tagStr.length()-subTime).toCharArray();
+                        int numResSub = searchAndSave(tagInfo.subTag(0,tagStr.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
                         if (numResSub > 0) break;
                     }
                 }
             } else if (tagInfo.isNorC == C_TAG) { // c tag
                 char[] revTagChar = revTagStr.toCharArray();
                 int numRes = searchAndSave(tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
-                if (numRes == 0 && tag.length() > 8){ // if the tag was already long
+                if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
                     for (int subTime = 1; subTime <= 3; subTime++){
-                        char[] subRevTagChar = revTagStr.substring(0, tag.length()-subTime).toCharArray();
-                        int numResSub = searchAndSave(tagInfo.revTag(totalMass).subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar);
+                        char[] subRevTagChar = revTagStr.substring(0, tagStr.length()-subTime).toCharArray();
+                        int numResSub = searchAndSave(tagInfo.revTag(totalMass).subTag(0,tagStr.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar);
                         if (numResSub > 0) break;
                     }
                 }
             } else { // non-nc tag
-                char[] tagChar = tag.toCharArray();
+                char[] tagChar = tagStr.toCharArray();
                 int numResForward = searchAndSave(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
-                if (numResForward == 0 && tag.length() > 8){ // if the tag was already long
+                if (numResForward == 0 && tagStr.length() > 8){ // if the tag was already long
                     for (int subTime = 1; subTime <= 3; subTime++){
-                        char[] subTagChar = tag.substring(0, tag.length()-subTime).toCharArray();
-                        int numResSub = searchAndSave(tagInfo.subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
-                        if (numResSub > 0) break;
+                        String subTagStr = tagStr.substring(0, tagStr.length()-subTime);
+                        ExpTag subTagInfo = tagInfo.subTag(0,tagStr.length()-subTime);
+
+                        String revSubTagStr = (new StringBuilder(subTagStr)).reverse().toString();
+                        //sub forward
+                        char[] subTagChar = subTagStr.toCharArray();
+                        int numResSub1 = searchAndSave(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+
+                        //sub backward
+                        char[] revSubTagChar = revSubTagStr.toCharArray();
+                        int numResSub2 = searchAndSave(subTagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revSubTagChar);
+                        if (numResSub1 + numResSub2 > 0) break;
                     }
                 }
 
                 char[] revTagChar = revTagStr.toCharArray();
                 int numResBackward = searchAndSave(tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
-                if (numResBackward == 0 && tag.length() > 8){ // if the tag was already long
+                if (numResBackward == 0 && revTagStr.length() > 8){ // if the tag was already long
                     for (int subTime = 1; subTime <= 3; subTime++){
-                        char[] subRevTagChar = revTagStr.substring(0, tag.length()-subTime).toCharArray();
-                        int numResSub = searchAndSave(tagInfo.revTag(totalMass).subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar);
-                        if (numResSub > 0) break;
+                        String subTagStr = revTagStr.substring(0, revTagStr.length()-subTime);
+                        ExpTag subTagInfo = tagInfo.revTag(totalMass).subTag(0,revTagStr.length()-subTime);
+
+                        String revSubTagStr = (new StringBuilder(subTagStr)).reverse().toString();
+                        //sub forward
+                        char[] subTagChar = subTagStr.toCharArray();
+                        int numResSub1 = searchAndSave(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+
+                        //sub backward
+                        char[] revSubTagChar = revSubTagStr.toCharArray();
+                        int numResSub2 = searchAndSave(subTagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revSubTagChar);
+                        if (numResSub1 + numResSub2 > 0) break;
                     }
                 }
             }

@@ -180,6 +180,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 //        return chargeOneBIonArray;
 //    }
 
+    @Override
     public boolean equals(Object other) {
         if (!(other instanceof Peptide)) {
             return false;
@@ -393,6 +394,50 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return qValue;
     }
 
+//    public int compareTo(Peptide peptide) {
+//        if (score > peptide.getScore()) {
+//            return 1;
+//        } else if (score < peptide.getScore()) {
+//            return -1;
+//        } else {
+//            if (matchedPeakNum > peptide.getMatchedPeakNum()) {
+//                return 1;
+//            } else if (matchedPeakNum < peptide.getMatchedPeakNum()) {
+//                return -1;
+//            } else {
+//                if (explainedAaFrac > peptide.getExplainedAaFrac()) {
+//                    return 1;
+//                } else if (explainedAaFrac < peptide.getExplainedAaFrac()) {
+//                    return -1;
+//                } else {
+//                    if (getVarPTMNum() < peptide.getVarPTMNum()) {
+//                        return 1;
+//                    } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
+//                        return -1;
+//                    } else if (tagVecScore > peptide.getTagVecScore()) {
+//                        return 1;
+//                    } else if (tagVecScore < peptide.getTagVecScore()) {
+//                        return -1;
+//                    } else {
+//                        if (!isDecoy && peptide.isDecoy()) {
+//                            return 1;
+//                        } else if (isDecoy && !peptide.isDecoy()) {
+//                            return -1;
+//                        } else{
+//                            if (absDeltaMass < peptide.absDeltaMass){
+//                                return 1;
+//                            } else if (absDeltaMass > peptide.absDeltaMass){
+//                                return -1;
+//                            } else {
+//                                return 0;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+
     public int compareTo(Peptide peptide) {
         if (score > peptide.getScore()) {
             return 1;
@@ -404,32 +449,32 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             } else if (matchedPeakNum < peptide.getMatchedPeakNum()) {
                 return -1;
             } else {
-                if (explainedAaFrac > peptide.getExplainedAaFrac()) {
+                if (getPriority() > peptide.getPriority()) {
                     return 1;
-                } else if (explainedAaFrac < peptide.getExplainedAaFrac()) {
+                } else if (getPriority() < peptide.getPriority()) {
                     return -1;
                 } else {
                     if (getVarPTMNum() < peptide.getVarPTMNum()) {
                         return 1;
                     } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
                         return -1;
-                    } else if (tagVecScore > peptide.getTagVecScore()) {
-                        return 1;
-                    } else if (tagVecScore < peptide.getTagVecScore()) {
-                        return -1;
                     } else {
-                        if (!isDecoy && peptide.isDecoy()) {
-                            return 1;
-                        } else if (isDecoy && !peptide.isDecoy()) {
-                            return -1;
-                        } else{
-                            if (absDeltaMass < peptide.absDeltaMass){
+                        if (finderTag != null && peptide.finderTag != null) {
+                            if (finderTag.getTotalIntensity() > peptide.finderTag.getTotalIntensity()) {
                                 return 1;
-                            } else if (absDeltaMass > peptide.absDeltaMass){
+                            } else if (finderTag.getTotalIntensity() < peptide.finderTag.getTotalIntensity()) {
                                 return -1;
                             } else {
-                                return 0;
+                                if (finderTag.size() < peptide.finderTag.size()){
+                                    return 1;
+                                } else if (finderTag.size() > peptide.finderTag.size()){
+                                    return -1;
+                                } else {
+                                    return 0;
+                                }
                             }
+                        } else {
+                            return 0;
                         }
                     }
                 }
