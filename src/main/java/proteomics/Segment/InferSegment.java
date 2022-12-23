@@ -474,11 +474,11 @@ public class InferSegment {
         double minEdgeWeight = 0.0;
         for (int i = 0; i < mzArray.length - 1; ++i) {
             double mz1 = mzArray[i];
-            int isNorC = 0;
+            int isNorC = NON_NC_TAG;
             if (Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance) {
-                isNorC = -1;
+                isNorC = N_TAG;
             } else if (Math.abs(mz1 - MassTool.PROTON - massTool.H2O) <= ms2Tolerance) {
-                isNorC = 1;
+                isNorC = C_TAG;
             }
             double intensity1 = intensityArray[i];
             for (int j = i + 1; j < mzArray.length; ++j) {
@@ -575,11 +575,11 @@ public class InferSegment {
             for (int j = i + 1; j < mzArray.length; ++j) {
                 double mz2 = mzArray[j];
                 double intensity2 = intensityArray[j];
-                int isNorC = 0;
+                int isNorC = NON_NC_TAG;
                 if (Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance) {
-                    isNorC = -1;
+                    isNorC = N_TAG;
                 } else if (Math.abs(mz1 - MassTool.PROTON - massTool.H2O) <= ms2Tolerance) {
-                    isNorC = 1;
+                    isNorC = C_TAG;
                 }
                 String aa = inferAA(mz1, mz2, isNorC);
                 if (aa != null) {
@@ -952,10 +952,10 @@ public class InferSegment {
         String aa = null;
         for (Map.Entry<Double, String> massAa : augedMassAaMap.entrySet()) {
             String augedAa = massAa.getValue();
-            if ((isNorC == -1 && cModLabel.contains(augedAa.substring(augedAa.length()-1)))  // use n peak then should no C mod
-                || (isNorC == 1 && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use c peak then should no N mod
-                || (isNorC == 0 && cModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no C mod
-                || (isNorC == 0 && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no N mod
+            if ((isNorC == N_TAG && cModLabel.contains(augedAa.substring(augedAa.length()-1)))  // use n peak then should no C mod
+                || (isNorC == C_TAG && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use c peak then should no N mod
+                || (isNorC == NON_NC_TAG && cModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no C mod
+                || (isNorC == NON_NC_TAG && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no N mod
             ) {
                 continue;
             }

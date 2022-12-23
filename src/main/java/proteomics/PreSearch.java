@@ -135,60 +135,45 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             SearchInterval searchForward = null;
             SearchInterval searchBackward = null;
 
-            Set<String> peptidesFoundByThisTag = new HashSet<>();
+            Set<String> pepStringFoundByThisTag = new HashSet<>();
             if (tagInfo.isNorC == N_TAG) { //n tag
                 char[] tagChar = tag.toCharArray();
-                searchForward = fmIndex.fmSearch(tagChar);
-                if (searchForward != null) {
-//                    ptnForwardCount = searchForward.ep - searchForward.sp + 1;
-                    for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
-                        int absTagPos = fmIndex.SA[ii];
-                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
-                        // fmIndex.SA[ii]  the index of tag's first aa in the whole long proteins string
-                        // -res-2  the dot sign index which the tag index is closed to
-                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
-                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
-
-                        updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
+                int numRes = searchAndSave(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
+                if (numRes == 0 && tag.length() > 8){ // if the tag was already long
+                    for (int subTime = 1; subTime <= 3; subTime++){
+                        char[] subTagChar = tag.substring(0, tag.length()-subTime).toCharArray();
+                        int numResSub = searchAndSave(tagInfo.subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+                        if (numResSub > 0) break;
                     }
                 }
             } else if (tagInfo.isNorC == C_TAG) { // c tag
                 char[] revTagChar = revTagStr.toCharArray();
-                searchBackward = fmIndex.fmSearch(revTagChar);
-                if (searchBackward != null) {
-//                    ptnBackwardCount = searchBackward.ep - searchBackward.sp + 1;
-                    for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
-                        int absTagPos = fmIndex.SA[ii];
-                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
-                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
-                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
-                        updateCandiList(protId, relPos, tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag); // put the reversed tag
+                int numRes = searchAndSave(tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
+                if (numRes == 0 && tag.length() > 8){ // if the tag was already long
+                    for (int subTime = 1; subTime <= 3; subTime++){
+                        char[] subRevTagChar = revTagStr.substring(0, tag.length()-subTime).toCharArray();
+                        int numResSub = searchAndSave(tagInfo.revTag(totalMass).subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar);
+                        if (numResSub > 0) break;
                     }
                 }
             } else { // non-nc tag
                 char[] tagChar = tag.toCharArray();
-                searchForward = fmIndex.fmSearch(tagChar);
-                if (searchForward != null) {
-                    for (int ii = searchForward.sp; ii <= searchForward.ep; ii++) {
-                        int absTagPos = fmIndex.SA[ii];
-                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
-                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
-                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
-
-                        updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
+                int numResForward = searchAndSave(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
+                if (numResForward == 0 && tag.length() > 8){ // if the tag was already long
+                    for (int subTime = 1; subTime <= 3; subTime++){
+                        char[] subTagChar = tag.substring(0, tag.length()-subTime).toCharArray();
+                        int numResSub = searchAndSave(tagInfo.subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+                        if (numResSub > 0) break;
                     }
                 }
 
                 char[] revTagChar = revTagStr.toCharArray();
-                searchBackward = fmIndex.fmSearch(revTagChar);
-                if (searchBackward != null) {
-                    for (int ii = searchBackward.sp; ii <= searchBackward.ep; ii++) {
-                        int absTagPos = fmIndex.SA[ii];
-                        int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
-                        String protId = buildIndex.posProtMapReduced.get(dotIndex);
-                        int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
-
-                        updateCandiList(protId, relPos, tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag); // put the reversed tag
+                int numResBackward = searchAndSave(tagInfo.revTag(totalMass), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
+                if (numResBackward == 0 && tag.length() > 8){ // if the tag was already long
+                    for (int subTime = 1; subTime <= 3; subTime++){
+                        char[] subRevTagChar = revTagStr.substring(0, tag.length()-subTime).toCharArray();
+                        int numResSub = searchAndSave(tagInfo.revTag(totalMass).subTag(0,tag.length()-subTime), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar);
+                        if (numResSub > 0) break;
                     }
                 }
             }
@@ -243,6 +228,24 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         return entry;
     }
 
+    private int searchAndSave(ExpTag tagInfo, double minPcMass, double maxPcMass, Map<String, List<Peptide>> ptmPeptideListMap, Map<String,
+            List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag, FMIndex fmIndex, char[] tagChar){
+        int numRes = 0;
+        SearchInterval searchRes = fmIndex.fmSearch(tagChar);
+        if (searchRes != null) {
+            numRes = searchRes.ep-searchRes.sp+1;
+            for (int ii = searchRes.sp; ii <= searchRes.ep; ii++) {
+                int absTagPos = fmIndex.SA[ii];
+                int dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrReduced, absTagPos);
+                String protId = buildIndex.posProtMapReduced.get(dotIndex);
+                int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
+
+                updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
+            }
+        }
+        return numRes;
+    }
+
     private boolean isCMassValid(double mass) {
         double deltaMass = mass - precursorMass;
         if (deltaMass > minPtmMass - 530 && mass < maxPtmMass) {
@@ -269,23 +272,19 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         double tagCMass = tag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
         String protSeq = buildIndex.protSeqMap.get(protId);
         Map<Integer, Double> cPoscMassMap = new HashMap<>();
-        if ( (pos+tag.size() >= protSeq.length() && tag.isNorC != 1)  // not C tag but found at prot Cterm, impossible
-                || (pos == 0 && tag.isNorC != -1) // not N tag but found at prot Cterm, impossible
+        if ( (pos+tag.size() >= protSeq.length() && tag.isNorC != C_TAG)  // not C tag but found at prot Cterm, impossible
+                || (pos == 0 && tag.isNorC != N_TAG) // not N tag but found at prot Cterm, impossible
         ) {
             return;
         }
-//        if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < maxPtmMass) {
-//            cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
-//        }
 
         int missCleav = getNumOfMissCleavSite(tag.getFreeAaString());
-        if (tag.isNorC == 1){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+        if (tag.isNorC == C_TAG){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
             if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < 0.02) { //fixme, should use MS1 tolerance not MS2 tolerance
                 cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
             }
         } else { // only when oriTag is not C oriTag can it extend to c
             for (int i = pos+tag.size(); i < protSeq.length(); i++) {  //
-
                 //the if-block is in order, dont change the order.
                 if (isX(protSeq.charAt(i))) break;
                 tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
@@ -314,8 +313,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //                    int numMissCleave = 0; // todo miss cleavage
             missCleav = getNumOfMissCleavSite(protSeq.substring(pos, cPos)) ; //dont contain the c-term K, it does not count as miss cleav
 
-            int min_nPos = (tag.isNorC == -1) ? pos : 0;
-            int max_nPos = (tag.isNorC == -1) ? pos : pos-1;
+            int min_nPos = (tag.isNorC == N_TAG) ? pos : 0;
+            int max_nPos = (tag.isNorC == N_TAG) ? pos : pos-1;
             for (int nPos = max_nPos; nPos >= min_nPos; nPos--) {
                 if (isX(protSeq.charAt(nPos))) break;
                 if (nPos < pos){
@@ -341,9 +340,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 String freePepSeq = protSeq.substring(nPos, cPos+1);
 
-//                if (freePepSeq.contentEquals("TNVNPSEVGDLVVGSVLAPGAQR")) {
-//                    int a = 1;
-//                }
                 StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
                 ptmPepSeqSB.replace(pos-nPos, pos-nPos+tag.size(), tag.getPtmAaString());
 

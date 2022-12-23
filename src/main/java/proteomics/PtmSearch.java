@@ -213,9 +213,13 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             }
 
             List<Peptide> pepList = new ArrayList<>(peptideSet);
-
+            Set<Integer> pepIdsToRemove = new HashSet<>();
             for (int j = pepList.size()-1; j >= 1; j--) {
+                if (pepIdsToRemove.contains(j)) continue;
+
                 for (int i = 0; i < j; i++) {
+                    if (pepIdsToRemove.contains(i)) continue;
+
                     if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
 //                        boolean isIGood = Math.abs(massTool.calResidueMass(pepList.get(i).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
 //                        boolean isJGood = Math.abs(massTool.calResidueMass(pepList.get(j).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
@@ -225,19 +229,23 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
 //                            pepList.remove(j);
 //                        }
                         int iPriority = pepList.get(i).getPriority();
-                        int jPriority = pepList.get(i).getPriority();
+                        int jPriority = pepList.get(j).getPriority();
                         if (iPriority < jPriority) {
-                            pepList.remove(i);
+                            pepIdsToRemove.add(i);
                         } else  {
-                            pepList.remove(j);
+                            pepIdsToRemove.add(j);
                         }
-                        break;
+//                        break;
                     }
                 }
             }
+            List<Peptide> newPepList = new ArrayList<>();
+            for (int id = 0; id < pepList.size(); id++){
+                if (pepIdsToRemove.contains(id)) continue;
+                newPepList.add(pepList.get(id));
+            }
 
-
-            Peptide[] peptideArray = pepList.toArray(new Peptide[0]);
+            Peptide[] peptideArray = newPepList.toArray(new Peptide[0]);
 
             Peptide topPep = peptideArray[0];
             Entry entry;

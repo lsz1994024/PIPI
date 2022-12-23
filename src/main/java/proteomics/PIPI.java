@@ -563,7 +563,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 200) {
+                if (Math.abs(scanNum-debugScanNum) < 20) {
                     shouldRun = true;
                 }
             }

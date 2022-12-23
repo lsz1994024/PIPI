@@ -211,6 +211,16 @@ public class ExpTag implements Comparable<ExpTag> {
         return revedTag;
     }
 
+    public ExpTag subTag(int start, int end){ // start included  end not included
+        List<ExpAa> subExpAaList = new ArrayList<>(end-start);
+        for (int i = start; i < end; i++) {
+            subExpAaList.add(expAaArray[i]);
+        }
+        ExpTag subTag = new ExpTag(subExpAaList);
+        subTag.isNorC = isNorC;
+        return subTag;
+    }
+
     public double getIntesFrom(int aaId1, int aaId2){
         double intes = 0;
         for (int i = aaId1; i <= aaId2+1; i++){
