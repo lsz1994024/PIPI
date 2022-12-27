@@ -693,8 +693,8 @@ public class InferPTM {
             List<Peptide> cPartPeptideList = new ArrayList<>(cPartModPepsSettled.peptideTreeSet);
             Collections.sort(cPartPeptideList, Comparator.comparing(o -> o.getPriority(), Comparator.reverseOrder()));
             for (Coordinate coor : cPartPeptideList.get(0).getVarPTMs().keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                fullPosMassMap.put(new Coordinate(coor.x, coor.y), cPartPeptideList.get(0).getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
-                posVarPtmResMap.put(new Coordinate(coor.x, coor.y), cPartPeptideList.get(0).posVarPtmResMap.get(coor));
+                fullPosMassMap.put(new Coordinate(coor.x+tagPosInPep+tagLen, coor.y+tagPosInPep+tagLen), cPartPeptideList.get(0).getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
+                posVarPtmResMap.put(new Coordinate(coor.x+tagPosInPep+tagLen, coor.y+tagPosInPep+tagLen), cPartPeptideList.get(0).posVarPtmResMap.get(coor));
             }
         }
 

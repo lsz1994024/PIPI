@@ -52,7 +52,7 @@ public class PIPI {
     static final int maxMissCleav = 4;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(30715,35199,35103));//62940,62866,72612, 72611
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(66630));//62940,62866,72612, 72611
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 

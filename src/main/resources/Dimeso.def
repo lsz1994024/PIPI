@@ -4,7 +4,7 @@ thread_num = 80 # Thread number. Set to 0 to using all the CPU resources in the 
 percolator_path = /usr/bin/percolator # Please input absolute path of Percolator binary file.
 
 # Database
-db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target
+db = /home/slaiad/Code/PIPI/src/main/resources/fake.fasta # Protein database. ncbi-soybean-target
 # db = /home/slaiad/Data/Simulation_Data/fake.fasta # Protein database.
 
 database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
