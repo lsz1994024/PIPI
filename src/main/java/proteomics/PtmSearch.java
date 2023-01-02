@@ -72,8 +72,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
 
         Set<String> set = new HashSet<>(temp1);
         set.retainAll(temp2);
-        if (set.isEmpty()) return false;
-//        peptide0Map.get(p1.getPTMFreePeptide()).code.
+//        if (set.isEmpty()) return false;
         SparseBooleanVector sbv1 = buildIndex.inferSegment.generateSegmentBooleanVector(p1.getFreeSeq());
         SparseBooleanVector sbv2 = buildIndex.inferSegment.generateSegmentBooleanVector(p2.getFreeSeq());
         return sbv1.dot(sbv2) > 0.3*Math.min(p1.getFreeSeq().length(), p2.getFreeSeq().length());
@@ -184,7 +183,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                         if (Character.isUpperCase(letter)) {
                             idOfAa += 1;
                         } else {
-                            newPtmPtn.put(new Coordinate(peptide.tagPosInPep+idOfAa, peptide.tagPosInPep+idOfAa + 1), massTool.labelVarPtmMap.get(letter).mass);
+                            newPtmPtn.put(peptide.tagPosInPep+idOfAa, massTool.labelVarPtmMap.get(letter).mass);
                         }
                     }
                     peptide.setVarPTM(newPtmPtn);
@@ -220,14 +219,8 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 for (int i = 0; i < j; i++) {
                     if (pepIdsToRemove.contains(i)) continue;
 
-                    if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
-//                        boolean isIGood = Math.abs(massTool.calResidueMass(pepList.get(i).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
-//                        boolean isJGood = Math.abs(massTool.calResidueMass(pepList.get(j).getVarPtmContainingSeqNow()) + massTool.H2O - precursorMass) < 0.5;
-//                        if (!isIGood && isJGood) {
-//                            pepList.remove(i);
-//                        } else {
-//                            pepList.remove(j);
-//                        }
+//                    if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
+                    if (isHomo(pepList.get(i), pepList.get(j)) || pepList.get(j).getScore() > 0.6*pepList.get(i).getScore()) {
                         int iPriority = pepList.get(i).getPriority();
                         int jPriority = pepList.get(j).getPriority();
                         if (iPriority < jPriority) {

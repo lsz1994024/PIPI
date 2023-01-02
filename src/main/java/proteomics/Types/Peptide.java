@@ -45,7 +45,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
     // these fields need to be changed every time PTM changed.
     private PosMassMap varPtmMap = null;
-    public TreeMap<Coordinate, VarPtm> posVarPtmResMap = new TreeMap<>();
+    public TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
     private double theoMass = -1;
     private double[][] ionMatrix = null;
     private String varPtmContainingSeq = null;
@@ -105,20 +105,59 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return ionMatrix;
     }
 
+//    public String getVarPtmContainingSeqNow() {
+//        if (varPtmMap != null) {
+//            StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
+//            int tempIdx = varPtmMap.firstKey().y;
+//            if (tempIdx > 1) {
+//                sb.append(freeSeq.substring(0, tempIdx - 1));
+//            }
+//            int i = tempIdx - 1;
+//            tempIdx = varPtmMap.lastKey().y;
+//            while (i < freeSeq.length()) {
+//                boolean hasMod = false;
+//                if (tempIdx > i) {
+//                    for (Coordinate co : varPtmMap.keySet()) {
+//                        if (co.y - 1 == i) {
+//                            sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPtmMap.get(co)));
+//                            hasMod = true;
+//                            ++i;
+//                            break;
+//                        }
+//                    }
+//                    if (!hasMod) {
+//                        sb.append(freeSeq.charAt(i));
+//                        ++i;
+//                    }
+//                } else {
+//                    break;
+//                }
+//            }
+//            if (tempIdx < freeSeq.length()) {
+//                sb.append(freeSeq.substring(tempIdx));
+//            }
+//            varPtmContainingSeq = sb.toString();
+//        } else {
+//            varPtmContainingSeq = freeSeq;
+//        }
+//        return varPtmContainingSeq;
+//    }
+
+
     public String getVarPtmContainingSeqNow() {
         if (varPtmMap != null) {
             StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
-            int tempIdx = varPtmMap.firstKey().y;
+            int tempIdx = varPtmMap.firstKey()+1;
             if (tempIdx > 1) {
-                sb.append(freeSeq.substring(0, tempIdx - 1));
+                sb.append(freeSeq, 0, tempIdx - 1);
             }
             int i = tempIdx - 1;
-            tempIdx = varPtmMap.lastKey().y;
+            tempIdx = varPtmMap.lastKey()+1;
             while (i < freeSeq.length()) {
                 boolean hasMod = false;
                 if (tempIdx > i) {
-                    for (Coordinate co : varPtmMap.keySet()) {
-                        if (co.y - 1 == i) {
+                    for (Integer co : varPtmMap.keySet()) {
+                        if (co == i) {
                             sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPtmMap.get(co)));
                             hasMod = true;
                             ++i;
@@ -280,7 +319,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
                 int tempIdx = 0;
                 try {
-                    tempIdx = varPtmMap.firstKey().y;
+                    tempIdx = varPtmMap.firstKey()+1;
 
                 } catch (Exception ex){
                     System.out.println("error");
@@ -289,12 +328,12 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
                     sb.append(freeSeq.substring(0, tempIdx - 1));
                 }
                 int i = tempIdx - 1;
-                tempIdx = varPtmMap.lastKey().y;
+                tempIdx = varPtmMap.lastKey()+1;
                 while (i < freeSeq.length()) {
                     boolean hasMod = false;
                     if (tempIdx > i) {
-                        for (Coordinate co : varPtmMap.keySet()) {
-                            if (co.y - 1 == i) {
+                        for (Integer co : varPtmMap.keySet()) {
+                            if (co == i) {
                                 sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPtmMap.get(co)));
                                 hasMod = true;
                                 ++i;
@@ -333,6 +372,32 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
         return ptmContainingSeq;
     }
+
+//    public String getPtmContainingSeq(Map<Character, Double> fixModMap) {
+//        if (posVarPtmResMap != null) {
+//            StringBuilder sb = new StringBuilder(freeSeq);
+//            for (int pos : posVarPtmResMap.descendingKeySet()) {
+//                if (pos == 0 && (posVarPtmResMap.get(pos).position == 0 || posVarPtmResMap.get(pos).position == 2)) {
+//                    sb.replace(pos, pos+1, String.format(Locale.US, "(n%.3f)%c", posVarPtmResMap.get(pos).mass, freeSeq.charAt(pos)));
+//                } else if (pos == freeSeq.length()-1 && (posVarPtmResMap.get(pos).position == 1 || posVarPtmResMap.get(pos).position == 3)) {
+//                    sb.replace(pos, pos+1, String.format(Locale.US, "%c(c%.3f)", freeSeq.charAt(pos), posVarPtmResMap.get(pos).mass));
+//                } else {
+//                    sb.replace(pos, pos+1, String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(pos), posVarPtmResMap.get(pos).mass));
+//                }
+//            }
+//            ptmContainingSeq = sb.toString();
+//        } else {
+//            ptmContainingSeq = freeSeq;
+//        }
+//
+//        // this below for-loop should be commented when developping to hide C(57.021) for better looking
+////        for (char aa : fixModMap.keySet()) {
+////            if (Math.abs(fixModMap.get(aa)) > 0.01) {
+////                ptmContainingSeq = ptmContainingSeq.replaceAll(String.valueOf(aa), String.format(Locale.US, "%c(%.3f)", aa, fixModMap.get(aa)));
+////            }
+////        }
+//        return ptmContainingSeq;
+//    }
 
     public double getTagVecScore() {
         return tagVecScore;

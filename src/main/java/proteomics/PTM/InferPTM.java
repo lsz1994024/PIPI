@@ -502,7 +502,7 @@ public class InferPTM {
 
         double massToSettle = deltaMass;
         Set<Integer> toModZone = new HashSet<>(modifiedZone);
-        for (int loop = 1; loop <= 3; loop++) {
+        for (int loop = 1; loop <= 2; loop++) {
             DividedZone dividedZone = dividePepNew(scanNum, toModZone, modPepPoolGood, modPepPoolBad, lastPeptide, posVarPtmArraySrcMap, massToSettle, cutMass, ncPart, partSeq, isDecoy,
                     tagVecScore, globalRank, expProcessedPL, plMap, precursorCharge, 1, unUsedPlMap, 0);
             if (modPepPoolBad.peptideTreeSet.isEmpty() || dividedZone.toModZone.isEmpty() || loop == 3) { //fixme, why the first sentence
@@ -528,8 +528,8 @@ public class InferPTM {
                 tmpToModZone.remove(0);
                 Peptide tmpPeptide = new Peptide(partSeq, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank);
                 PosMassMap tmpNewPosMassMap = new PosMassMap(partSeq.length());
-                tmpNewPosMassMap.put(new Coordinate(0,1), nVarPtm.mass);
-                tmpPeptide.posVarPtmResMap.put(new Coordinate(0, 1), nVarPtm);
+                tmpNewPosMassMap.put(0, nVarPtm.mass);
+                tmpPeptide.posVarPtmResMap.put(0, nVarPtm);
                 tmpPeptide.setVarPTM(tmpNewPosMassMap);
                 double[][] ionMatrix = tmpPeptide.getIonMatrixNow();
                 updateIonMatrix(ionMatrix, cutMass, ncPart);
@@ -538,7 +538,7 @@ public class InferPTM {
                 double tmpScore = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, tmpPeptide.matchedBions, tmpPeptide.matchedYions, jRange);
                 tmpPeptide.setScore(tmpScore); // init score needs to be bring in the 2-loop
 
-                for (int loop = 1; loop <= 2; loop++) {
+                for (int loop = 1; loop <= 1; loop++) {
                     DividedZone dividedZone = dividePepNew(scanNum, tmpToModZone, modPepPoolGood, tmpModPepPoolBad, tmpPeptide, posVarPtmArraySrcMap, tmpMassToSettle, cutMass, ncPart, partSeq, isDecoy,
                             tagVecScore, globalRank, expProcessedPL, plMap, precursorCharge, 1, unUsedPlMap, 0);
                     if (tmpModPepPoolBad.peptideTreeSet.isEmpty() || dividedZone.toModZone.isEmpty() || loop == 2) { //fixme, why the first sentence
@@ -561,12 +561,12 @@ public class InferPTM {
 //                        Peptide fakePeptide = new Peptide(partSeq, isDecoy, massTool, 1, tagVecScore, globalRank);
                 PosMassMap fakeNewPosMassMap = new PosMassMap(partSeq.length());
 //                        if (!modPepPoolBad.peptideTreeSet.isEmpty()){
-                for (Coordinate coor : lastPeptide.getVarPTMs().keySet()) {
-                    fakeNewPosMassMap.put(new Coordinate(coor.x, coor.y), lastPeptide.getVarPTMs().get(coor)); // copy the ptms from modPepPoolBad
+                for (Integer coor : lastPeptide.getVarPTMs().keySet()) {
+                    fakeNewPosMassMap.put(coor, lastPeptide.getVarPTMs().get(coor)); // copy the ptms from modPepPoolBad
                 }
 //                        }
-                fakeNewPosMassMap.put(new Coordinate(pos, pos + 1), massToSettle);
-                fakePeptide.posVarPtmResMap.put(new Coordinate(pos, pos + 1), fakeVarPtm);
+                fakeNewPosMassMap.put(pos, massToSettle);
+                fakePeptide.posVarPtmResMap.put(pos, fakeVarPtm);
                 fakePeptide.setVarPTM(fakeNewPosMassMap);
 
                 Map<Integer, Double> matchedBions = new HashMap<>();
@@ -640,7 +640,7 @@ public class InferPTM {
 
 
         PosMassMap fullPosMassMap = new PosMassMap(freeSeq.length());
-        TreeMap<Coordinate, VarPtm> posVarPtmResMap = new TreeMap<>();
+        TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
 
         if (Math.abs(nDeltaMass) > 0.2) { // nterm has unsettled mass and must has untagged amino acid for var mod
             //use a partial peptide and cterm mass to settle ptm on n side
@@ -662,9 +662,9 @@ public class InferPTM {
 
             List<Peptide> nPartPeptideList = new ArrayList<>(nPartModPepsSettled.peptideTreeSet);
             Collections.sort(nPartPeptideList, Comparator.comparing(o -> o.getPriority(), Comparator.reverseOrder()));
-            for (Coordinate coor : nPartPeptideList.get(0).getVarPTMs().keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                fullPosMassMap.put(new Coordinate(coor.x, coor.y), nPartPeptideList.get(0).getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
-                posVarPtmResMap.put(new Coordinate(coor.x, coor.y), nPartPeptideList.get(0).posVarPtmResMap.get(coor));
+            for (Integer coor : nPartPeptideList.get(0).getVarPTMs().keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+                fullPosMassMap.put(coor, nPartPeptideList.get(0).getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
+                posVarPtmResMap.put(coor, nPartPeptideList.get(0).posVarPtmResMap.get(coor));
             }
 //            posVarPtmResMap.putAll(nPartModPepsSettled.getTopPepPtn().posVarPtmResMap);
         }
@@ -692,9 +692,9 @@ public class InferPTM {
 //            }
             List<Peptide> cPartPeptideList = new ArrayList<>(cPartModPepsSettled.peptideTreeSet);
             Collections.sort(cPartPeptideList, Comparator.comparing(o -> o.getPriority(), Comparator.reverseOrder()));
-            for (Coordinate coor : cPartPeptideList.get(0).getVarPTMs().keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                fullPosMassMap.put(new Coordinate(coor.x+tagPosInPep+tagLen, coor.y+tagPosInPep+tagLen), cPartPeptideList.get(0).getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
-                posVarPtmResMap.put(new Coordinate(coor.x+tagPosInPep+tagLen, coor.y+tagPosInPep+tagLen), cPartPeptideList.get(0).posVarPtmResMap.get(coor));
+            for (Integer coor : cPartPeptideList.get(0).getVarPTMs().keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+                fullPosMassMap.put(coor+tagPosInPep+tagLen, cPartPeptideList.get(0).getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
+                posVarPtmResMap.put(coor+tagPosInPep+tagLen, cPartPeptideList.get(0).posVarPtmResMap.get(coor));
             }
         }
 
@@ -704,8 +704,8 @@ public class InferPTM {
             if (Character.isUpperCase(letter)) {
                 idOfAa += 1;
             } else {
-                fullPosMassMap.put(new Coordinate(candiPep.tagPosInPep+idOfAa, candiPep.tagPosInPep+idOfAa + 1), massTool.labelVarPtmMap.get(letter).mass);
-                posVarPtmResMap.put(new Coordinate(candiPep.tagPosInPep+idOfAa, candiPep.tagPosInPep+idOfAa + 1), massTool.labelVarPtmMap.get(letter));
+                fullPosMassMap.put(candiPep.tagPosInPep+idOfAa, massTool.labelVarPtmMap.get(letter).mass);
+                posVarPtmResMap.put(candiPep.tagPosInPep+idOfAa, massTool.labelVarPtmMap.get(letter));
             }
         }
 
@@ -735,10 +735,10 @@ public class InferPTM {
             for (int ptmId = 0; ptmId < posVarPtmArraySrcMap.get(pos).length; ptmId++){
                 Peptide peptide = lastPeptide.clone();
                 PosMassMap newPosMassMap = new PosMassMap(ptmFreePeptide.length());
-                for (Coordinate coor : lastPeptide.getVarPTMs().keySet()) {
-                    newPosMassMap.put(new Coordinate(coor.x, coor.y), lastPeptide.getVarPTMs().get(coor)); // copy the ptms from lastPeptide
+                for (Integer coor : lastPeptide.getVarPTMs().keySet()) {
+                    newPosMassMap.put(coor, lastPeptide.getVarPTMs().get(coor)); // copy the ptms from lastPeptide
                 }
-                newPosMassMap.put(new Coordinate(pos, pos+1), posVarPtmArraySrcMap.get(pos)[ptmId].mass);
+                newPosMassMap.put(pos, posVarPtmArraySrcMap.get(pos)[ptmId].mass);
                 peptide.setVarPTM(newPosMassMap);
 
                 double[][] ionMatrix = peptide.getIonMatrixNow();
@@ -760,7 +760,7 @@ public class InferPTM {
                 if (score > scoreLb) {
                     peptide.setScore(score);
                     peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, peptide.getIonMatrix(), ms2Tolerance));
-                    peptide.posVarPtmResMap.put(new Coordinate(pos, pos + 1), posVarPtmArraySrcMap.get(pos)[ptmId]);
+                    peptide.posVarPtmResMap.put(pos, posVarPtmArraySrcMap.get(pos)[ptmId]);
                     if (Math.abs(totalDeltaMass - posVarPtmArraySrcMap.get(pos)[ptmId].mass) <= 0.02){
                         modPepPoolGood.push(peptide);
                     } else {
@@ -780,9 +780,9 @@ public class InferPTM {
         Set<Integer> keptZone;
         Set<Integer> freeZone;
         int n1Pos = -1;
-        for (Coordinate coor : inFeasiTopPep.getVarPTMs().keySet()) {
-            if (modifiedZone.contains(coor.x)) {
-                n1Pos = coor.x;
+        for (Integer coor : inFeasiTopPep.getVarPTMs().keySet()) {
+            if (modifiedZone.contains(coor)) {
+                n1Pos = coor;
                 ptmMass = inFeasiTopPep.getVarPTMs().get(coor);
             }
         }
@@ -857,10 +857,10 @@ public class InferPTM {
             for (int ptmId = 0; ptmId < idxVarModMap.get(pos).length; ptmId++){
                 Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
                 PosMassMap newPtmPtn = new PosMassMap(ptmFreePeptide.length());
-                for (Coordinate coor : ptmTemplate.getTopPepPtn().getVarPTMs().keySet()) {
-                    newPtmPtn.put(new Coordinate(coor.x, coor.y), ptmTemplate.getTopPepPtn().getVarPTMs().get(coor));
+                for (Integer coor : ptmTemplate.getTopPepPtn().getVarPTMs().keySet()) {
+                    newPtmPtn.put(coor, ptmTemplate.getTopPepPtn().getVarPTMs().get(coor));
                 }
-                newPtmPtn.put(new Coordinate(pos, pos + 1), idxVarModMap.get(pos)[ptmId].mass);
+                newPtmPtn.put(pos, idxVarModMap.get(pos)[ptmId].mass);
                 peptide.setVarPTM(newPtmPtn);
 
                 Map<Integer, Double> matchedBions = new HashMap<>();
@@ -909,9 +909,9 @@ public class InferPTM {
         Set<Integer> keptZone = new HashSet<>();
         Set<Integer> freeZone = new HashSet<>();
         int n1Pos = -1;
-        for (Coordinate coor : inFeasiTopPep.getVarPTMs().keySet()) {
-            if (modifiedZone.contains(coor.x)) {
-                n1Pos = coor.x;
+        for (Integer coor : inFeasiTopPep.getVarPTMs().keySet()) {
+            if (modifiedZone.contains(coor)) {
+                n1Pos = coor;
                 ptmMass = inFeasiTopPep.getVarPTMs().get(coor);
             }
         }

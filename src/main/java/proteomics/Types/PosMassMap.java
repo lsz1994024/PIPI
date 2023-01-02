@@ -22,7 +22,7 @@ import ProteomicsLibrary.Types.Coordinate;
 import java.util.Locale;
 import java.util.TreeMap;
 
-public class PosMassMap extends TreeMap<Coordinate, Double> {
+public class PosMassMap extends TreeMap<Integer, Double> {
 
     public final int peptideLength;
 
@@ -33,23 +33,23 @@ public class PosMassMap extends TreeMap<Coordinate, Double> {
 
     public String toString() {
         StringBuilder sb = new StringBuilder(1000);
-        for (Coordinate co : this.keySet()) {
-            sb.append(String.format(Locale.US, "%.3f", this.get(co)));
+        for (Integer co : this.keySet()) {
+            sb.append(String.format(Locale.US, "%.3f", this.get(co))); // mass with 3 decimal
             sb.append("@");
-            if ((co.x == 0) || (co.x == 1)) {
-                sb.append("([01]-");
-                sb.append(co.y);
-                sb.append(")");
-            } else if ((co.y == peptideLength) || (co.y == peptideLength - 1)){
-                sb.append("(");
-                sb.append(co.x);
-                sb.append("-[");
-                sb.append(peptideLength - 1);
-                sb.append(peptideLength);
-                sb.append("])");
-            } else {
+//            if ((co.x == 0) || (co.x == 1)) {
+//                sb.append("([01]-");
+//                sb.append(co.y);
+//                sb.append(")");
+//            } else if ((co.y == peptideLength) || (co.y == peptideLength - 1)){
+//                sb.append("(");
+//                sb.append(co.x);
+//                sb.append("-[");
+//                sb.append(peptideLength - 1);
+//                sb.append(peptideLength);
+//                sb.append("])");
+//            } else {
                 sb.append(co.toString());
-            }
+//            }
             sb.append(";");
         }
         return sb.toString();
@@ -72,7 +72,7 @@ public class PosMassMap extends TreeMap<Coordinate, Double> {
         super.clone();
         PosMassMap other = new PosMassMap(peptideLength);
         other.clear();
-        for (Coordinate co : this.keySet()) {
+        for (Integer co : this.keySet()) {
             other.put(co, this.get(co));
         }
         return other;

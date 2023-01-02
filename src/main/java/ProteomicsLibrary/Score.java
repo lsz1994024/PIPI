@@ -16,7 +16,7 @@
 
 package ProteomicsLibrary;
 
-import ProteomicsLibrary.Types.Coordinate;
+//import ProteomicsLibrary.Types.Integer;
 
 import java.util.*;
 
@@ -125,7 +125,7 @@ public class Score {
         return binomial.calProbLargerThanOrEqualTo((peptideLengthWithNC - 2) * 2 * localMaxMs2Charge, matchedIonNum, localTopN * 0.01); // todo: the p is not accurate, but we don't have a perfect solution.
     }
 
-    public static double calAScore(TreeMap<Double, Double> plMap, int topN, Binomial binomial, TreeMap<Coordinate, Double> varPTMMap1, double[][] ionMatrix1, TreeMap<Coordinate, Double> varPTMMap2, double[][] ionMatrix2, double ms2Tolerance, int peptideLengthWithNC) throws Exception {
+    public static double calAScore(TreeMap<Double, Double> plMap, int topN, Binomial binomial, TreeMap<Integer, Double> varPTMMap1, double[][] ionMatrix1, TreeMap<Integer, Double> varPTMMap2, double[][] ionMatrix2, double ms2Tolerance, int peptideLengthWithNC) throws Exception {
         double finalAScore = -9999;
         for (int localTopN = 1; localTopN <= topN; ++localTopN) {
             TreeMap<Double, Double> localPLMap = SpecProcessor.topNStyleNormalization(plMap, localTopN);
@@ -137,7 +137,7 @@ public class Score {
        return finalAScore;
     }
 
-    public static double calAScoreSub(TreeMap<Double, Double> localPLMap, int localTopN, Binomial binomial, TreeMap<Coordinate, Double> varPTMMap1, double[][] ionMatrix1, TreeMap<Coordinate, Double> varPTMMap2, double[][] ionMatrix2, double ms2Tolerance, int peptideLengthWithNC) throws Exception {
+    public static double calAScoreSub(TreeMap<Double, Double> localPLMap, int localTopN, Binomial binomial, TreeMap<Integer, Double> varPTMMap1, double[][] ionMatrix1, TreeMap<Integer, Double> varPTMMap2, double[][] ionMatrix2, double ms2Tolerance, int peptideLengthWithNC) throws Exception {
         TreeSet<Integer> totalAffectedBIonSet = new TreeSet<>();
         TreeSet<Integer> totalAffectedYIonSet = new TreeSet<>();
         if (varPTMMap2 == null) {
@@ -183,19 +183,19 @@ public class Score {
         return K1;
     }
 
-    private static void getAffectedIonSet(TreeMap<Coordinate, Double> varPtmMap, int peptideLength, Set<Integer> affectedBIonSet, Set<Integer> affectedYIonSet) {
-        for (Coordinate co : varPtmMap.keySet()) {
-            if (co.x == 0 || co.x == 1) {
+    private static void getAffectedIonSet(TreeMap<Integer, Double> varPtmMap, int peptideLength, Set<Integer> affectedBIonSet, Set<Integer> affectedYIonSet) {
+        for (Integer co : varPtmMap.keySet()) {
+            if (co == 0 || co == 1) {
                 affectedBIonSet.add(1);
                 affectedYIonSet.add(peptideLength - 1);
-            } else if (co.x == peptideLength + 1 || co.x == peptideLength) {
+            } else if (co == peptideLength + 1 || co == peptideLength) {
                 affectedBIonSet.add(peptideLength - 1);
                 affectedYIonSet.add(1);
             } else {
-                affectedBIonSet.add( co.x - 1);
-                affectedBIonSet.add(co.x);
-                affectedYIonSet.add( peptideLength - co.x);
-                affectedYIonSet.add(peptideLength - co.x + 1);
+                affectedBIonSet.add( co - 1);
+                affectedBIonSet.add(co);
+                affectedYIonSet.add( peptideLength - co);
+                affectedYIonSet.add(peptideLength - co + 1);
             }
         }
     }

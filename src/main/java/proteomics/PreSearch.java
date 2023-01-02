@@ -311,7 +311,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (isKR(protSeq.charAt(i))) {
                     missCleav++; //current num of missed cleavage
                 }
-                if (tagCMass >= precursorMass-600 && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+                if (tagCMass >= precursorMass-250 && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
                     cPoscMassMap.put(i, tagCMass);
                 }
                 if (missCleav > maxMissCleav) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
@@ -339,7 +339,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                 }
                 if (nDeltaMass < -250) break;
-                if (nDeltaMass > 600) continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+                if (nDeltaMass > 250) continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
 
                 if (nTermSpecific) {
                     if (nPos != 0 && !isKR(protSeq.charAt(nPos-1))) {// n term must be specific

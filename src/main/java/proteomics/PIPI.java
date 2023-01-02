@@ -52,7 +52,7 @@ public class PIPI {
     static final int maxMissCleav = 4;
     public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(66630));//62940,62866,72612, 72611
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(50401,50366));//62940,62866,72612, 72611
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -978,7 +978,7 @@ public class PIPI {
                 double expMass = sqlResultSet.getDouble("precursorMass");
                 double massDiff = getMassDiff(expMass, theoMass, MassTool.C13_DIFF);
 
-                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
+                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^A-Z]+", ""));
                 TreeSet<String> proteinIdSet = new TreeSet<>();
                 for (String protein : pepInfo.protIdSet) {
                     proteinIdSet.add(protein.trim());
@@ -1068,13 +1068,13 @@ public class PIPI {
                 String[] candiSetStr = peptideSet.split(",");
                 int numPep = candiSetStr.length/3;
 
-                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
+                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^A-Z]+", ""));
                 List<CandiScore> candiScoreList = new ArrayList<>();
                 double firstScore = 0;
                 for (int i = 0; i < numPep; i++) {
                     //dont put in the impossible ones
                     String ptmContainingSeq = candiSetStr[3*i+0];
-                    PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(ptmContainingSeq.replaceAll("[^ncA-Z]+", ""));
+                    PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(ptmContainingSeq.replaceAll("[^A-Z]+", ""));
                     double thisScore = Double.valueOf(candiSetStr[3*i+1]);
                     if (i == 0) {
                         firstScore = thisScore;
@@ -1337,7 +1337,7 @@ public class PIPI {
                 double explainedAaFrac = sqlResultSet.getDouble("explainedAaFrac");
                 String peptideSet = sqlResultSet.getString("peptideSet");
 
-                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^ncA-Z]+", ""));
+                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^A-Z]+", ""));
                 TreeSet<String> proteinIdSet = new TreeSet<>();
                 for (String protein : pepInfo.protIdSet) {
                     proteinIdSet.add(protein.trim());
