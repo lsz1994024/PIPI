@@ -460,7 +460,7 @@ public class InferSegment {
             return tempList;
         }
     }
-    public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtract) throws Exception {
+    public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         List<ExpTag> outputList = new LinkedList<>();
@@ -529,13 +529,24 @@ public class InferSegment {
         ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
 //        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
-            if (path.size() < minTagLenToExtract+1) continue; //aa length is 6 . peaks number is 7.
-            List<ExpAa> expAaList = new ArrayList<>();
-            for (int i = 0; i < path.size()-1; i++){
-                int j = i + 1;
-                expAaList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+            if (path.size() < minTagLenToExtractLocal+1) continue; //aa length is 6 . peaks number is 7.
+            if (path.size() > maxTagLenToExtractLocal + 1) {
+                for (int i = 0; i < path.size()-maxTagLenToExtractLocal; i++) {
+                    List<ExpAa> expAaList = new ArrayList<>();
+                    for (int ii = i; ii < i+maxTagLenToExtractLocal; ii++){
+                        int j = ii + 1;
+                        expAaList.add(edgeInfoMap.get(new Pair<>(path.get(ii),path.get(j))));
+                    }
+                    outputList.add(new ExpTag(expAaList));
+                }
+            } else {
+                List<ExpAa> expAaList = new ArrayList<>();
+                for (int i = 0; i < path.size()-1; i++){
+                    int j = i + 1;
+                    expAaList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+                }
+                outputList.add(new ExpTag(expAaList));
             }
-            outputList.add(new ExpTag(expAaList));
         }
         outputList.sort(Comparator.comparingDouble(ExpTag::getTotalIntensity).reversed());
         boolean[] shouldKeep = new boolean[outputList.size()];

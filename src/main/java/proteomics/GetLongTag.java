@@ -90,7 +90,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
             int a = 1;
         }
 //        System.out.println("in, "+ scanNum);
-        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToReduceProtDb);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToReduceProtDb, 99);
 //        System.out.println("out, "+ scanNum);
 
         if (!allLongTagList.isEmpty()) {

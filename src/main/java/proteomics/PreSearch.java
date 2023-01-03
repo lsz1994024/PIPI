@@ -114,7 +114,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
-        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, 4);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
 
         if (allLongTagList.isEmpty())  return null;
         Entry entry = new Entry();
@@ -202,11 +202,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         Map<String, Double> scanTagStrMap = inferSegment.getTagStrMap(allLongTagList);
 //        Search search = new Search(entry, scanNum, buildIndex.inferSegment, precursorMass, scanTagStrMap, massTool, localMaxMs2Charge, peptideInfoMap);
-        if (lszDebugScanNum.contains(scanNum)){
-            if (peptideInfoMap.containsKey(truth)) {
-                int a = 1;
-            }
-        }
+
 
         List<Pair<String, Double>> ptmPeptideTotalScoreList = new LinkedList<>();
         List<Pair<String, Double>> freePeptideTotalScoreList = new LinkedList<>();
@@ -240,6 +236,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 peptide.isDecoy = peptideInfoMap.get(seq).isDecoy; //override the fake isDecoy with true one
                 entry.peptideInfoMapForRef.put(seq, peptideInfoMap.get(seq));
                 entry.freeCandiList.add(peptide);
+            }
+        }
+        if (lszDebugScanNum.contains(scanNum)){
+            if (peptideInfoMap.containsKey(truth)) {
+                int a = 1;
             }
         }
         int c = 1;
@@ -314,7 +315,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (tagCMass >= precursorMass-250 && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
                     cPoscMassMap.put(i, tagCMass);
                 }
-                if (missCleav > maxMissCleav) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+                if (missCleav > massTool.missedCleavage  && !isPtmSimuTest) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
                     break;         // stop extend to C term
                 }
             }
@@ -350,13 +351,14 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (isKR(protSeq.charAt(nPos))) {
                     missCleav++; //current num of missed cleavage
                 }
-                if (missCleav > maxMissCleav) {
+                if (missCleav > massTool.missedCleavage  && !isPtmSimuTest) {
                     break;         // stop extend to n term
                 }
-                if (cPos+1-nPos < 6) {
+                if (cPos+1-nPos < 6) { // min length of pep
                     continue;
                 }
                 String freePepSeq = protSeq.substring(nPos, cPos+1);
+
 
                 StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
                 ptmPepSeqSB.replace(pos-nPos, pos-nPos+tag.size(), tag.getPtmAaString());

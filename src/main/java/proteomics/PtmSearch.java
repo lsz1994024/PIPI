@@ -35,6 +35,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static proteomics.PIPI.isPtmSimuTest;
 import static proteomics.PIPI.lszDebugScanNum;
 
 public class PtmSearch implements Callable<PtmSearch.Entry> {
@@ -61,8 +62,8 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
     private final SpecProcessor preSpectrum;
     private final Binomial binomial;
     private final int scanNum;
-    private final Set<Peptide> ptmOnlyList;
-    private final Set<Peptide> ptmFreeList;
+    private final List<Peptide> ptmOnlyList;
+    private final List<Peptide> ptmFreeList;
     private Map<String, PeptideInfo> peptideInfoMap;
 
     private boolean isHomo(Peptide p1, Peptide p2) {
@@ -80,7 +81,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
 
     public PtmSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
             , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
-            , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo, Set<Peptide> ptmOnlyList, Set<Peptide> ptmFreeList, Map<String, PeptideInfo> peptideInfoMap)  {
+            , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, String sqlPath, Binomial binomial, int precursorScanNo, List<Peptide> ptmOnlyList, List<Peptide> ptmFreeList, Map<String, PeptideInfo> peptideInfoMap)  {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
@@ -231,11 +232,26 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
 //                        break;
                     }
                 }
+                if (pepList.get(j).getPriority() < 0 && isPtmSimuTest ) { // only simu test todo
+                    pepIdsToRemove.add(j);
+                }
+            }
+            if (pepList.get(0).getPriority() < 0 && isPtmSimuTest ) {// only simu test  todo
+                pepIdsToRemove.add(0);
             }
             List<Peptide> newPepList = new ArrayList<>();
             for (int id = 0; id < pepList.size(); id++){
                 if (pepIdsToRemove.contains(id)) continue;
                 newPepList.add(pepList.get(id));
+            }
+            if (newPepList.isEmpty()) {
+                return null;
+            }
+
+            for (Peptide pep : newPepList){
+                if (pep.getPriority() < 0 && isPtmSimuTest) {
+                    System.out.println(scanNum + " wtf ? " + pep.getVarPtmContainingSeqNow());
+                }
             }
 
             Peptide[] peptideArray = newPepList.toArray(new Peptide[0]);
@@ -303,6 +319,9 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                     , pepSetString.substring(0, pepSetString.length()-1), whereIsTopCand, extraEntryList
                     );
 
+            if (lszDebugScanNum.contains(scanNum)){
+                int a = 1;
+            }
             return entry;
         } else {
             return null;

@@ -72,7 +72,7 @@ public class MassTool {
 
     private final Map<String, Double> elementTable = new HashMap<>();
     private final Map<Character, Double> massTable = new HashMap<>(30, 1);
-    private final int missedCleavage;
+    public final int missedCleavage;
     private final double ms2Tolerance;
     private final double inverse2Ms2Tolerance;
     private final double oneMinusBinOffset;

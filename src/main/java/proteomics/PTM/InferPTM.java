@@ -553,7 +553,7 @@ public class InferPTM {
                 }
             }
         }
-        if (modPepPoolGood.peptideTreeSet.isEmpty()) {
+        if (modPepPoolGood.peptideTreeSet.isEmpty() && (massToSettle > -156 && massToSettle < 250)) {
             //  just assign the remaining massToSettle to any aa in toModZone, and record the best one
             for (int pos : toModZone) { // here must use last toModZone and last massToSettle
                 VarPtm fakeVarPtm = new VarPtm(massToSettle, partSeq.charAt(pos), 4, String.format("PIPI_%s", massToSettle), "PIPI_unsettled", -1);
@@ -603,6 +603,8 @@ public class InferPTM {
         if (Math.abs(nDeltaMass) <= 0.2 && Math.abs(cDeltaMass) <= 0.2) { //this must be a candidate borrowed from other scans and with no delta mass both sides but has total delta mass
             return findPtmNew1(scanNum, expProcessedPL,  plMap, precursorMass, candiPep, peptideInfo, precursorCharge, localMaxMS2Charge, localMS1ToleranceL, localMS1ToleranceR);
         }
+
+        ModPepPool fullModPepPool = new ModPepPool(freeSeq,5);
 
         int tagPosInPep = candiPep.tagPosInPep;
 
@@ -657,7 +659,8 @@ public class InferPTM {
             //todo  record the nPartModPepsSettled to the all part for fixed n part
             if (nPartModPepsSettled.peptideTreeSet.isEmpty()) {
                 int a = 1;
-                System.out.println(scanNum+", n peptideTreeSet.isEmpty(),"+candiPep.getFreeSeq()+","+String.join("_", peptideInfo.protIdSet));
+//                System.out.println(scanNum+", n peptideTreeSet.isEmpty(),"+candiPep.getFreeSeq()+","+String.join("_", peptideInfo.protIdSet));
+                return fullModPepPool; //empty
             }
 
             List<Peptide> nPartPeptideList = new ArrayList<>(nPartModPepsSettled.peptideTreeSet);
@@ -684,7 +687,8 @@ public class InferPTM {
             //todo  record the nPartModPepsSettled to the all part for fixed n part
             if (cPartModPepsSettled.peptideTreeSet.isEmpty()) {
                 int a = 1;
-                System.out.println(scanNum+", cPeptideTreeSet.isEmpty(),,"+candiPep.getFreeSeq()+","+String.join("_", peptideInfo.protIdSet));
+//                System.out.println(scanNum+", cPeptideTreeSet.isEmpty(),,"+candiPep.getFreeSeq()+","+String.join("_", peptideInfo.protIdSet));
+                return fullModPepPool; //empty
             }
 //            for (Coordinate coor : cPartModPepsSettled.getTopPepPtn().getVarPTMs().keySet()) { //copy the top 1 ptm pattern in n part
 //                fullPosMassMap.put(new Coordinate(coor.x+tagPosInPep+tagLen, coor.y+tagPosInPep+tagLen), cPartModPepsSettled.getTopPepPtn().getVarPTMs().get(coor)); // copy the ptms from partModPepsUnsettled
@@ -709,7 +713,6 @@ public class InferPTM {
             }
         }
 
-        ModPepPool fullModPepPool = new ModPepPool(freeSeq,5);
         Peptide fullPeptide = candiPep.clone();
         fullPeptide.setVarPTM(fullPosMassMap);
         if (fullPeptide.getVarPTMs() != null && fullPeptide.getVarPTMs().isEmpty()) {

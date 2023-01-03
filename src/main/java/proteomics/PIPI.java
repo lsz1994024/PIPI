@@ -48,11 +48,24 @@ public class PIPI {
     public static final String versionStr = "1.4.7";
     static final boolean useXcorr = false;
     static final int minTagLenToReduceProtDb = 5;
-    static final boolean nTermSpecific = false;
-    static final int maxMissCleav = 4;
-    public static final int[] debugScanNumArray = new int[]{};
 
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(50401,50366));//62940,62866,72612, 72611
+    //// normal
+    public static final boolean isPtmSimuTest = false; //simulation test //todo
+    static final boolean usePfmAndReduceDb = true;  //simulation test //todo
+    static final int minTagLenToExtract = 4;  //simulation test //todo
+    static final int maxTagLenToExtract = 99;  //simulation test //todo
+    static final boolean nTermSpecific = false; //simulation test //todo
+    ///// ptmTest
+//    public static final boolean isPtmSimuTest = true; //simulation test //todo
+//    static final boolean usePfmAndReduceDb = false;  //simulation test //todo
+//    static final int minTagLenToExtract = 4;  //simulation test //todo
+//    static final int maxTagLenToExtract = 4;  //simulation test //todo
+//    static final boolean nTermSpecific = true; //simulation test //todo
+    /////
+
+
+    public static final int[] debugScanNumArray = new int[]{};
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(11056));//62940,62866,72612, 72611
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -376,6 +389,10 @@ public class PIPI {
             if (pair.getSecond() < 0) break;
             reducedProtIdSet.add(pair.getFirst());
         }
+
+        if (! usePfmAndReduceDb) {
+            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
+        }
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
@@ -563,13 +580,13 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 20) {
+                if (Math.abs(scanNum-debugScanNum) < 200) {
                     shouldRun = true;
                 }
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-                    continue;//22459   comment this continue line, if run all scans
+//                    continue;//22459   comment this continue line, if run all scans
                 }
             }
 
@@ -668,8 +685,8 @@ public class PIPI {
                     int a = 1;
                 }
                 int thisFileId = Integer.valueOf( thisScanName.split("\\.")[0] );
-                Set<Peptide> realPtmOnlyList = new HashSet<>();
-                Set<Peptide> realPtmFreeList = new HashSet<>();
+                List<Peptide> realPtmOnlyList = new LinkedList<>();
+                List<Peptide> realPtmFreeList = new LinkedList<>();
                 Map<String, PeptideInfo> realPeptideInfoMap = new HashMap<>();
                 for (Peptide pep : ptmOnlyCandiMap.get(thisScanName)) {
                     realPtmOnlyList.add(pep.clone());
@@ -1203,7 +1220,9 @@ public class PIPI {
         }
 
         Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
-
+        if (!usePfmAndReduceDb){  //for ptm simulation, use dont  do pfm , use pepscore as it was
+            Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).pepScore, Comparator.reverseOrder()));
+        }
         //calculate new FDR
         fdrList = new ArrayList<>(scanResList.size());
         numTPlusD = 0;
@@ -1249,6 +1268,9 @@ public class PIPI {
             //TempRes(double pepScore, double protScore, double qValue, boolean isDecoy, String ptmPepSeq)
 //            scanNumFinalScoreMap.put(scanRes.scanNum, new TempRes(topCandi.pepScore, topCandi.protScore, scanRes.qValue, !topCandi.peptideInfo.isTarget, topCandi.peptideInfo.seq, 0)); //isdecoy
             double finalScore = topCandi.pepScore*(topCandi.protScore+1);
+            if (!usePfmAndReduceDb) {
+                finalScore = topCandi.pepScore; // dont use pfm
+            }
             String finalStr = String.format(Locale.US, "%d,%f,%d,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
                     , scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isDecoy ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, df.format(topCandi.pepScore)
                     , String.join(";",topCandi.peptideInfo.protIdSet), df.format(topCandi.protScore), ppm, theoMass, scanRes.expMass, scanRes.charge
