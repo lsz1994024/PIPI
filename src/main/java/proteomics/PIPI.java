@@ -586,7 +586,7 @@ public class PIPI {
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-//                    continue;//22459   comment this continue line, if run all scans
+                    continue;//22459   comment this continue line, if run all scans
                 }
             }
 
@@ -1045,7 +1045,9 @@ public class PIPI {
         public List<CandiScore> peptideInfoScoreList;
         public double expMass;
         public int charge;
-        ScanRes(int scanNum, double expMass, List<CandiScore> peptideInfoScoreList, int charge){
+        public String scanName;
+        ScanRes(String scanName, int scanNum, double expMass, List<CandiScore> peptideInfoScoreList, int charge){
+            this.scanName = scanName;
             this.scanNum = scanNum;
             this.expMass = expMass;
             this.peptideInfoScoreList = peptideInfoScoreList;
@@ -1081,6 +1083,7 @@ public class PIPI {
                 double score = sqlResultSet.getDouble("score");
                 String peptideSet = sqlResultSet.getString("peptideSet");
                 int scanNum = sqlResultSet.getInt("scanNum");
+                String scanName = sqlResultSet.getString("scanName");
 
                 String[] candiSetStr = peptideSet.split(",");
                 int numPep = candiSetStr.length/3;
@@ -1103,7 +1106,7 @@ public class PIPI {
                     candiScoreList.add(new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq)); //peptideInfo and their score
                 }
                 Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
-                scanResList.add(new ScanRes(scanNum, expMass, candiScoreList, charge));
+                scanResList.add(new ScanRes(scanName, scanNum, expMass, candiScoreList, charge));
 
                 for (String protId : pepInfo.protIdSet){
                     if (protPepScoreMap.containsKey(protId)){
@@ -1271,8 +1274,8 @@ public class PIPI {
             if (!usePfmAndReduceDb) {
                 finalScore = topCandi.pepScore; // dont use pfm
             }
-            String finalStr = String.format(Locale.US, "%d,%f,%d,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
-                    , scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isDecoy ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, df.format(topCandi.pepScore)
+            String finalStr = String.format(Locale.US, "%s,%d,%f,%d,%s,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
+                    , scanRes.scanName, scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isDecoy ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, topCandi.peptideInfo.freeSeq,df.format(topCandi.pepScore)
                     , String.join(";",topCandi.peptideInfo.protIdSet), df.format(topCandi.protScore), ppm, theoMass, scanRes.expMass, scanRes.charge
                     );
 
@@ -1284,7 +1287,7 @@ public class PIPI {
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
         BufferedWriter writer = new BufferedWriter(new FileWriter(spectraPath+".PFM.csv"));
-        writer.write("scanNum,qValue,TorD,finalScore,peptide,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
+        writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {
             writer.write(pair.getSecond());
         }
