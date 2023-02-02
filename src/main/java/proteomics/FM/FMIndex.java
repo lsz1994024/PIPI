@@ -50,11 +50,39 @@ public class FMIndex implements Serializable {
 
     }
 
+    public SearchInterval fmSearchFuzzy(char[] P){
+        int i = P.length - 1;
+        int sp = 0;
+        int ep = m - 1;
+//        int absTagPos = fmIndex.SA[ii];
+        int lastSp = sp;
+        int lastEp = ep;
+        while (sp <= ep && i >= 0) {
+            if (!C.containsKey(P[i])) {
+                return null;
+            }
+            lastSp = sp;
+            lastEp = ep;
+            sp = C.get(P[i]) + Occ(sp - 1, P[i]);
+            ep = C.get(P[i]) + Occ(ep, P[i]) - 1;
+            i --;
+        }
+
+        if (ep < sp) {
+            SearchInterval unSettledSI = new SearchInterval(lastSp,lastEp);
+            unSettledSI.settled = false;
+            unSettledSI.matchedPos = i + 2;
+            return unSettledSI;
+        } else {
+            return new SearchInterval(sp, ep);
+        }
+    }
+
     public SearchInterval fmSearch(char[] P){
         int i = P.length - 1;
         int sp = 0;
         int ep = m - 1;
-
+//        int absTagPos = fmIndex.SA[ii];
         while (sp <= ep && i >= 0) {
             if (!C.containsKey(P[i])) {
                 return null;

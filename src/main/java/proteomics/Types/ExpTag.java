@@ -217,6 +217,7 @@ public class ExpTag implements Comparable<ExpTag> {
             subExpAaList.add(expAaArray[i]);
         }
         ExpTag subTag = new ExpTag(subExpAaList);
+//        if (isNorC == -1 )
         subTag.isNorC = isNorC;
         return subTag;
     }

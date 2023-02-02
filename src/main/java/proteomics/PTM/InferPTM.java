@@ -57,11 +57,18 @@ public class InferPTM {
     private final double ms2Tolerance;
     private Map<Character, List<VarPtm>> finalPtmMap = new HashMap<>();
     private final Set<Character> aaCharSet = new HashSet<>(Arrays.asList('A','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','Y'));
+
+    private Set<Character> aaWithFixModSet = new HashSet<>();
     public InferPTM(MassTool massTool, Map<Character, Double> fixModMap, Map<String, String> parameterMap) throws Exception{
         this.massTool = massTool;
         elementTable = massTool.getElementTable();
         massTable = massTool.getMassTable();
         this.fixModMap = fixModMap;
+        for (Character c : fixModMap.keySet()){
+            if (Math.abs(fixModMap.get(c)) > 0.02) {
+                aaWithFixModSet.add(c);
+            }
+        }
 //        this.minPtmMass = Math.min(Double.valueOf(parameterMap.get("min_ptm_mass")), -600);// todo, this is correct way to handle user specified big mass PTM
         this.minPtmMass = Double.valueOf(parameterMap.get("min_ptm_mass"));
 
@@ -622,7 +629,7 @@ public class InferPTM {
 //        double totalDeltaMass = precursorMass - peptide.getTheoMass();
 //        peptide.absDeltaMass = totalDeltaMass;
 
-        Set<Integer> fixModIdxes = getFixModIdxes(freeSeq, fixModMap);  // positions that has fixed mod on it. Those postions should not bear var mod then.
+        Set<Integer> fixModIdxes = getFixModIdxes(freeSeq, fixModMap);  // positions that has fixed mod on it. Those postions should not bear var mod then. Unless it is at N term
 
         int pepPosInProt = NON_TERM_PROT; // none of the terms is protein term
         if (leftFlank == '-') {
@@ -1042,6 +1049,10 @@ public class InferPTM {
                     }
                     if (siteStr.contentEquals("N-term") || siteStr.contentEquals("C-term")) {
                         for (char site : aaCharSet) {
+                            if (aaWithFixModSet.contains(site) && siteStr.contentEquals("C-term")) {
+                                continue; // if aa is C, just ignore the mod that are not at N term
+                            }
+
                             VarPtm temp = new VarPtm(mass, site, position, name, classification, 0);
                             if (finalPtmMap.containsKey(site)) {
                                 finalPtmMap.get(site).add(temp);
@@ -1053,6 +1064,9 @@ public class InferPTM {
                         }
                     } else {
                         char site = siteStr.charAt(0);
+                        if (aaWithFixModSet.contains(site) && (position == 1 || position == 3 || position == 4)) {
+                            continue;  // if aa is C, just ignore the mod that are not at N term
+                        }
                         VarPtm temp = new VarPtm(mass, site, position, name, classification, 0);
                         if (finalPtmMap.containsKey(site)) {
                             finalPtmMap.get(site).add(temp);
@@ -1155,7 +1169,7 @@ public class InferPTM {
         }
         for (int i = 0; i < ptmFreePeptide.length(); ++i) {
             if (i >= tagPosInPep && i < tagPosInPep+tagLen) continue; // dont consider var mod in tag regions
-            if (fixModIdxes.contains(i)) continue;
+            if (fixModIdxes.contains(i) && i != 0) continue;  // if that pos has fix mod but is not N term, dont let it
             char aa = ptmFreePeptide.charAt(i);
 
             if (finalPtmMap.containsKey(aa)) {
