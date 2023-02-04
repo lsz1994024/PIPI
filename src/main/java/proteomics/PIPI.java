@@ -65,7 +65,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(12051));//62940,62866,72612, 72611
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(29842));//62940,62866,72612, 72611
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -271,7 +271,7 @@ public class PIPI {
             submitNumSpecCoderX++;
             validScanSet.add(scanName);
             taskListGetLongTag.add(threadPoolGetLongTag.submit(new GetLongTag(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockGetLongTag, scanName, precursorCharge
-                    , precursorMass, specProcessor, pepTruth.get(1886))));
+                    , precursorMass, specProcessor, pepTruth.get(1886), ms2Tolerance)));
         }
         System.out.println("totalSubmit in SpecCoder, "+ submitNumSpecCoderX);
         sqlResSetGetLongTag.close();
@@ -594,7 +594,7 @@ public class PIPI {
                 }
             }
 
-            taskListBone.add(threadPoolBone.submit(new PreSearch(Integer.valueOf(scanNameStr[2]), buildIndex, massTool, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+            taskListBone.add(threadPoolBone.submit(new PreSearch(Integer.valueOf(scanNameStr[2]), buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                     , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor, pepTruth.get(1886))));
         }

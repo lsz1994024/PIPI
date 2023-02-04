@@ -481,10 +481,13 @@ public class InferSegment {
                 isNorC = C_TAG;
             }
             double intensity1 = intensityArray[i];
+            if (intensity1 < 0.1) continue;//todo
+
             for (int j = i + 1; j < mzArray.length; ++j) {
                 double mz2 = mzArray[j];
                 if (mz2 > mz1 + maxAugedMass + 5) break; // no need to try further because the can not match to any aa
                 double intensity2 = intensityArray[j];
+                if (intensity2 < 0.1) continue;//todo
 
                 if ( (intensity1 + intensity2) < 0.5) continue;  //todo
 

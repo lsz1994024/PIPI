@@ -60,8 +60,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private final SpecProcessor specProcessor;
     private final int scanNum;
     private String truth;
+    private final double ms2Tolerance;
 
-    public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
+    public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms2Tolerance, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
             , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge, double precursorMass
             , SpecProcessor specProcessor, String truth) {
@@ -85,6 +86,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         this.specProcessor = specProcessor;
         this.scanNum = scanNum;
         this.truth = truth;
+        this.ms2Tolerance = ms2Tolerance;
     }
 
     @Override
@@ -97,6 +99,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             lock.unlock();
         }
         if (lszDebugScanNum.contains(this.scanNum)) {
+            System.out.println(scanNum + ", entered");
             int a = 1;
         }
 
@@ -107,7 +110,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             maxPcMass = (precursorMass * rightInverseMs1Tolerance);
         }
 
-        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
+        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
 
         if (plMap.isEmpty()) return null;
         // Coding
@@ -128,51 +131,53 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Map<String, List<Peptide>> freePeptideListMap = new HashMap<>();
         Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(50000);
 
-        Set<ExpTag> usedTagInfoSet = new HashSet<>();
+        Set<String> searchedTagStrSet = new HashSet<>();
         for (ExpTag tagInfo : allLongTagList){
             String tagStr = tagInfo.getFreeAaString();
             String revTagStr = new StringBuilder(tagStr).reverse().toString();
-
             Set<String> pepStringFoundByThisTag = new HashSet<>();
+
             if (tagInfo.isNorC == N_TAG) { //n tag
-                if (alreadySearched(tagInfo, usedTagInfoSet)) {
-                    continue; // if this N tag is used, just skip to next tagInfo. Of course, none of its subtags should be unsearched
-                }
-                char[] tagChar = tagStr.toCharArray();
-                int numRes = searchAndSaveFuzzy(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar, usedTagInfoSet);
-                if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
-                    for (int subTime = 1; subTime <= 3; subTime++){
-                        char[] subTagChar = tagStr.substring(0, tagStr.length()-subTime).toCharArray();
-                        ExpTag subTagInfo = tagInfo.subTag(0,tagStr.length()-subTime);
-                        if (alreadySearched(subTagInfo, usedTagInfoSet)) {
-                            break; // if this sub tag is used, just BREAK for this sub section. Of course, none of its subtags should be unsearched
+                if (!searchedTagStrSet.contains(tagStr)) {
+                    char[] tagChar = tagStr.toCharArray();
+                    int numRes = searchAndSaveFuzzy(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
+                    searchedTagStrSet.add(tagStr);
+                    if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
+                        for (int subTime = 1; subTime <= 3; subTime++){
+                            char[] subTagChar = tagStr.substring(0, tagStr.length()-subTime).toCharArray();
+                            ExpTag subTagInfo = tagInfo.subTag(0,tagStr.length()-subTime);
+                            if (!searchedTagStrSet.contains(tagStr)) {
+                                int numResSub = searchAndSaveFuzzy(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+                                searchedTagStrSet.add(tagStr);
+                                if (numResSub > 0) break;
+                            }
                         }
-                        int numResSub = searchAndSaveFuzzy(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar, usedTagInfoSet);
-                        if (numResSub > 0) break;
                     }
                 }
             } else if (tagInfo.isNorC == C_TAG) { // c tag
                 char[] revTagChar = revTagStr.toCharArray();
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
-                if (alreadySearched(revTagInfo, usedTagInfoSet)) {
-                    continue; // if this C tag is used, just skip to next tagInfo. Of course, none of its subtags should be unsearched
-                }
-                int numRes = searchAndSaveFuzzy(revTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar, usedTagInfoSet);
-                if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
-                    for (int subTime = 1; subTime <= 3; subTime++){
-                        char[] subRevTagChar = revTagStr.substring(0, tagStr.length()-subTime).toCharArray();
-                        ExpTag subRevTagInfo = revTagInfo.subTag(0,tagStr.length()-subTime);
-                        if (alreadySearched(subRevTagInfo, usedTagInfoSet)) {
-                            break; // if this sub tag is used, just BREAK for this sub section. Of course, none of its subtags should be unsearched
+                if (!searchedTagStrSet.contains(revTagStr)) {
+                    int numRes = searchAndSaveFuzzy(revTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
+                    searchedTagStrSet.add(revTagStr);
+                    if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
+                        for (int subTime = 1; subTime <= 3; subTime++){
+                            String subRevTagStr = revTagStr.substring(0, tagStr.length()-subTime);
+                            char[] subRevTagChar = subRevTagStr.toCharArray();
+                            ExpTag subRevTagInfo = revTagInfo.subTag(0,tagStr.length()-subTime);
+                            if (!searchedTagStrSet.contains(subRevTagStr)) {
+                                int numResSub = searchAndSaveFuzzy(subRevTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar);
+                                searchedTagStrSet.add(subRevTagStr);
+                                if (numResSub > 0) break;
+                            }
                         }
-                        int numResSub = searchAndSaveFuzzy(subRevTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subRevTagChar, usedTagInfoSet);
-                        if (numResSub > 0) break;
                     }
                 }
             } else { // non-nc tag
                 char[] tagChar = tagStr.toCharArray();
-                if (!alreadySearched(tagInfo, usedTagInfoSet)) {
-                    int numResForward = searchAndSaveFuzzy(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar, usedTagInfoSet);
+                if (!searchedTagStrSet.contains(tagStr)) {
+                    int numResForward = searchAndSaveFuzzy(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
+                    searchedTagStrSet.add(tagStr);
                     if (numResForward == 0 && tagStr.length() > 8){ // if the tag was already long
                         for (int subTime = 1; subTime <= 3; subTime++){
                             String subTagStr = tagStr.substring(0, tagStr.length()-subTime);
@@ -182,16 +187,18 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                             //sub forward
                             char[] subTagChar = subTagStr.toCharArray();
                             int numResSub1 = 0;
-                            if (!alreadySearched(subTagInfo, usedTagInfoSet)) {
-                                numResSub1 = searchAndSaveFuzzy(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar, usedTagInfoSet);
+                            if (!searchedTagStrSet.contains(subTagStr)) {
+                                numResSub1 = searchAndSaveFuzzy(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+                                searchedTagStrSet.add(subTagStr);
                             }
 
                             //sub backward
                             char[] revSubTagChar = revSubTagStr.toCharArray();
                             int numResSub2 = 0;
                             ExpTag revSubTagInfo = subTagInfo.revTag(totalMass);
-                            if (!alreadySearched(revSubTagInfo,usedTagInfoSet)){
-                                numResSub2 = searchAndSaveFuzzy(revSubTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revSubTagChar, usedTagInfoSet);
+                            if (!searchedTagStrSet.contains(revSubTagStr)) {
+                                numResSub2 = searchAndSaveFuzzy(revSubTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revSubTagChar);
+                                searchedTagStrSet.add(revSubTagStr);
                             }
                             if (numResSub1 + numResSub2 > 0) break;
                         }
@@ -199,8 +206,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 char[] revTagChar = revTagStr.toCharArray();
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
-                if (!alreadySearched(revTagInfo, usedTagInfoSet)) {
-                    int numResBackward = searchAndSaveFuzzy(revTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar, usedTagInfoSet);
+                if (!searchedTagStrSet.contains(revTagStr)) {
+                    int numResBackward = searchAndSaveFuzzy(revTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
+                    searchedTagStrSet.add(revTagStr);
                     if (numResBackward == 0 && revTagStr.length() > 8){ // if the tag was already long
                         for (int subTime = 1; subTime <= 3; subTime++){
                             String subTagStr = revTagStr.substring(0, revTagStr.length()-subTime);
@@ -210,15 +218,17 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                             //sub forward
                             char[] subTagChar = subTagStr.toCharArray();
                             int numResSub1 = 0;
-                            if (!alreadySearched(subTagInfo, usedTagInfoSet)) {
-                                numResSub1 = searchAndSaveFuzzy(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar, usedTagInfoSet);
+                            if (!searchedTagStrSet.contains(subTagStr)) {
+                                numResSub1 = searchAndSaveFuzzy(subTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, subTagChar);
+                                searchedTagStrSet.add(subTagStr);
                             }
                             //sub backward
                             char[] revSubTagChar = revSubTagStr.toCharArray();
                             ExpTag revSubTagInfo = subTagInfo.revTag(totalMass);
                             int numResSub2 = 0;
-                            if (!alreadySearched(revSubTagInfo, usedTagInfoSet)) {
-                                numResSub2 = searchAndSaveFuzzy(revSubTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revSubTagChar, usedTagInfoSet);
+                            if (!searchedTagStrSet.contains(revSubTagStr)) {
+                                numResSub2 = searchAndSaveFuzzy(revSubTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revSubTagChar);
+                                searchedTagStrSet.add(revSubTagStr);
                             }
                             if (numResSub1 + numResSub2 > 0) break;
                         }
@@ -237,11 +247,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         List<Pair<String, Double>> ptmPeptideTotalScoreList = new LinkedList<>();
         List<Pair<String, Double>> freePeptideTotalScoreList = new LinkedList<>();
         for (String seq : ptmPeptideListMap.keySet()) {
-            double totalScore = 0;
+            double maxScore = 0;
             for (Peptide peptide : ptmPeptideListMap.get(seq)) {
-                totalScore += peptide.finderTag.getTotalIntensity();
+                maxScore = Math.max(peptide.finderTag.getTotalIntensity(), maxScore);
             }
-            ptmPeptideTotalScoreList.add(new Pair<>(seq, totalScore));
+            ptmPeptideTotalScoreList.add(new Pair<>(seq, maxScore));
         }
         for (String seq : freePeptideListMap.keySet()) {
             double totalScore = 0;
@@ -283,6 +293,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             }
         }
         if (lszDebugScanNum.contains(scanNum)){
+            for (Peptide pep : entry.ptmCandiList){
+                System.out.println(scanNum + ","+scanName + "," + pep.getFreeSeq()+ "," +  pep.finderTag.getFreeAaString()+ "," + pep.nDeltaMass+ "," + pep.cDeltaMass);
+            }
             if (peptideInfoMap.containsKey(truth)) {
                 int a = 1;
             }
@@ -297,12 +310,51 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             if (tmpTag.size() < tagInfo.size()) continue;
 
             int alignedPos = tmpTag.getFreeAaString().indexOf(tagInfo.getFreeAaString());
-            if (alignedPos >= 0 && Math.abs(tmpTag.expAaList.get(alignedPos).getHeadLocation() - tagInfo.getHeadLocation()) < 0.02){
+            int endPos = alignedPos + tagInfo.size()-1;
+
+            if (alignedPos >= 0
+                    && Math.abs(tmpTag.expAaList.get(alignedPos).getHeadLocation() - tagInfo.getHeadLocation()) < 0.02){
                 res = true;
                 break;
+            } else {
+                int n_sharedAa = LCS(tagInfo.getFreeAaString(), tmpTag.getFreeAaString()).length();
+                if (n_sharedAa > tagInfo.size()*0.7){
+                    res = true;
+                    break;
+                }
             }
         }
         return res;
+    }
+
+//    private boolean sameTagStrUsed(String tagStr, Set<String> usedTagStrSet) {
+//        return res;
+//    }
+
+    private static String LCS(String a, String b) {
+        char[] arrayA = a.toCharArray();
+        char[] arrayB = b.toCharArray();
+        String maxString = "";
+        for (int i = 0; i < arrayA.length; i++) {
+            for (int j = 0; j < arrayB.length; j++) {
+                if (arrayA[i]==arrayB[j]){
+                    // i为起点
+                    Integer i1 = i;
+                    Integer j1 = j;
+                    // 找到相同的字母后，以当前j为起点，持续比较下去，看相同部分到哪里结束
+                    for (; i1 <arrayA.length && j1 < arrayB.length && arrayA[i1]==arrayB[j1]; i1++,j1++) {}
+                    // i1为终点
+                    if (i!=i1-1){
+                        // 不断用common共同子串与max最长子串比较长度，只保留最长那个子串
+                        String common = a.substring(i,i1);
+                        if (maxString.length()<common.length()){
+                            maxString = common;
+                        }
+                    }
+                }
+            }
+        }
+        return maxString;
     }
     private int searchAndSave(ExpTag tagInfo, double minPcMass, double maxPcMass, Map<String, List<Peptide>> ptmPeptideListMap, Map<String,
             List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag, FMIndex fmIndex, char[] tagChar){
@@ -325,11 +377,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     }
 
     private int searchAndSaveFuzzy(ExpTag tagInfo, double minPcMass, double maxPcMass, Map<String, List<Peptide>> ptmPeptideListMap, Map<String,
-            List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag, FMIndex fmIndex, char[] tagChar, Set<ExpTag> usedTagInfoSet){
+            List<Peptide>> freePeptideListMap, Map<String, PeptideInfo> peptideInfoMap, Set<String> peptidesFoundByThisTag, FMIndex fmIndex, char[] tagChar){
 
-        if (tagInfo.getFreeAaString().contentEquals("HFAHAAAELR") || tagInfo.getFreeAaString().contentEquals("AHAAAELR")) {
-            int a = 1;
-        }
+//        if (tagInfo.getFreeAaString().contentEquals("HFAHAAAELR") || tagInfo.getFreeAaString().contentEquals("AHAAAELR")) {
+//            int a = 1;
+//        }
         int numRes = 0;
         SearchInterval searchRes = fmIndex.fmSearchFuzzy(tagChar);
         if (searchRes.settled) {
@@ -340,7 +392,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 String protId = buildIndex.posProtMapReduced.get(dotIndex);
                 int relPos = absTagPos - buildIndex.dotPosArrReduced[dotIndex] - 1;
                 updateCandiList(protId, relPos, tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
-                usedTagInfoSet.add(tagInfo);
+//                usedTagInfoSet.add(tagInfo);
             }
         } else {
             if (tagInfo.size() < 6) {
@@ -369,18 +421,19 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
 
+                int correctedRelPos;
                 if (n_ExtraAa == 0) {
                     startPos = matchedPos; // if none extra aa is extended, reset startPos to matchedPos, just ignore the wrong and missed part
+                    correctedRelPos = relPos;
                 } else {
                     startPos = matchedPos-n_ExtraAa-1;
+                    correctedRelPos = relPos-n_ExtraAa-1;
                 }
 
                 if (startPos < tagChar.length/2) {// the unsettled tag must be at least half of the original tag.
-                    if (!alreadySearched(tagInfo.subTag(startPos, tagChar.length), usedTagInfoSet)) {
-                        updateCandiList(protId, relPos-n_ExtraAa-1, tagInfo.subTag(startPos, tagChar.length), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
-                        numRes++;
-                        usedTagInfoSet.add(tagInfo.subTag(startPos, tagChar.length));
-                    }
+                    updateCandiList(protId, correctedRelPos, tagInfo.subTag(startPos, tagChar.length), minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, peptidesFoundByThisTag);
+                    numRes++;
+//                        usedTagInfoSet.add(tagInfo.subTag(startPos, tagChar.length));
                 }
             }
         }
@@ -420,7 +473,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
 
         int missCleav = getNumOfMissCleavSite(tag.getFreeAaString());
-        if (tag.isNorC == C_TAG){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+        if (tag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < 0.02){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
             if (isKR(protSeq.charAt(pos+tag.size()-1)) && Math.abs(tagCMass - precursorMass) < 0.02) { //fixme, should use MS1 tolerance not MS2 tolerance
                 cPoscMassMap.put(pos+tag.size()-1, tagCMass); // amino acid at cPos is also counted
             }
@@ -454,8 +507,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //                    int numMissCleave = 0; // todo miss cleavage
             missCleav = getNumOfMissCleavSite(protSeq.substring(pos, cPos)) ; //dont contain the c-term K, it does not count as miss cleav
 
-            int min_nPos = (tag.isNorC == N_TAG) ? pos : 0;
-            int max_nPos = (tag.isNorC == N_TAG) ? pos : pos-1;
+            int min_nPos = (tag.isNorC == N_TAG && Math.abs(tag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? pos : 0;  //if it is from N tag and (when fuzzy) it is still N tag
+            int max_nPos = (tag.isNorC == N_TAG && Math.abs(tag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? pos : pos-1;
             for (int nPos = max_nPos; nPos >= min_nPos; nPos--) {
                 if (isX(protSeq.charAt(nPos))) break;
                 if (nPos < pos){

@@ -121,7 +121,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         }
 
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
+        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN,ms2Tolerance);
 
         if (plMap.isEmpty()) {
             return null;

@@ -49,9 +49,10 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
     private final int scanNum;
     private String truth;
 
+    private final double ms2Tolerance;
 
     public GetLongTag(int scanNum, BuildIndex buildIndex, MassTool massTool, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock
-            , String scanName, int precursorCharge, double precursorMass, SpecProcessor specProcessor, String truth) {
+            , String scanName, int precursorCharge, double precursorMass, SpecProcessor specProcessor, String truth, double ms2Tolerance) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -65,6 +66,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         this.specProcessor = specProcessor;
         this.scanNum = scanNum;
         this.truth = truth;
+        this.ms2Tolerance = ms2Tolerance;
     }
 
     @Override
@@ -76,7 +78,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         } finally {
             lock.unlock();
         }
-        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN);
+        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
 
         if (plMap.isEmpty()) {
             return null;
