@@ -562,6 +562,7 @@ public class InferPTM {
         }
         if (modPepPoolGood.peptideTreeSet.isEmpty() && (massToSettle > -156 && massToSettle < 250)) {
             //  just assign the remaining massToSettle to any aa in toModZone, and record the best one
+
             for (int pos : toModZone) { // here must use last toModZone and last massToSettle
                 VarPtm fakeVarPtm = new VarPtm(massToSettle, partSeq.charAt(pos), 4, String.format("PIPI_%s", massToSettle), "PIPI_unsettled", -1);
                 Peptide fakePeptide = lastPeptide.clone();

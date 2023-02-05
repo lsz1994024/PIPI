@@ -142,7 +142,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     char[] tagChar = tagStr.toCharArray();
                     int numRes = searchAndSaveFuzzy(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
                     searchedTagStrSet.add(tagStr);
-                    if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
+                    if (numRes == 0 && tagStr.length() > 6){ // if the tag was already long
                         for (int subTime = 1; subTime <= 3; subTime++){
                             char[] subTagChar = tagStr.substring(0, tagStr.length()-subTime).toCharArray();
                             ExpTag subTagInfo = tagInfo.subTag(0,tagStr.length()-subTime);
@@ -160,7 +160,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (!searchedTagStrSet.contains(revTagStr)) {
                     int numRes = searchAndSaveFuzzy(revTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
                     searchedTagStrSet.add(revTagStr);
-                    if (numRes == 0 && tagStr.length() > 8){ // if the tag was already long
+                    if (numRes == 0 && tagStr.length() > 6){ // if the tag was already long
                         for (int subTime = 1; subTime <= 3; subTime++){
                             String subRevTagStr = revTagStr.substring(0, tagStr.length()-subTime);
                             char[] subRevTagChar = subRevTagStr.toCharArray();
@@ -178,7 +178,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (!searchedTagStrSet.contains(tagStr)) {
                     int numResForward = searchAndSaveFuzzy(tagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, tagChar);
                     searchedTagStrSet.add(tagStr);
-                    if (numResForward == 0 && tagStr.length() > 8){ // if the tag was already long
+                    if (numResForward == 0 && tagStr.length() > 6){ // if the tag was already long
                         for (int subTime = 1; subTime <= 3; subTime++){
                             String subTagStr = tagStr.substring(0, tagStr.length()-subTime);
                             ExpTag subTagInfo = tagInfo.subTag(0,tagStr.length()-subTime);
@@ -209,7 +209,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (!searchedTagStrSet.contains(revTagStr)) {
                     int numResBackward = searchAndSaveFuzzy(revTagInfo, minPcMass, maxPcMass, ptmPeptideListMap, freePeptideListMap, peptideInfoMap, pepStringFoundByThisTag, fmIndex, revTagChar);
                     searchedTagStrSet.add(revTagStr);
-                    if (numResBackward == 0 && revTagStr.length() > 8){ // if the tag was already long
+                    if (numResBackward == 0 && revTagStr.length() > 6){ // if the tag was already long
                         for (int subTime = 1; subTime <= 3; subTime++){
                             String subTagStr = revTagStr.substring(0, revTagStr.length()-subTime);
                             ExpTag subTagInfo = tagInfo.revTag(totalMass).subTag(0,revTagStr.length()-subTime);
@@ -254,11 +254,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             ptmPeptideTotalScoreList.add(new Pair<>(seq, maxScore));
         }
         for (String seq : freePeptideListMap.keySet()) {
-            double totalScore = 0;
+            double maxScore = 0;
             for (Peptide peptide : freePeptideListMap.get(seq)) {
-                totalScore += peptide.finderTag.getTotalIntensity();
+                maxScore = Math.max(peptide.finderTag.getTotalIntensity(), maxScore);
             }
-            freePeptideTotalScoreList.add(new Pair<>(seq, totalScore));
+            freePeptideTotalScoreList.add(new Pair<>(seq, maxScore));
         }
         Collections.sort(ptmPeptideTotalScoreList, Comparator.comparing(o -> o.getValue(), Comparator.reverseOrder()));
         Collections.sort(freePeptideTotalScoreList, Comparator.comparing(o -> o.getValue(), Comparator.reverseOrder()));
@@ -464,6 +464,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //            int a = 1;
 //        }
         double tagCMass = tag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
+        //tagCMass is correct even the tag is fuzzy. because FM starts searching from C
         String protSeq = buildIndex.protSeqMap.get(protId);
         Map<Integer, Double> cPoscMassMap = new HashMap<>();
         if ( (pos+tag.size() >= protSeq.length() && tag.isNorC != C_TAG)  // not C tag but found at prot Cterm, impossible
@@ -481,7 +482,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             for (int i = pos+tag.size(); i < protSeq.length(); i++) {  //
                 //the if-block is in order, dont change the order.
                 if (isX(protSeq.charAt(i))) break;
-                tagCMass += massTool.getMassTable().get(protSeq.charAt(i));
+                tagCMass += massTool.getMassTable().get(protSeq.charAt(i)); //even when tag is fuzzy, tagcmass wont be disturbed
                 if (tagCMass > precursorMass+maxPtmMass) break; // the total max minus ptm is -250. although the max minus ptm for single ptm is -156
 
                 if (isKR(protSeq.charAt(i))) {

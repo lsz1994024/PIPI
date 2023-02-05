@@ -492,6 +492,7 @@ public class InferSegment {
                 if ( (intensity1 + intensity2) < 0.5) continue;  //todo
 
                 String aa = inferAA(mz1, mz2, isNorC);
+
                 if (aa != null ) {
                     Pair<Integer, Integer> edge = new Pair<>(i,j);
                     edgeSet.add(edge);
@@ -973,9 +974,14 @@ public class InferSegment {
             ) {
                 continue;
             }
+
             if (Math.abs(mzDiff - massAa.getKey()) <= 2 * ms2Tolerance) {
                 aa = massAa.getValue();// including M~
             }
+        }
+
+        if (aa != null && isNorC == C_TAG && (!"KR".contains(aa))) {
+            aa = null;   // if it is C tag, it must start with KR
         }
 
         if (aa != null && aa.length() > 1) {
