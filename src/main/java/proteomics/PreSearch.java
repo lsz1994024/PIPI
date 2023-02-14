@@ -114,7 +114,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             minPcMass = (precursorMass * leftInverseMs1Tolerance);
             maxPcMass = (precursorMass * rightInverseMs1Tolerance);
         }
-        double ms1TolAbs = precursorMass*ms1Tolerance/1000000;
+
+        double ms1TolAbs = Double.parseDouble(InferPTM.df.format(precursorMass*ms1Tolerance/1000000));
 
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
 
@@ -514,7 +515,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (isKR(protSeq.charAt(i))) {
                     missCleav++; //current num of missed cleavage
                 }
-                if (tagCMass >= precursorMass-100 && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+                if (tagCMass >= precursorMass-maxPtmMass && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
                     cPoscMassMap.put(i, tagCMass);
                 }
                 if (missCleav > massTool.missedCleavage  && !isPtmSimuTest) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
@@ -557,8 +558,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 if (nPos < tagPosInProt){
                     nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                 }
-                if (nDeltaMass < -100) break;
-                if (nDeltaMass > 100) continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+                if (nDeltaMass < minPtmMass) break;
+                if (nDeltaMass > maxPtmMass) continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
 
                 if (nTermSpecific) {
                     if (nPos != 0 && !isKR(protSeq.charAt(nPos-1))) {// n term must be specific

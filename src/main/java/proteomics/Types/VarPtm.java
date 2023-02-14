@@ -25,7 +25,7 @@ public class VarPtm implements Comparable<VarPtm>{
     public final boolean onlyProteinTerminalIfnc;
     public  String name = null;
     public int position = 0;
-    public  String classification = null;
+    public String classification = null;
     private final String toString;
 
     private final int hashCode;

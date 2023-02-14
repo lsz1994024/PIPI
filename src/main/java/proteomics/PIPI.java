@@ -65,7 +65,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(12557));//62940,62866,72612, 72611
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(35581));//35581
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 

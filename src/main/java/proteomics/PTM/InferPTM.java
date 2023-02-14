@@ -26,6 +26,7 @@ import gurobi.GRBEnv;
 import proteomics.Types.*;
 
 import java.io.*;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,8 +36,6 @@ import java.util.stream.IntStream;
 import org.dom4j.Document;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
-
-import static proteomics.PIPI.lszDebugScanNum;
 
 
 public class InferPTM {
@@ -58,6 +57,7 @@ public class InferPTM {
     public double minUserPtmMass = 0;
     public double maxUserPtmMass = 530;
     private final double ms2Tolerance;
+    public final static DecimalFormat df = new DecimalFormat("0.000");
     private Map<Character, List<VarPtm>> finalPtmMap = new HashMap<>();
     private final Set<Character> aaCharSet = new HashSet<>(Arrays.asList('A','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','Y'));
 
@@ -78,6 +78,7 @@ public class InferPTM {
         this.maxPtmMass = Double.valueOf(parameterMap.get("max_ptm_mass"));
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
 
+
         char[] aaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
         for (String k : parameterMap.keySet()) {
             if (!k.startsWith("mod")) continue;
@@ -87,7 +88,8 @@ public class InferPTM {
 
             //15.994915,M,0,Oxidation
             String[] modStr = v.split(",");
-            double modMass = Double.valueOf(modStr[0]);
+            double modMass = Double.parseDouble(df.format(Double.valueOf(modStr[0])));
+
             char modSite = modStr[1].charAt(0);
             int modPosition = Integer.valueOf(modStr[2]);
             int priority = 1;
@@ -327,7 +329,7 @@ public class InferPTM {
         return modPepPoolGood;
     }
 
-    public TreeMap<Integer, VarPtm> checkCorrectMass(int scanNum, GRBEnv env,  Map<Integer, VarPtm[]> posVarPtmArraySrcMap, double totalDeltaMass,String partSeq
+    public TreeMap<Integer, VarPtm> findBestPtmMIP(int scanNum, GRBEnv env, Map<Integer, VarPtm[]> posVarPtmArraySrcMap, double totalDeltaMass, String partSeq
             , double cutMass, byte isNorC_Part, SparseVector expProcessedPL, double ms1TolAbs) { // Sometimes, the precursor mass error may affects the digitized spectrum.
         int numTimeout = 0;
         int numOfSols = 0;
@@ -466,6 +468,126 @@ public class InferPTM {
             return new TreeMap<>();
         }
         return modPepPool.getTopPepPtn().posVarPtmResMap;
+    }
+    public TreeMap<Integer, VarPtm> findBestPtmCOMB(int scanNum, Map<Integer, VarPtm[]> posVarPtmArraySrcMap, double totalDeltaMass, String partSeq
+            , double cutMass, byte isNorC_Part, SparseVector expProcessedPL, double ms1TolAbs) { // Sometimes, the precursor mass error may affects the digitized spectrum.
+//        DecimalFormat dm = new DecimalFormat("0");
+//        long t1=System.currentTimeMillis();
+        TreeMap<Double, Set<VarPtm>> mass_VarPtmList_Map = new TreeMap<>();
+        for (int pos : posVarPtmArraySrcMap.keySet()){
+            for (VarPtm varPtm: posVarPtmArraySrcMap.get(pos)){
+                double mass = varPtm.mass;
+//                int massInt = (int) Math.round(mass);
+                if (mass_VarPtmList_Map.containsKey(mass)){
+                    mass_VarPtmList_Map.get(mass).add(varPtm);
+                } else {
+                    Set<VarPtm> varPtmList = new HashSet<>();
+                    varPtmList.add(varPtm);
+                    mass_VarPtmList_Map.put(mass, varPtmList);
+                }
+            }
+        }
+
+
+        ModPepPool modPepPool = new ModPepPool(partSeq, 20);
+        for (int pos : posVarPtmArraySrcMap.keySet()){
+            for (VarPtm varPtm: posVarPtmArraySrcMap.get(pos)) {
+                double mass = varPtm.mass;
+                if (Math.abs(mass-totalDeltaMass) < ms1TolAbs) {
+                    Peptide tmpPep = new Peptide(partSeq, false, massTool, 2, 0.99,-1);
+                    PosMassMap posMassMap = new PosMassMap(partSeq.length());
+                    posMassMap.put(pos, mass);
+                    tmpPep.setVarPTM(posMassMap);
+                    tmpPep.posVarPtmResMap.put(pos, varPtm);
+                    tmpPep.totalPriority += varPtm.priority;
+
+                    double[][] ionMatrix = tmpPep.getIonMatrixNow();
+                    updateIonMatrix(ionMatrix, cutMass, isNorC_Part);
+                    Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
+                    double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, tmpPep.matchedBions, tmpPep.matchedYions, jRange) ;
+                    tmpPep.setScore(score);
+                    modPepPool.push(tmpPep);
+                }
+                double otherMass = totalDeltaMass - mass;
+                for (double tmpMass = otherMass-ms1TolAbs;  tmpMass < otherMass+ms1TolAbs; tmpMass += 0.001){
+                    tmpMass = Double.parseDouble(InferPTM.df.format(tmpMass));
+                    Set<VarPtm> varPtmList = mass_VarPtmList_Map.get(tmpMass);
+                    if (varPtmList != null){
+                        for (VarPtm otherVarPtm : varPtmList) {
+//                            char otherSite = otherVarPtm.site;
+//                            int otherPosition = otherVarPtm.position;
+                            for (int otherPos = 0; otherPos < partSeq.length(); otherPos++) {
+                                if ( ! isValidVarPtmOnPos(otherVarPtm, otherPos, pos, isNorC_Part, partSeq.length(), partSeq.charAt(otherPos))) {
+                                    continue;
+                                }
+
+                                Peptide tmpPep = new Peptide(partSeq, false, massTool, 2, 0.99,-1);
+                                PosMassMap posMassMap = new PosMassMap(partSeq.length());
+                                posMassMap.put(pos, mass);
+                                posMassMap.put(otherPos, otherVarPtm.mass);
+                                tmpPep.setVarPTM(posMassMap);
+                                tmpPep.posVarPtmResMap.put(pos, varPtm);
+                                tmpPep.posVarPtmResMap.put(otherPos, otherVarPtm);
+
+                                tmpPep.totalPriority += varPtm.priority;
+                                tmpPep.totalPriority += otherVarPtm.priority;
+
+
+                                double[][] ionMatrix = tmpPep.getIonMatrixNow();
+                                updateIonMatrix(ionMatrix, cutMass, isNorC_Part);
+                                Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
+                                double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, tmpPep.matchedBions, tmpPep.matchedYions, jRange) ;
+                                tmpPep.setScore(score);
+                                modPepPool.push(tmpPep);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+//        long t2=System.currentTimeMillis();
+//        System.out.println(scanNum + ", solve time:" + (t2-t1)+"_"+partSeq);
+
+        if (modPepPool.peptideTreeSet.isEmpty()) {
+            return new TreeMap<>();
+        }
+
+        return modPepPool.getTopPepPtn().posVarPtmResMap;
+    }
+    private boolean isValidVarPtmOnPos(VarPtm varPtm, int otherPos, int thisPos, byte isNorC_Part, int seqLen, char charAtPosOnPartSeq) {
+        if (otherPos == thisPos) return false;
+        if (charAtPosOnPartSeq != varPtm.site) return false;
+
+        int otherPosition = varPtm.position;
+        if (isNorC_Part == N_PART) {
+            if (otherPos == 0) {
+                if (otherPosition == 0 || otherPosition == 2 ||otherPosition == 4) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                if (otherPosition == 4) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        } else { //C_PART
+            if (otherPos == seqLen -1) {
+                if (otherPosition == 1 || otherPosition == 3 ||otherPosition == 4) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                if (otherPosition == 4) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
     }
     public ModPepPool findPtmNew2(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, Peptide candiPep, PeptideInfo peptideInfo
             , int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR) throws Exception  {
@@ -606,12 +728,11 @@ public class InferPTM {
     public TreeMap<Integer, VarPtm> settleSideWithPtm(int scanNum, String partSeq, double deltaMass, byte isNorC_Side, byte isProtNorC_Term, double cutMass, SparseVector expProcessedPL,double ms1TolAbs) throws GRBException {
         Set<Integer> fixModIdxes = getFixModIdxes(partSeq, fixModMap);  // positions that has fixed mod on it. Those postions should not bear var mod then. Unless it is at N term
         Map<Integer, VarPtm[]> partPosVarModArrayMap = getIdxVarModMapNew(partSeq, fixModIdxes, isNorC_Side, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
-        GRBEnv env = new GRBEnv(true);
-        env.set(GRB.IntParam.OutputFlag,0);
-        env.start();
-//        Peptide peptide = checkCorrectMass(scanNum, env, partPosVarModArrayMap, deltaMass, partSeq , cutMass, isNorC_Side, expProcessedPL, ms1TolAbs);
+//        GRBEnv env = new GRBEnv(true);
+//        env.set(GRB.IntParam.OutputFlag,0);
+//        env.start();
 
-        return checkCorrectMass(scanNum, env, partPosVarModArrayMap, deltaMass, partSeq , cutMass, isNorC_Side, expProcessedPL, ms1TolAbs);
+        return findBestPtmCOMB(scanNum, partPosVarModArrayMap, Double.parseDouble(InferPTM.df.format(deltaMass)), partSeq , cutMass, isNorC_Side, expProcessedPL, ms1TolAbs);
     }
     private DividedZone dividePepNew(int scanNum, Set<Integer> modifiedZone, ModPepPool modPepPoolGood, ModPepPool modPepPoolBad, Peptide lastPeptide, Map<Integer, VarPtm[]> posVarPtmArraySrcMap,
                                      double totalDeltaMass, double cutMass, byte ncPart, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank,
@@ -901,7 +1022,7 @@ public class InferPTM {
                 if (name.contentEquals("Diethylphosphothione")) {
                     int a =1;
                 }
-                double mass = Double.valueOf(modElem.element("delta").attributeValue("mono_mass"));
+                double mass = Double.parseDouble(df.format(Double.valueOf(modElem.element("delta").attributeValue("mono_mass"))));
                 if (mass < minPtmMass || mass > maxPtmMass) continue;
                 if (Math.abs(mass - 56.0626) <0.01) {
                     int a = 1;
@@ -1117,11 +1238,11 @@ public class InferPTM {
         }
 
         // add fake amino acid and possible +- proton to solve the precursor error problem
-        VarPtm[] modArray = new VarPtm[2];
-        modArray[0] = new VarPtm(-MassTool.PROTON, 'Z', 4, "Fake_Proton_-1", "By_author", 0);
-        modArray[1] = new VarPtm(MassTool.PROTON, 'Z', 4, "Fake_Proton_1", "By_author", 0);
-//        modArray[0] = new VarPtm(2*MassTool.PROTON, 'Z', 4, "Fake_Proton", "By_author", 0);
-        idxVarModMap.put(-1, modArray);
+//        VarPtm[] modArray = new VarPtm[2];
+//        modArray[0] = new VarPtm(-MassTool.PROTON, 'Z', 4, "Fake_Proton_-1", "By_author", 0);
+//        modArray[1] = new VarPtm(MassTool.PROTON, 'Z', 4, "Fake_Proton_1", "By_author", 0);
+////        modArray[0] = new VarPtm(2*MassTool.PROTON, 'Z', 4, "Fake_Proton", "By_author", 0);
+//        idxVarModMap.put(-1, modArray);
         return idxVarModMap;
     }
 
