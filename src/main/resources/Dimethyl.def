@@ -26,8 +26,8 @@ min_clear_mz = 112.5 # Clear out all peaks in the specified m/z range, mainly fo
 max_clear_mz = 121.5
 
 # Modification related
-min_ptm_mass = -150 # Min allowed PTM mass.
-max_ptm_mass = 250 # Max allowed PTM mass.
+min_ptm_mass = -100 # Min allowed PTM mass.
+max_ptm_mass = 100 # Max allowed PTM mass.
 
 # Isotopic labelling strategy
 15N = 0 # 1: 15N. 0: 14N.

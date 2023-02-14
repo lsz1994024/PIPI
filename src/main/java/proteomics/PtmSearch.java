@@ -133,7 +133,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
         }
-        System.out.println(scanNum + ","+scanName + "," + ptmOnlyList.size()+ "," +  ptmFreeList.size());
+//        System.out.println(scanNum + ","+scanName + "," + ptmOnlyList.size()+ "," +  ptmFreeList.size());
         // Coding
         if (true) {
             SparseVector expProcessedPL;
@@ -215,7 +215,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             if (peptideSet.isEmpty()) {
                 return null;
             }
-
             List<Peptide> pepList = new ArrayList<>(peptideSet);
             Set<Integer> pepIdsToRemove = new HashSet<>();
             for (int j = pepList.size()-1; j >= 1; j--) {
@@ -224,7 +223,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 for (int i = 0; i < j; i++) {
                     if (pepIdsToRemove.contains(i)) continue;
 
-//                    if (isHomo(pepList.get(i), pepList.get(j))) {    // to clean homo pep candidates from the list
                     if (isHomo(pepList.get(i), pepList.get(j)) || pepList.get(j).getScore() > 0.6*pepList.get(i).getScore()) {
                         int iPriority = pepList.get(i).getPriority();
                         int jPriority = pepList.get(j).getPriority();
@@ -233,7 +231,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                         } else  {
                             pepIdsToRemove.add(j);
                         }
-//                        break;
                     }
                 }
                 if (pepList.get(j).getPriority() < 0 && isPtmSimuTest ) { // only simu test todo

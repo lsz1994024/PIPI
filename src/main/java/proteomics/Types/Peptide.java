@@ -62,6 +62,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     private String aScore = "-";
     public Map<Integer, Double> matchedBions = new HashMap<>();
     public Map<Integer, Double> matchedYions = new HashMap<>();
+    public int totalPriority = 0;
 
     public Peptide(String freeSeq, boolean isDecoy, MassTool massTool, int maxMs2Charge, double tagVecScore, int globalRank) {
         this.freeSeq = freeSeq;
@@ -145,8 +146,13 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
 
     public String getVarPtmContainingSeqNow() {
-        if (varPtmMap != null) {
+        if (varPtmMap != null && !varPtmMap.isEmpty()) {
             StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
+            try {
+                varPtmMap.firstKey();
+            }catch (Exception e){
+                int a = 1;
+            }
             int tempIdx = varPtmMap.firstKey()+1;
             if (tempIdx > 1) {
                 sb.append(freeSeq, 0, tempIdx - 1);
@@ -470,32 +476,32 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 //            } else if (matchedPeakNum < peptide.getMatchedPeakNum()) {
 //                return -1;
 //            } else {
-//                if (explainedAaFrac > peptide.getExplainedAaFrac()) {
+//                if (getPriority() > peptide.getPriority()) {
 //                    return 1;
-//                } else if (explainedAaFrac < peptide.getExplainedAaFrac()) {
+//                } else if (getPriority() < peptide.getPriority()) {
 //                    return -1;
 //                } else {
 //                    if (getVarPTMNum() < peptide.getVarPTMNum()) {
 //                        return 1;
 //                    } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
 //                        return -1;
-//                    } else if (tagVecScore > peptide.getTagVecScore()) {
-//                        return 1;
-//                    } else if (tagVecScore < peptide.getTagVecScore()) {
-//                        return -1;
 //                    } else {
-//                        if (!isDecoy && peptide.isDecoy()) {
-//                            return 1;
-//                        } else if (isDecoy && !peptide.isDecoy()) {
-//                            return -1;
-//                        } else{
-//                            if (absDeltaMass < peptide.absDeltaMass){
+//                        if (finderTag != null && peptide.finderTag != null) {
+//                            if (finderTag.getTotalIntensity() > peptide.finderTag.getTotalIntensity()) {
 //                                return 1;
-//                            } else if (absDeltaMass > peptide.absDeltaMass){
+//                            } else if (finderTag.getTotalIntensity() < peptide.finderTag.getTotalIntensity()) {
 //                                return -1;
 //                            } else {
-//                                return 0;
+//                                if (finderTag.size() < peptide.finderTag.size()){
+//                                    return 1;
+//                                } else if (finderTag.size() > peptide.finderTag.size()){
+//                                    return -1;
+//                                } else {
+//                                    return 0;
+//                                }
 //                            }
+//                        } else {
+//                            return 0;
 //                        }
 //                    }
 //                }
@@ -504,6 +510,20 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 //    }
 
     public int compareTo(Peptide peptide) {
+        if (hasVarPTM() && peptide.hasVarPTM()) { // only when two peptide are both modified, use priority to compare them in the very beginning
+            if (score*totalPriority > peptide.score*peptide.totalPriority){
+                return 1;
+            } else if(score*totalPriority < peptide.score*peptide.totalPriority){
+                return -1;
+            } else {
+                return this.subCompareTo(peptide);
+            }
+        } else {
+            return this.subCompareTo(peptide);
+        }
+    }
+
+    public int subCompareTo(Peptide peptide) {
         if (score > peptide.getScore()) {
             return 1;
         } else if (score < peptide.getScore()) {
