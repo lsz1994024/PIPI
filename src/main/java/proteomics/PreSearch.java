@@ -145,7 +145,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Map<String, PeptideInfo> peptideInfoMap = new HashMap<>(50000);
 
         Set<String> searchedTagStrSet = new HashSet<>();
-        int minTagLen = minTagLenToExtract;
+        int minTagLen = 4;
 
         for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(2, allLongTagList.size()))){
             if (tagInfo.size() < minTagLen) continue;

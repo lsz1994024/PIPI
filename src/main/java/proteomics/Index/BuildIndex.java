@@ -102,15 +102,6 @@ public class BuildIndex {
         // build database
         inferSegment = new InferSegment(massTool, parameterMap, fixModMap);
 
-//        File allProtChars = new File(String.format("allProtChars_%s.txt", dbPath));
-//        if (allProtChars.exists()){
-//
-//        }else{
-//
-//        }
-//        long t4=System.currentTimeMillis();
-
-//        System.out.println("time," + (t4-t3) + "," + (t3-t2)+ "," + (t2-t1));
         BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProt.txt"));
         int dotPos = 0;
         int dotNum = 0;
@@ -132,39 +123,6 @@ public class BuildIndex {
         fmIndexFull = new FMIndex(text);
         System.out.println("Finish build FM index");
 
-//        try {
-//            File fileOne=new File("fileone");
-//            FileOutputStream fos=new FileOutputStream(fileOne);
-//            ObjectOutputStream oos=new ObjectOutputStream(fos);
-//
-//            oos.writeObject(fmIndexFull);
-//            oos.flush();
-//            oos.close();
-//            fos.close();
-//        } catch(Exception e) {
-//            int a = 1;
-//            System.out.println(e);
-//        }
-//        int a = 1;
-//        //read from file
-//        try {
-//            File toRead=new File("fileone");
-//            FileInputStream fis=new FileInputStream(toRead);
-//            ObjectInputStream ois=new ObjectInputStream(fis);
-//
-//            FMIndex fmIndexNew =(FMIndex)ois.readObject();
-//
-//            ois.close();
-//            fis.close();
-//            //print All data in MAP
-////            for(Map.Entry<String,String> m :mapInFile.entrySet()){
-////                System.out.println(m.getKey()+" : "+m.getValue());
-////            }
-//            int a = 1;
-//        } catch(Exception e) {
-//            System.out.println(e);
-//            int a = 1;
-//        }
 
     }
 

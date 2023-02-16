@@ -52,7 +52,7 @@ public class PIPI {
     //// normal
     public static final boolean isPtmSimuTest = false; //normal //todo
     static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 5;  //normal //todo
+    static final int minTagLenToExtract = 4;  //normal //todo
     static final int maxTagLenToExtract = 99;  //normal //todo
     static final boolean nTermSpecific = false; //normal //todo
     ///// ptmTest
@@ -65,7 +65,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(35581,16878));//35581
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(28290));//35581
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -262,7 +262,7 @@ public class PIPI {
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-//                    continue;//22459   comment this continue line, if run all scans
+                    continue;//22459   comment this continue line, if run all scans
                 }
             }
 
@@ -388,15 +388,17 @@ public class PIPI {
         Set<String> reducedProtIdSet = new HashSet<>();
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
-
-//            System.out.println(ii+ ","+pair.getFirst() + "," + pair.getSecond());
             ii++;
-//            if (pair.getSecond() < 0) break;
             if (ii > 35000) break;
             reducedProtIdSet.add(pair.getFirst());
         }
 
-        if (! usePfmAndReduceDb) {
+        if (! usePfmAndReduceDb)
+        {
+            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
+        }
+
+        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0) {
             reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
         }
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
@@ -1217,7 +1219,7 @@ public class PIPI {
 //                break;
             }
         }
-        BufferedWriter oriWriter = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".Peptides.csv"));
+        BufferedWriter oriWriter = new BufferedWriter(new FileWriter(outputDir+"Res."+hostName+".Peptides.csv"));
         oriWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
         for (ScanRes scanRes : scanResList) {
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;

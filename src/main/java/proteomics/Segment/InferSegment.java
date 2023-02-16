@@ -489,7 +489,7 @@ public class InferSegment {
                 double intensity2 = intensityArray[j];
                 if (intensity2 < 0.1) continue;//todo
 
-                if ( (intensity1 + intensity2) < 0.5) continue;  //todo
+                if ( (intensity1 + intensity2) < 0.4) continue;  //todo
 
                 String aa = inferAA(mz1, mz2, isNorC);
 
