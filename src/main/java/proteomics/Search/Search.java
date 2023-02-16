@@ -116,8 +116,8 @@ public class Search {
 //        }
 
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
-            entry.ptmCandiList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
-            entry.freeCandiList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
+//            entry.ptmCandiList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+//            entry.freeCandiList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
     }
 
@@ -246,8 +246,8 @@ public class Search {
 //        }
 
         if (!(ptmFreeQueue.isEmpty() && ptmOnlyQueue.isEmpty())) {
-            entry.ptmCandiList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
-            entry.freeCandiList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
+//            entry.ptmCandiList = convertResult(ptmOnlyQueue, massTool, localMaxMs2Charge);
+//            entry.freeCandiList = convertResult(ptmFreeQueue, massTool, localMaxMs2Charge);
         }
     }
 //    private void mergeResult(PriorityQueue<ResultEntry> ptmFreeQueue, PriorityQueue<ResultEntry> ptmOnlyQueue, Map<String, PepInfo> peptide0Map) {

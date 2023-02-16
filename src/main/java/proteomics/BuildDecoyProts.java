@@ -16,21 +16,20 @@
 
 package proteomics;
 import ProteomicsLibrary.*;
-import ProteomicsLibrary.Types.SparseBooleanVector;
 import org.apache.commons.math3.util.Pair;
 import proteomics.Index.BuildIndex;
 
 import java.util.*;
 import java.util.concurrent.Callable;
 
-public class GetPepCandi implements Callable<GetPepCandi.Entry> {
+public class BuildDecoyProts implements Callable<BuildDecoyProts.Entry> {
     private Map<String, String> parameterMap;
-    private Set<String> reducedProtIdSet;
+//    private Set<String> reducedProtIdSet;
 
     private BuildIndex buildIndex;
 
     private String protId;
-    public GetPepCandi(Map<String, String> parameterMap, BuildIndex buildIndex, String protId) throws Exception {
+    public BuildDecoyProts(Map<String, String> parameterMap, BuildIndex buildIndex, String protId) throws Exception {
         this.parameterMap = parameterMap;
         this.buildIndex = buildIndex;
         this.protId = protId;
@@ -49,7 +48,7 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
 //        }
         String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
 //        Set<String> peptideSet = buildIndex.massTool.buildPeptideSetPnP(protSeq);
-        entry.targetTagPosList = getTagsFromProts(protSeq);
+//        entry.targetTagPosList = getTagsFromProts(protSeq);
         if (addDecoy) {
             //1
 //                List<Character> proSeqAaList = proSeq.chars().mapToObj( c -> (char)c).collect(Collectors.toList());
@@ -61,7 +60,7 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
 //            String decoyProSeq = DbTool.shuffleProtBetweenKR(protSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
             //4
             String decoyProtSeq = DbTool.shuffleProtKeepKR(protSeq, parameterMap.get("cleavage_site_1"), parameterMap.get("protection_site_1"), Integer.valueOf(parameterMap.get("is_from_C_term_1")) == 1).replace('I', 'L'); // FixMe: Only consider the first enzyme if the users specify two enzymes.
-            entry.decoyTagPosList = getTagsFromProts(decoyProtSeq);
+//            entry.decoyTagPosList = getTagsFromProts(decoyProtSeq);
             entry.decoyProtSeq = decoyProtSeq;
 //            }
         }
@@ -87,8 +86,8 @@ public class GetPepCandi implements Callable<GetPepCandi.Entry> {
 //        Map<String, SparseBooleanVector> decoyPepCodeMap = new HashMap<>();
 //        Map<String, Double> targetPepMassMap = new HashMap<>();
 //        Map<String, Double> decoyPepMassMap = new HashMap<>();
-        List<Pair<String, Integer>> targetTagPosList = new ArrayList<>();
-        List<Pair<String, Integer>> decoyTagPosList = new ArrayList<>();
+//        List<Pair<String, Integer>> targetTagPosList = new ArrayList<>();
+//        List<Pair<String, Integer>> decoyTagPosList = new ArrayList<>();
         Entry() {
         }
     }

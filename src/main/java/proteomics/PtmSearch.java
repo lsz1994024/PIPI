@@ -20,9 +20,6 @@ import ProteomicsLibrary.Score;
 //import gurobi.GRB;
 //import gurobi.GRBEnv;
 //import gurobi.GRBModel;
-import gurobi.GRB;
-import gurobi.GRBEnv;
-import gurobi.GRBModel;
 import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
 import ProteomicsLibrary.Binomial;
@@ -133,7 +130,8 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
         }
-        System.out.println(scanNum + ","+scanName + "," + ptmOnlyList.size()+ "," +  ptmFreeList.size());
+//        System.out.println(scanNum + ","+scanName + "," + ptmOnlyList.size()+ "," +  ptmFreeList.size());
+
         // Coding
         if (true) {
             SparseVector expProcessedPL;

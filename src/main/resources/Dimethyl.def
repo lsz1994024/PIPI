@@ -6,6 +6,8 @@ percolator_path = /usr/bin/percolator # Please input absolute path of Percolator
 # Database
 db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target
 # db = /home/slaiad/Data/Simulation_Data/fake.fasta # Protein database.
+# Output directory
+# output_dir = /home/slaiad/nashome/ResNas/Dimethyl_1Rep_Res/G1/
 
 database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1           # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
@@ -26,8 +28,8 @@ min_clear_mz = 112.5 # Clear out all peaks in the specified m/z range, mainly fo
 max_clear_mz = 121.5
 
 # Modification related
-min_ptm_mass = -150 # Min allowed PTM mass.
-max_ptm_mass = 250 # Max allowed PTM mass.
+min_ptm_mass = -100 # Min allowed PTM mass.
+max_ptm_mass = 100 # Max allowed PTM mass.
 
 # Isotopic labelling strategy
 15N = 0 # 1: 15N. 0: 14N.

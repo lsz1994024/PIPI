@@ -25,7 +25,7 @@ import java.util.*;
 public class Peptide implements Comparable<Peptide>, Cloneable{
     public double nDeltaMass = -0.99;
     public double cDeltaMass = -0.99;
-    public boolean isTarget;
+//    public boolean isTarget;
     public ExpTag finderTag = null;
     public int tagPosInPep = -1;
 
@@ -41,7 +41,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public double absDeltaMass = 0d;
     public Peptide bestPep = null;
     private int hashCode;
-    public boolean shouldPTM = false;
+//    public boolean shouldPTM = false;
 
     // these fields need to be changed every time PTM changed.
     private PosMassMap varPtmMap = null;
@@ -62,6 +62,8 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     private String aScore = "-";
     public Map<Integer, Double> matchedBions = new HashMap<>();
     public Map<Integer, Double> matchedYions = new HashMap<>();
+    public double precursorMass;
+    public double calculatedMass;
 
     public Peptide(String freeSeq, boolean isDecoy, MassTool massTool, int maxMs2Charge, double tagVecScore, int globalRank) {
         this.freeSeq = freeSeq;
@@ -246,7 +248,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         }
         other.nDeltaMass = this.nDeltaMass;
         other.cDeltaMass = this.cDeltaMass;
-        other.isTarget = this.isTarget;
+//        other.isTarget = this.isTarget;
         other.finderTag = null;
         if (this.finderTag != null){
             other.finderTag = new ExpTag(this.finderTag.expAaList);
@@ -504,6 +506,20 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 //    }
 
     public int compareTo(Peptide peptide) {
+        if (hasVarPTM() && peptide.hasVarPTM()) { // only when two peptide are both modified, use priority to compare them in the very beginning
+            if (score*this.getPriority() > peptide.score*peptide.getPriority()){
+                return 1;
+            } else if(score*this.getPriority() < peptide.score*peptide.getPriority()){
+                return -1;
+            } else {
+                return this.subCompareTo(peptide);
+            }
+        } else {
+            return this.subCompareTo(peptide);
+        }
+    }
+
+    public int subCompareTo(Peptide peptide) {
         if (score > peptide.getScore()) {
             return 1;
         } else if (score < peptide.getScore()) {
@@ -546,4 +562,47 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
             }
         }
     }
+//    public int compareTo(Peptide peptide) {
+//        if (score > peptide.getScore()) {
+//            return 1;
+//        } else if (score < peptide.getScore()) {
+//            return -1;
+//        } else {
+//            if (matchedPeakNum > peptide.getMatchedPeakNum()) {
+//                return 1;
+//            } else if (matchedPeakNum < peptide.getMatchedPeakNum()) {
+//                return -1;
+//            } else {
+//                if (getPriority() > peptide.getPriority()) {
+//                    return 1;
+//                } else if (getPriority() < peptide.getPriority()) {
+//                    return -1;
+//                } else {
+//                    if (getVarPTMNum() < peptide.getVarPTMNum()) {
+//                        return 1;
+//                    } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
+//                        return -1;
+//                    } else {
+//                        if (finderTag != null && peptide.finderTag != null) {
+//                            if (finderTag.getTotalIntensity() > peptide.finderTag.getTotalIntensity()) {
+//                                return 1;
+//                            } else if (finderTag.getTotalIntensity() < peptide.finderTag.getTotalIntensity()) {
+//                                return -1;
+//                            } else {
+//                                if (finderTag.size() < peptide.finderTag.size()){
+//                                    return 1;
+//                                } else if (finderTag.size() > peptide.finderTag.size()){
+//                                    return -1;
+//                                } else {
+//                                    return 0;
+//                                }
+//                            }
+//                        } else {
+//                            return 0;
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 }
