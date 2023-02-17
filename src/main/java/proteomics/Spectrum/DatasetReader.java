@@ -35,7 +35,7 @@ import java.util.*;
 public class DatasetReader {
 
     private static final Logger logger = LoggerFactory.getLogger(DatasetReader.class);
-    public static final int topN = 17;
+    public static final int topN = 15;
 
     private final IsotopeDistribution isotopeDistribution;
 
