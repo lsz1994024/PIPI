@@ -161,6 +161,7 @@ public class PIPI {
         String sqlPath = "jdbc:sqlite:" + dbName;
         Class.forName("org.sqlite.JDBC").newInstance();
         Map<Integer, String> fileIdNameMap = new HashMap<>();
+        Map<String, Integer> fileNameIdMap = new HashMap<>();
         if ((!spectraFile.exists())) {
             throw new FileNotFoundException("The spectra file not found.");
         }
@@ -178,6 +179,7 @@ public class PIPI {
             }
             spectraParserArray[0] = spectraParser;
             fileIdNameMap.put(0, spectraPath.substring(spectraPath.lastIndexOf("/")+1).split("\\.")[0].replaceAll("\\.","_"));
+            fileNameIdMap.put(spectraPath.substring(spectraPath.lastIndexOf("/")+1).split("\\.")[0].replaceAll("\\.","_"), 0);
             datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         } else {
             String[] fileList = spectraFile.list(new FilenameFilter() {
@@ -190,6 +192,8 @@ public class PIPI {
             for (int i = 0; i < fileList.length; i++){
                 spectraParserArray[i] = new MgfFile(new File(spectraPath + fileList[i]));
                 fileIdNameMap.put(i, fileList[i].split("\\.")[0].replaceAll("\\.","_"));
+                fileNameIdMap.put(fileList[i].split("\\.")[0].replaceAll("\\.","_"), i);
+
             }
 
             String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
@@ -266,7 +270,7 @@ public class PIPI {
                 }
             }
 
-            int fileId = Integer.valueOf( scanName.split("\\.")[0] );
+            int fileId = fileNameIdMap.get( scanName.split("\\.")[0] );
 
             precursorChargeMap.put(scanName, precursorCharge);
             precursorMassMap.put(scanName, precursorMass);
@@ -577,10 +581,10 @@ public class PIPI {
                     continue;//22459   comment this continue line, if run all scans
                 }
             }
-
+            int fileId = fileNameIdMap.get( scanNameStr[0] );
             taskListBone.add(threadPoolBone.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor ,pepTruth.get(1886))));
+                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor ,pepTruth.get(1886))));
         }
         System.out.println("totalSubmit in Bone, "+ submitNumBone);
 
