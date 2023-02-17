@@ -177,8 +177,8 @@ public class PIPI {
                 throw new Exception(String.format(Locale.US, "Unsupported file format %s. Currently, PIPI only support mzXML and MGF.", ext));
             }
             spectraParserArray[0] = spectraParser;
-            fileIdNameMap.put(0, spectraPath.substring(spectraPath.lastIndexOf("/")+1));
-            datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
+            fileIdNameMap.put(0, spectraPath.substring(spectraPath.lastIndexOf("/")+1).split("\\.")[0].replaceAll("\\.","_"));
+            datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         } else {
             String[] fileList = spectraFile.list(new FilenameFilter() {
                 @Override
@@ -189,11 +189,11 @@ public class PIPI {
             spectraParserArray = new JMzReader[fileList.length];
             for (int i = 0; i < fileList.length; i++){
                 spectraParserArray[i] = new MgfFile(new File(spectraPath + fileList[i]));
-                fileIdNameMap.put(i, fileList[i]);
+                fileIdNameMap.put(i, fileList[i].split("\\.")[0].replaceAll("\\.","_"));
             }
 
             String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
-            datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath);
+            datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         }
         BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
 
@@ -578,7 +578,7 @@ public class PIPI {
                 }
             }
 
-            taskListBone.add(threadPoolBone.submit(new PreSearch(Integer.valueOf(scanNameStr[2]), buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+            taskListBone.add(threadPoolBone.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                     , spectraParserArray[Integer.valueOf(scanNameStr[0])], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor ,pepTruth.get(1886))));
         }

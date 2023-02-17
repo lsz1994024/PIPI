@@ -164,7 +164,7 @@ public class DatasetReader {
         logger.info("Useful MS/MS spectra number: {}.", usefulSpectraNum);
     }
 
-    public DatasetReader(JMzReader[] spectraParserArray, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath) throws Exception {
+    public DatasetReader(JMzReader[] spectraParserArray, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath, Map<Integer, String> fileIdNameMap) throws Exception {
         isotopeDistribution = new IsotopeDistribution(massTool.getElementTable(), 0, massTool.getLabelling());
 
         // prepare SQL database
@@ -270,7 +270,7 @@ public class DatasetReader {
                     }
 
                     sqlPrepareStatement.setInt(1, scanNum);
-                    sqlPrepareStatement.setString(2, i+"."+spectrum.getId()+"."+scanNum); //fileId.scanId.scanNum
+                    sqlPrepareStatement.setString(2, fileIdNameMap.get(i)+"."+spectrum.getId()+"."+scanNum); //fileName.scanId.scanNum  scanName
                     sqlPrepareStatement.setInt(3, precursorCharge);
                     sqlPrepareStatement.setDouble(4, precursorMass);
                     sqlPrepareStatement.setString(5, mgfTitle);
