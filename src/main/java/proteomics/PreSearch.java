@@ -134,7 +134,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
         List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
+//        List<ExpTag> allLongTagList = inferSegment.getLongTag11(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
 
+        List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTags(allLongTagList);
+
+        allLongTagList = cleanedAllLongTagList;
         if (allLongTagList.isEmpty())  return null;
 
         double totalMass = precursorMass + 2 * MassTool.PROTON;
@@ -147,7 +151,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Set<String> searchedTagStrSet = new HashSet<>();
         int minTagLen = 4;
 
-        for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(2, allLongTagList.size()))){
+        for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(4, allLongTagList.size()))){
 //            if (tagInfo.size() < minTagLen) continue;
 //            if (tagInfo.size() > 4) {
 //                minTagLen = 5;

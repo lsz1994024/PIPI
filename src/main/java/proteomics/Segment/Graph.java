@@ -50,15 +50,11 @@ public class Graph {
     }
 
     public ArrayList<ArrayList<Integer>> getAllPaths(Set<Integer> startNodeSet, Set<Integer> endNodeSet) {
-//        start = 0;
-//        end = 1;
         for (int start : startNodeSet){
             for (int end : endNodeSet){
                 dfs(start, end);
             }
         }
-//        System.out.println(allPaths);
-
         return allPaths;
     }
 }

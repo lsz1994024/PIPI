@@ -460,6 +460,30 @@ public class InferSegment {
             return tempList;
         }
     }
+    public List<ExpTag> cleanAbundantTags(List<ExpTag> allLongTagsList) {
+        List<ExpTag> cleanTagList = new LinkedList<>();
+        Set<String> prefixSet = new HashSet<>();
+//        Set<String> suffixSet = new HashSet<>();
+        for (ExpTag tag : allLongTagsList) {
+            String prefix = tag.getFreeAaString().substring(0,4);
+//            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
+            boolean shouldAdd = true;
+            if (!prefixSet.contains(prefix)) {
+                prefixSet.add(prefix);
+            } else {
+                shouldAdd = false;
+            }
+//            if (!suffixSet.contains(suffix)) {
+//                suffixSet.add(suffix);
+//            } else {
+//                shouldAdd = false;
+//            }
+            if (shouldAdd) {
+                cleanTagList.add(tag);
+            }
+        }
+        return cleanTagList;
+    }
     public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
@@ -531,7 +555,6 @@ public class InferSegment {
         endNodeSet.retainAll(nodeSet);
         Graph g = new Graph(edgeSet, nodeSet);
         ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
-//        Map<String, Double>
         for (ArrayList<Integer> path : allPath) {
             if (path.size() < minTagLenToExtractLocal+1) continue; //aa length is 6 . peaks number is 7.
             if (path.size() > maxTagLenToExtractLocal + 1) {
@@ -574,7 +597,238 @@ public class InferSegment {
         return finalList;
     }
 
-    public List<ExpTag> getLongDenoisedTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, Set<Pair<Integer, Integer>> edgeToDel) throws Exception {
+    public List<ExpTag> getLongTag11(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
+        Double[] mzArray = plMap.keySet().toArray(new Double[0]);
+        Double[] intensityArray = plMap.values().toArray(new Double[0]);
+        List<ExpTag> outputList = new LinkedList<>();
+
+        Set<Integer> nodeSet = new HashSet<>();
+        Set<Integer> startNodeSet = new HashSet<>();
+        Set<Integer> endNodeSet = new HashSet<>();
+        Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
+        TreeMap<Integer, Double> nodeMap = new TreeMap<>();
+        Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
+
+        int maxEdgeNum = 120;
+        Map<Double, Integer> mzIdMap = new HashMap<>();
+        int ii = 0;
+        for (double mz : plMap.keySet()) {
+            mzIdMap.put(mz, ii);
+            ii++;
+        }
+
+        for (int i = 0; i < mzArray.length - 1; ++i) {
+            double mz1 = mzArray[i];
+            int isNorC = NON_NC_TAG;
+            if (Math.abs(mz1 - MassTool.PROTON) <= ms2Tolerance) {
+                isNorC = N_TAG;
+            } else if (Math.abs(mz1 - MassTool.PROTON - massTool.H2O) <= ms2Tolerance) {
+                isNorC = C_TAG;
+            }
+            double intensity1 = intensityArray[i];
+            if (intensity1 < 0.1) continue;//todo
+
+            for (int j = i + 1; j < mzArray.length; ++j) {
+                double mz2 = mzArray[j];
+                if (mz2 > mz1 + maxAugedMass + 5) break; // no need to try further because the can not match to any aa
+                double intensity2 = intensityArray[j];
+                if (intensity2 < 0.1) continue;//todo
+
+//                if ( (intensity1 + intensity2) < 0.4) continue;  //todo
+
+                String aaStr = inferAA(mz1, mz2, isNorC);
+
+                if (aaStr != null ) {
+                    if ((mz1 == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aaStr.substring(0,1)))) {
+                        continue;
+                    }
+                    Pair<Integer, Integer> edge = new Pair<>(i,j);
+                    ExpAa aa = new ExpAa(aaStr, aaStr.charAt(0), mz1, mz2, intensity1, intensity2, isNorC);
+                    edgeInfoMap.put(edge, aa);
+                    nodeMap.put(i, intensity1);
+                    nodeMap.put(j, intensity2);
+                    if (outEdgeMap.containsKey(i)) { // from i out to many j
+                        outEdgeMap.get(i).put(j, 0.5 * (intensity1 + intensity2));
+                    } else {
+                        Map<Integer, Double> temp = new HashMap<>();
+                        temp.put(j, 0.5 * (intensity1 + intensity2));
+                        outEdgeMap.put(i, temp);
+                    }
+                    if (inEdgeMap.containsKey(j)) { // from many i in to j
+                        inEdgeMap.get(j).put(i, 0.5 * (intensity1 + intensity2));
+                    } else {
+                        Map<Integer, Double> temp = new HashMap<>();
+                        temp.put(i, 0.5 * (intensity1 + intensity2));
+                        inEdgeMap.put(j, temp);
+                    }
+                }
+            }
+        }
+
+        // re-calculate the weight of edge , because when edge is at the beginning , w should be intensity1 + 0.5*intensity2, not 0.5 * (intensity1 + intensity2)
+        for (int node : nodeMap.keySet()) {
+            if (!inEdgeMap.containsKey(node)) {
+                for (int n2 : outEdgeMap.get(node).keySet()) {
+                    outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + nodeMap.get(node) / 2);
+                    inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + nodeMap.get(node) / 2);
+                }
+            }
+            if (!outEdgeMap.containsKey(node)) {
+                for (int n1 : inEdgeMap.get(node).keySet()) {
+                    outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + nodeMap.get(node) / 2);
+                    inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + nodeMap.get(node) / 2);
+                }
+            }
+        }
+
+        Set<Pair<Integer, Integer>> edgeToDel = new HashSet<>();
+        for (int node : nodeMap.descendingKeySet()) {
+            if (outEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
+                double maxOutIntensity = 0d;
+                for (int n2 : tempOutMap.keySet()) {
+                    if (tempOutMap.get(n2) > maxOutIntensity) {
+                        maxOutIntensity = tempOutMap.get(n2);
+                    }
+                }
+                for (int n2 : tempOutMap.keySet()) {
+                    if (tempOutMap.get(n2) < 0.2*maxOutIntensity) {
+                        edgeToDel.add(new Pair(node, n2));
+                    }
+                }
+                if (inEdgeMap.containsKey(node)) {
+                    for (int n1 : inEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOutIntensity);
+                        inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOutIntensity);
+
+                    }
+                }
+            }
+        }
+        for (Pair<Integer, Integer> edge : edgeToDel){
+            inEdgeMap.get(edge.getSecond()).remove(edge.getFirst());
+            outEdgeMap.get(edge.getFirst()).remove(edge.getSecond());
+            edgeInfoMap.remove(new Pair(edge.getFirst(), edge.getSecond()));
+        }
+
+        edgeToDel.clear();
+        for (int node : nodeMap.keySet()) {
+            if (inEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
+                double maxInIntensity = 0d;
+                for (int n1 : tempInMap.keySet()) {
+                    if (tempInMap.get(n1) > maxInIntensity) {
+                        maxInIntensity = tempInMap.get(n1);
+                    }
+                }
+                for (int n1 : tempInMap.keySet()) {
+                    if (tempInMap.get(n1) < 0.2*maxInIntensity) {
+                        edgeToDel.add(new Pair(n1, node));
+                    }
+                }
+                if (outEdgeMap.containsKey(node)) {
+                    for (int n2 : outEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxInIntensity);
+                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxInIntensity);
+                    }
+                }
+            }
+        }
+
+        for (Pair<Integer, Integer> edge : edgeToDel){
+            inEdgeMap.get(edge.getSecond()).remove(edge.getFirst());
+            outEdgeMap.get(edge.getFirst()).remove(edge.getSecond());
+            edgeInfoMap.remove(new Pair(edge.getFirst(), edge.getSecond()));
+        }
+
+        if (edgeInfoMap.size() > maxEdgeNum){ //only use the top 100 edges
+            List<Map.Entry<Pair<Integer, Integer>, ExpAa>> edgeInfoList = new ArrayList<>(edgeInfoMap.entrySet());
+            Collections.sort(edgeInfoList, Comparator.comparing(o -> o.getValue().getTotalIntensity(), Comparator.reverseOrder()));
+            int i = 0;
+            for (Map.Entry<Pair<Integer, Integer>, ExpAa> entry : edgeInfoList){
+                if (i > maxEdgeNum) {
+                    Pair<Integer, Integer> edge = entry.getKey();
+                    edgeInfoMap.remove(entry.getKey());
+                    inEdgeMap.get(edge.getSecond()).remove(edge.getFirst());
+                    outEdgeMap.get(edge.getFirst()).remove(edge.getSecond());
+                }
+                i++;
+            }
+        }
+        startNodeSet.clear();
+        endNodeSet.clear();
+        for (int n2 : inEdgeMap.keySet()){
+            if (!inEdgeMap.get(n2).isEmpty()) {
+                if (!outEdgeMap.containsKey(n2)) {
+                    endNodeSet.add(n2);
+                } else {
+                    if (outEdgeMap.get(n2).isEmpty()) {
+                        endNodeSet.add(n2);
+                    }
+                }
+            }
+        }
+        for (int n1 : outEdgeMap.keySet()){
+            if (!outEdgeMap.get(n1).isEmpty()) {
+                if (!inEdgeMap.containsKey(n1)) {
+                    startNodeSet.add(n1);
+                } else {
+                    if (inEdgeMap.get(n1).isEmpty()) {
+                        startNodeSet.add(n1);
+                    }
+                }
+            }
+        }
+        for (Pair<Integer, Integer> edge : edgeInfoMap.keySet()){
+            nodeSet.add(edge.getFirst());
+            nodeSet.add(edge.getSecond());
+        }
+        Graph g = new Graph(edgeInfoMap.keySet(), nodeSet);
+
+        ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
+        for (ArrayList<Integer> path : allPath) {
+            if (path.size() < minTagLenToExtractLocal+1) continue; //aa length is 6 . peaks number is 7.
+            if (path.size() > maxTagLenToExtractLocal + 1) {
+                for (int i = 0; i < path.size()-maxTagLenToExtractLocal; i++) {
+                    List<ExpAa> expAaList = new ArrayList<>();
+                    for (int k = i; k < i+maxTagLenToExtractLocal; k++){
+                        int j = k + 1;
+                        expAaList.add(edgeInfoMap.get(new Pair<>(path.get(k),path.get(j))));
+                    }
+                    outputList.add(new ExpTag(expAaList));
+                }
+            } else {
+                List<ExpAa> expAaList = new ArrayList<>();
+                for (int i = 0; i < path.size()-1; i++){
+                    int j = i + 1;
+                    expAaList.add(edgeInfoMap.get(new Pair<>(path.get(i),path.get(j))));
+                }
+                outputList.add(new ExpTag(expAaList));
+            }
+        }
+        outputList.sort(Comparator.comparingDouble(ExpTag::getTotalIntensity).reversed());
+        boolean[] shouldKeep = new boolean[outputList.size()];
+        Set<String> addedTags = new HashSet<>();
+        int i = 0;
+        for(ExpTag tag : outputList) {
+            if (addedTags.contains(tag.getFreeAaString())) {
+                shouldKeep[i] = false;
+            } else {
+                shouldKeep[i] = true;
+                addedTags.add(tag.getFreeAaString());
+            }
+            i++;
+        }
+        List<ExpTag> finalList = new LinkedList<>();
+        for (int j = 0; j < outputList.size(); j++){
+            if (shouldKeep[j]) {
+                finalList.add(outputList.get(j));
+            }
+        }
+        return finalList;
+    }
+    public List<ExpTag> getLongDenoisedTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, Set<Pair<Integer, Integer>> edge1ToDel) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         List<ExpTag> outputList = new LinkedList<>();
@@ -584,6 +838,17 @@ public class InferSegment {
         Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
+
+        Map<Double, Integer> mzIdMap = new HashMap<>();
+        int ii = 0;
+        for (double mz : plMap.keySet()) {
+            mzIdMap.put(mz, ii);
+            ii++;
+        }
+        TreeMap<Integer, Double> nodeMap = new TreeMap<>();
+        Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
+
         for (int i = 0; i < mzArray.length - 1; ++i) {
             double mz1 = mzArray[i];
             double intensity1 = intensityArray[i];
@@ -596,20 +861,156 @@ public class InferSegment {
                 } else if (Math.abs(mz1 - MassTool.PROTON - massTool.H2O) <= ms2Tolerance) {
                     isNorC = C_TAG;
                 }
-                String aa = inferAA(mz1, mz2, isNorC);
-                if (aa != null) {
+                String aaStr = inferAA(mz1, mz2, isNorC);
+                if (aaStr != null) {
                     Pair<Integer, Integer> edge = new Pair<>(i,j);
-                    if (!edgeToDel.contains(edge)) edgeSet.add(edge);
                     nodeSet.add(i);
                     nodeSet.add(j);
                     startNodeSet.remove(j);
                     endNodeSet.remove(i);
-                    edgeInfoMap.put(edge, new ExpAa(aa, aa.charAt(0), mz1, mz2, intensity1, intensity2, 0));
+                    ExpAa aa = new ExpAa(aaStr, aaStr.charAt(0), mz1, mz2, intensity1, intensity2, 0);
+                    edgeInfoMap.put(edge, aa);
+
+                    if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
+                        continue;
+                    }
+                    nodeMap.put(i, intensity1);
+                    nodeMap.put(j, intensity2);
+                    if (outEdgeMap.containsKey(i)) {
+                        outEdgeMap.get(i).put(j, 0.5 * (intensity1 + intensity2));
+                    } else {
+                        Map<Integer, Double> temp = new HashMap<>();
+                        temp.put(j, 0.5 * (intensity1 + intensity2));
+                        outEdgeMap.put(i, temp);
+                    }
+
+                    if (inEdgeMap.containsKey(j)) {
+                        inEdgeMap.get(j).put(i, 0.5 * (intensity1 + intensity2));
+                    } else {
+                        Map<Integer, Double> temp = new HashMap<>();
+                        temp.put(i, 0.5 * (intensity1 + intensity2));
+                        inEdgeMap.put(j, temp);
+                    }
+
+                    if ((aa.getHeadLocation() == MassTool.PROTON + massTool.H2O) && (!"KR".contains(aa.getAA()))) {
+                        continue;
+                    }
+                    nodeMap.put(i, intensity1);
+                    nodeMap.put(j, intensity2);
+                    if (outEdgeMap.containsKey(i)) {
+                        outEdgeMap.get(i).put(j, 0.5 * (intensity1 + intensity2));
+                    } else {
+                        Map<Integer, Double> temp = new HashMap<>();
+                        temp.put(j, 0.5 * (intensity1 + intensity2));
+                        outEdgeMap.put(i, temp);
+                    }
+
+                    if (inEdgeMap.containsKey(j)) {
+                        inEdgeMap.get(j).put(i, 0.5 * (intensity1 + intensity2));
+                    } else {
+                        Map<Integer, Double> temp = new HashMap<>();
+                        temp.put(i, 0.5 * (intensity1 + intensity2));
+                        inEdgeMap.put(j, temp);
+                    }
                 }
             }
         }
+
+        for (int node : nodeMap.keySet()) {
+            if (!inEdgeMap.containsKey(node)) {
+                for (int n2 : outEdgeMap.get(node).keySet()) {
+                    outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + nodeMap.get(node) / 2);
+                    inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + nodeMap.get(node) / 2);
+                }
+            }
+            if (!outEdgeMap.containsKey(node)) {
+                for (int n1 : inEdgeMap.get(node).keySet()) {
+                    outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + nodeMap.get(node) / 2);
+                    inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + nodeMap.get(node) / 2);
+                }
+            }
+        }
+        // finish prepare graph
+
+        Set<Pair<Integer, Integer>> edgeToDel = new HashSet<>();
+        Map<Integer, Integer> tempToDel = new HashMap<>();
+
+        for (int node : nodeMap.descendingKeySet()) {
+            if (outEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
+                double maxOut = 0d;
+                int maxOutPeak = -1;
+                for (int n2 : tempOutMap.keySet()) {
+                    if (tempOutMap.get(n2) > maxOut) {
+                        maxOut = tempOutMap.get(n2);
+                        maxOutPeak = n2;
+                    }
+                }
+                for (int n2 : tempOutMap.keySet()) {
+                    if (n2 != maxOutPeak) {
+                        edgeToDel.add(new Pair(node, n2));
+                        tempToDel.put(node, n2);
+
+                    }
+                }
+                if (inEdgeMap.containsKey(node)) {
+
+                    for (int n1 : inEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOut);
+                        inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOut);
+
+                    }
+                }
+            }
+        }
+
+        for (int n1 : tempToDel.keySet()) {
+            int n2 = tempToDel.get(n1);
+            inEdgeMap.get(n2).remove(n1);
+            outEdgeMap.get(n1).remove(n2);
+        }
+        for (int node : nodeMap.keySet()) {
+            if (inEdgeMap.containsKey(node)) {
+                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
+                double maxIn = 0d;
+                int maxInPeak = -1;
+                for (int n1 : tempInMap.keySet()) {
+                    if (tempInMap.get(n1) > maxIn) {
+                        maxIn = tempInMap.get(n1);
+                        maxInPeak = n1;
+                    }
+                }
+                for (int n1 : tempInMap.keySet()) {
+                    if (n1 != maxInPeak) {
+                        edgeToDel.add(new Pair(n1, node));
+
+                    }
+                }
+                if (outEdgeMap.containsKey(node)) {
+
+                    for (int n2 : outEdgeMap.get(node).keySet()) {
+                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxIn);
+                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxIn);
+
+                    }
+                }
+            }
+        }
+        Set<Pair<Integer, Integer>> pairToDel = new HashSet<>();
+        for (Pair<Integer, Integer> e : edgeToDel) {
+            pairToDel.add(new Pair(e.getFirst(), e.getSecond()));
+        }
+
+//        if (!edgeToDel.contains(edge)) edgeSet.add(edge);
         startNodeSet.retainAll(nodeSet);
         endNodeSet.retainAll(nodeSet);
+
+        for (Pair<Integer, Integer> edge : edgeToDel) {
+
+        }
+
+
+
         Graph g = new Graph(edgeSet, nodeSet);
         ArrayList<ArrayList<Integer>> allPath = g.getAllPaths(startNodeSet, endNodeSet);
 //        Map<String, Double>
