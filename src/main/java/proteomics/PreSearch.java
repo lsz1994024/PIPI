@@ -581,11 +581,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                         partPosVarModArrayMap, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs);
 
                 if (cPartPepsWithPtm.peptideTreeSet.isEmpty()) {
-                    return;
+                    continue;
                 }
                 cPosVarPtmResMap = cPartPepsWithPtm.getTopPepPtn().posVarPtmResMap;
                 if (cPosVarPtmResMap.isEmpty()) {
-                    return;  // c part should has PTM but unsettled.
+                    continue;  // c part should has PTM but unsettled.
                 }
             } else {
                 isCTermFree = true;
@@ -643,11 +643,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
                     if (nPartModPepsSettled.peptideTreeSet.isEmpty()) {
 //                        System.out.println(scanNum + "," + nPartSeq);
-                        return;
+                        continue; // how could it be return!!!
                     }
                     nPosVarPtmResMap = nPartModPepsSettled.getTopPepPtn().posVarPtmResMap;
                     if (nPosVarPtmResMap.isEmpty()) {
-                        return;  // n part should has PTM but unsettled.
+                        continue;  // n part should has PTM but unsettled.
                     }
                 } else {
                     isNTermFree = true;

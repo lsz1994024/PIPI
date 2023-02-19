@@ -65,7 +65,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(37043));//35581
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(20013));//35581
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -1035,7 +1035,7 @@ public class PIPI {
 
                 String scanName = sqlResultSet.getString("scanName");
                 int scanNum = sqlResultSet.getInt("scanNum");
-                int isDecoy = sqlResultSet.getInt("isDecoy");
+                int isDecoy = pepInfo.isDecoy ? 1 : 0;
                 int globalRank = sqlResultSet.getInt("globalRank");
                 double normalizedCorrelationCoefficient = sqlResultSet.getDouble("normalizedCorrelationCoefficient");
                 double score = sqlResultSet.getDouble("score");
