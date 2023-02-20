@@ -65,7 +65,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(20013));//35581
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(19303));//35581
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -1416,7 +1416,7 @@ public class PIPI {
 
                     if (Double.valueOf(percolatorEntry.qValue) <= 0.01) numScansQ001++;
                     if ((isDecoy == 0 && percolatorEntry.isDecoy) || (isDecoy == 1 && !percolatorEntry.isDecoy)){
-                        System.out.println("wrong isDecoy" + scanName);
+//                        System.out.println("wrong isDecoy" + scanName);
                     }
 
                     String str = String.format(Locale.US, "%s, %d,%s,%d,%s,%f,%f,%f,%f,%f,%d,%d,%d,%d,%d,%s,%s,%f,%d,%f,%f,%f,%f,%f,%s,%s,\"%s\",%s,%d,%f\n"

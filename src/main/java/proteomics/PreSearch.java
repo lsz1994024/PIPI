@@ -133,7 +133,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         InferSegment inferSegment = buildIndex.getInferSegment();
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
-        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag11(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
 //        List<ExpTag> allLongTagList = inferSegment.getLongTag11(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
 
         List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTags(allLongTagList);
@@ -151,13 +151,10 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         Set<String> searchedTagStrSet = new HashSet<>();
         int minTagLen = 4;
 
-        for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(4, allLongTagList.size()))){
-//            if (tagInfo.size() < minTagLen) continue;
-//            if (tagInfo.size() > 4) {
-//                minTagLen = 5;
-//            } else {
-//                minTagLen = 4;
-//            }
+        int n_tags = 0;
+        for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(10, allLongTagList.size()))){
+
+
             minTagLen = tagInfo.size() > 4 ? 5 : 4;
             String tagStr = tagInfo.getFreeAaString();
             String revTagStr = new StringBuilder(tagStr).reverse().toString();
@@ -172,6 +169,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     if (n_res > 100) {
                         continue;
                     }
+//                    if (n_tags > 4) {
+//                        continue;
+//                    }
                     if (tagStr.length() > minTagLen){ // if the tag was already long i.e. there is space to sub
                         for (int n_cTermAaToCut = 1; n_cTermAaToCut <= Math.min(2,tagChar.length-minTagLen); n_cTermAaToCut++){
                             char[] subTagChar = tagStr.substring(0, tagStr.length()-n_cTermAaToCut).toCharArray();
@@ -196,6 +196,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     if (n_res > 100) {
                         continue;
                     }
+//                    if (n_tags > 4) {
+//                        continue;
+//                    }
                     if (revTagStr.length() > minTagLen){ // if the tag was already long i.e. there is space to sub
                         for (int n_cTermAaToCut = 1; n_cTermAaToCut <= Math.min(2,revTagChar.length-minTagLen); n_cTermAaToCut++){
                             String subRevTagStr = revTagStr.substring(0, tagStr.length()-n_cTermAaToCut);
@@ -217,7 +220,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     Set<String> protIdSetByThisTag = new HashSet<>();
                     int n_res = searchAndSaveFuzzy(scanNum ,tagInfo, ms1TolAbs, resPeptideListMap, peptideInfoMap, protIdSetByThisTag, fmIndex, tagChar, minTagLen, expProcessedPL,finalPlMap, true);
                     searchedTagStrSet.add(tagStr);
-                    if (n_res < 100) {
+                    if (n_res < 100 ) {
                         if (tagStr.length() > minTagLen){ // if the tag was already long i.e. there is space to sub
                             for (int n_cTermAaToCut = 1; n_cTermAaToCut <= Math.min(2,tagChar.length-minTagLen); n_cTermAaToCut++){
                                 String subTagStr = tagStr.substring(0, tagStr.length()-n_cTermAaToCut);
@@ -242,7 +245,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     Set<String> protIdSetByThisTag = new HashSet<>();
                     int n_res = searchAndSaveFuzzy(scanNum ,revTagInfo, ms1TolAbs, resPeptideListMap, peptideInfoMap, protIdSetByThisTag, fmIndex, revTagChar, minTagLen, expProcessedPL, finalPlMap, true);
                     searchedTagStrSet.add(revTagStr);
-                    if (n_res < 100) {
+                    if (n_res < 100 ) {
                         if (revTagStr.length() > minTagLen){ // if the tag was already long i.e. there is space to sub
                             for (int n_cTermAaToCut = 1; n_cTermAaToCut <= Math.min(2,revTagChar.length-minTagLen); n_cTermAaToCut++){
                                 String subTagStr = revTagStr.substring(0, revTagStr.length()-n_cTermAaToCut);
@@ -263,6 +266,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
             }
+            n_tags++;
         }
 
         TreeSet<Peptide> peptideSet = new TreeSet<>(Collections.reverseOrder());

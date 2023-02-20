@@ -95,7 +95,7 @@ public class InferSegment {
             String v = parameterMap.get(k);
             if (v.startsWith("0.0")) break;
 
-                //15.994915,M,0,Oxidation
+            //15.994915,M,0,Oxidation
             String[] modStr = v.split(",");
             double modMass = Double.valueOf(modStr[0]);
             char modSite = modStr[1].charAt(0);
@@ -460,29 +460,115 @@ public class InferSegment {
             return tempList;
         }
     }
-    public List<ExpTag> cleanAbundantTags(List<ExpTag> allLongTagsList) {
-        List<ExpTag> cleanTagList = new LinkedList<>();
-        Set<String> prefixSet = new HashSet<>();
-//        Set<String> suffixSet = new HashSet<>();
-        for (ExpTag tag : allLongTagsList) {
-            String prefix = tag.getFreeAaString().substring(0,4);
-//            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
-            boolean shouldAdd = true;
-            if (!prefixSet.contains(prefix)) {
-                prefixSet.add(prefix);
-            } else {
-                shouldAdd = false;
-            }
-//            if (!suffixSet.contains(suffix)) {
-//                suffixSet.add(suffix);
+//    public List<ExpTag> cleanAbundantTags(List<ExpTag> allLongTagsList) {
+//        List<ExpTag> cleanTagList = new LinkedList<>();
+//        Set<String> prefixSet = new HashSet<>();
+////        Set<String> suffixSet = new HashSet<>();
+//        for (ExpTag tag : allLongTagsList) {
+//            String prefix = tag.getFreeAaString().substring(0,4);
+////            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
+//            boolean shouldAdd = true;
+//            if (!prefixSet.contains(prefix)) {
+//                prefixSet.add(prefix);
 //            } else {
 //                shouldAdd = false;
 //            }
-            if (shouldAdd) {
-                cleanTagList.add(tag);
+////            if (!suffixSet.contains(suffix)) {
+////                suffixSet.add(suffix);
+////            } else {
+////                shouldAdd = false;
+////            }
+//            if (shouldAdd) {
+//                cleanTagList.add(tag);
+//            }
+//        }
+//        return cleanTagList;
+//    }
+
+    public List<ExpTag> cleanAbundantTags(List<ExpTag> allLongTagsList) {
+        Map<String, List<ExpTag>> tagStrClusterMap = new HashMap<>();
+        for (ExpTag tag : allLongTagsList.subList(0, allLongTagsList.size())){
+            boolean shouldBeNewCluster = true;
+            for (String clusterStr : tagStrClusterMap.keySet()) {
+                String lcs = LCS(clusterStr, tag.getFreeAaString());
+                double leveDist = minDistance(clusterStr, tag.getFreeAaString());
+                if (lcs.length() >= tag.size()*0.5) {
+//                if (leveDist < tag.size()*0.5) {
+
+                    tagStrClusterMap.get(clusterStr).add(tag);
+                    shouldBeNewCluster = false;
+                    break; // only add into the first possible cluster
+                } else {
+                    continue;
+                }
+            }
+            if (shouldBeNewCluster) {
+                List<ExpTag> tmpList = new ArrayList<>();
+                tmpList.add(tag);
+                tagStrClusterMap.put(tag.getFreeAaString(), tmpList);
             }
         }
+        List<ExpTag> cleanTagList = new LinkedList<>(); //todo what should I put into the list, cluster Name tags or the top tags in each cluster
+        for (String clusterStr : tagStrClusterMap.keySet()) {
+            List<ExpTag> clusterTagList = tagStrClusterMap.get(clusterStr);
+            Collections.sort(clusterTagList, Comparator.comparing(o->o.getTotalIntensity(), Comparator.reverseOrder()));
+            cleanTagList.add(clusterTagList.get(0));
+        }
+        Collections.sort(cleanTagList, Comparator.comparing(o->o.getTotalIntensity(), Comparator.reverseOrder()));
         return cleanTagList;
+    }
+
+    private static int minDistance(String word1, String word2) {
+
+        int dp[][] = new int[word1.length() + 1][word2.length() + 1];
+
+        for (int i = 0; i < word1.length() + 1; i++) {
+            // 从i个字符变成0个字符，需要i步（删除）
+            dp[i][0] = i;
+        }
+        for (int i = 0; i < word2.length() + 1; i++) {
+            // 当从0个字符变成i个字符，需要i步(增加)
+            dp[0][i] = i;
+        }
+
+        for (int i = 1; i < word1.length() + 1; i++) {
+            for (int j = 1; j < word2.length() + 1; j++) {
+                //当相同的时，dp[i][j] = dp[i - 1][j - 1]
+                if (word1.charAt(i - 1) == word2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    //当不同的时候，我们需要求三种操作的最小值
+                    //其中dp[i - 1][j - 1]表示的是替换，dp[i - 1][j]表示删除字符，do[i][j - 1]表示的是增加字符
+                    dp[i][j] = 1 + Math.min(dp[i - 1][j - 1], Math.min(dp[i - 1][j], dp[i][j - 1]));
+                }
+            }
+        }
+        return dp[word1.length()][word2.length()];
+    }
+    private static String LCS(String a, String b) {
+        char[] arrayA = a.toCharArray();
+        char[] arrayB = b.toCharArray();
+        String maxString = "";
+        for (int i = 0; i < arrayA.length; i++) {
+            for (int j = 0; j < arrayB.length; j++) {
+                if (arrayA[i]==arrayB[j]){
+                    // i为起点
+                    Integer i1 = i;
+                    Integer j1 = j;
+                    // 找到相同的字母后，以当前j为起点，持续比较下去，看相同部分到哪里结束
+                    for (; i1 <arrayA.length && j1 < arrayB.length && arrayA[i1]==arrayB[j1]; i1++,j1++) {}
+                    // i1为终点
+                    if (i!=i1-1){
+                        // 不断用common共同子串与max最长子串比较长度，只保留最长那个子串
+                        String common = a.substring(i,i1);
+                        if (maxString.length()<common.length()){
+                            maxString = common;
+                        }
+                    }
+                }
+            }
+        }
+        return maxString;
     }
     public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
@@ -607,8 +693,8 @@ public class InferSegment {
         Set<Integer> endNodeSet = new HashSet<>();
         Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
         TreeMap<Integer, Double> nodeMap = new TreeMap<>();
-        Map<Integer, Map<Integer, Double>> inEdgeMap = new HashMap<>();
-        Map<Integer, Map<Integer, Double>> outEdgeMap = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> inEdgesMap = new HashMap<>();
+        Map<Integer, Map<Integer, Double>> outEdgesMap = new HashMap<>();
 
         int maxEdgeNum = 120;
         Map<Double, Integer> mzIdMap = new HashMap<>();
@@ -648,19 +734,19 @@ public class InferSegment {
                     edgeInfoMap.put(edge, aa);
                     nodeMap.put(i, intensity1);
                     nodeMap.put(j, intensity2);
-                    if (outEdgeMap.containsKey(i)) { // from i out to many j
-                        outEdgeMap.get(i).put(j, 0.5 * (intensity1 + intensity2));
+                    if (outEdgesMap.containsKey(i)) { // from i out to many j
+                        outEdgesMap.get(i).put(j, 0.5 * (intensity1 + intensity2));
                     } else {
                         Map<Integer, Double> temp = new HashMap<>();
                         temp.put(j, 0.5 * (intensity1 + intensity2));
-                        outEdgeMap.put(i, temp);
+                        outEdgesMap.put(i, temp);
                     }
-                    if (inEdgeMap.containsKey(j)) { // from many i in to j
-                        inEdgeMap.get(j).put(i, 0.5 * (intensity1 + intensity2));
+                    if (inEdgesMap.containsKey(j)) { // from many i in to j
+                        inEdgesMap.get(j).put(i, 0.5 * (intensity1 + intensity2));
                     } else {
                         Map<Integer, Double> temp = new HashMap<>();
                         temp.put(i, 0.5 * (intensity1 + intensity2));
-                        inEdgeMap.put(j, temp);
+                        inEdgesMap.put(j, temp);
                     }
                 }
             }
@@ -668,77 +754,76 @@ public class InferSegment {
 
         // re-calculate the weight of edge , because when edge is at the beginning , w should be intensity1 + 0.5*intensity2, not 0.5 * (intensity1 + intensity2)
         for (int node : nodeMap.keySet()) {
-            if (!inEdgeMap.containsKey(node)) {
-                for (int n2 : outEdgeMap.get(node).keySet()) {
-                    outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + nodeMap.get(node) / 2);
-                    inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + nodeMap.get(node) / 2);
+            if (!inEdgesMap.containsKey(node)) {
+                for (int n2 : outEdgesMap.get(node).keySet()) {
+                    outEdgesMap.get(node).put(n2, outEdgesMap.get(node).get(n2) + nodeMap.get(node) / 2);
+                    inEdgesMap.get(n2).put(node, inEdgesMap.get(n2).get(node) + nodeMap.get(node) / 2);
                 }
             }
-            if (!outEdgeMap.containsKey(node)) {
-                for (int n1 : inEdgeMap.get(node).keySet()) {
-                    outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + nodeMap.get(node) / 2);
-                    inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + nodeMap.get(node) / 2);
+            if (!outEdgesMap.containsKey(node)) {
+                for (int n1 : inEdgesMap.get(node).keySet()) {
+                    outEdgesMap.get(n1).put(node, outEdgesMap.get(n1).get(node) + nodeMap.get(node) / 2);
+                    inEdgesMap.get(node).put(n1, inEdgesMap.get(node).get(n1) + nodeMap.get(node) / 2);
                 }
             }
         }
 
         Set<Pair<Integer, Integer>> edgeToDel = new HashSet<>();
-        for (int node : nodeMap.descendingKeySet()) {
-            if (outEdgeMap.containsKey(node)) {
-                Map<Integer, Double> tempOutMap = outEdgeMap.get(node);
-                double maxOutIntensity = 0d;
-                for (int n2 : tempOutMap.keySet()) {
-                    if (tempOutMap.get(n2) > maxOutIntensity) {
-                        maxOutIntensity = tempOutMap.get(n2);
-                    }
-                }
-                for (int n2 : tempOutMap.keySet()) {
-                    if (tempOutMap.get(n2) < 0.2*maxOutIntensity) {
-                        edgeToDel.add(new Pair(node, n2));
-                    }
-                }
-                if (inEdgeMap.containsKey(node)) {
-                    for (int n1 : inEdgeMap.get(node).keySet()) {
-                        outEdgeMap.get(n1).put(node, outEdgeMap.get(n1).get(node) + maxOutIntensity);
-                        inEdgeMap.get(node).put(n1, inEdgeMap.get(node).get(n1) + maxOutIntensity);
 
-                    }
+        for (int n1 : outEdgesMap.keySet()) {
+            Map<Integer, Double> outNodesMap = outEdgesMap.get(n1);
+            if (outNodesMap.size() == 1) continue; //no need to cut when there are no branches
+
+            List<Integer> nOutToCut_List = new ArrayList<>();
+            boolean hasLongOutEdge = false;
+            for (int n2 : outNodesMap.keySet()) {
+                if (outEdgesMap.containsKey(n2)) { //this out node has outnode, it is long
+                    hasLongOutEdge = true;
+                } else {
+                    nOutToCut_List.add(n2);
                 }
+            }
+            if (nOutToCut_List.isEmpty()) continue;
+            Collections.sort(nOutToCut_List, Comparator.comparing(o->nodeMap.get(o)));
+            for (int nOutToCut : nOutToCut_List.subList(0, nOutToCut_List.size()-1)) {
+                edgeToDel.add(new Pair(n1, nOutToCut));
+            }
+            if (hasLongOutEdge) {
+                edgeToDel.add(new Pair(n1, nOutToCut_List.get(nOutToCut_List.size()-1)));
             }
         }
         for (Pair<Integer, Integer> edge : edgeToDel){
-            inEdgeMap.get(edge.getSecond()).remove(edge.getFirst());
-            outEdgeMap.get(edge.getFirst()).remove(edge.getSecond());
+            inEdgesMap.get(edge.getSecond()).remove(edge.getFirst());
+            outEdgesMap.get(edge.getFirst()).remove(edge.getSecond());
             edgeInfoMap.remove(new Pair(edge.getFirst(), edge.getSecond()));
         }
 
         edgeToDel.clear();
-        for (int node : nodeMap.keySet()) {
-            if (inEdgeMap.containsKey(node)) {
-                Map<Integer, Double> tempInMap = inEdgeMap.get(node);
-                double maxInIntensity = 0d;
-                for (int n1 : tempInMap.keySet()) {
-                    if (tempInMap.get(n1) > maxInIntensity) {
-                        maxInIntensity = tempInMap.get(n1);
-                    }
-                }
-                for (int n1 : tempInMap.keySet()) {
-                    if (tempInMap.get(n1) < 0.2*maxInIntensity) {
-                        edgeToDel.add(new Pair(n1, node));
-                    }
-                }
-                if (outEdgeMap.containsKey(node)) {
-                    for (int n2 : outEdgeMap.get(node).keySet()) {
-                        outEdgeMap.get(node).put(n2, outEdgeMap.get(node).get(n2) + maxInIntensity);
-                        inEdgeMap.get(n2).put(node, inEdgeMap.get(n2).get(node) + maxInIntensity);
-                    }
+        for (int n2 : inEdgesMap.keySet()) {
+            Map<Integer, Double> inNodesMap = inEdgesMap.get(n2);
+            if (inNodesMap.size() == 1) continue; //no need to cut when there are no branches
+
+            List<Integer> nInToCut_List = new ArrayList<>();
+            boolean hasLongInEdge = false;
+            for (int n1 : inNodesMap.keySet()) {
+                if (inEdgesMap.containsKey(n1)) { //this out node has outnode, it is long
+                    hasLongInEdge = true;
+                } else {
+                    nInToCut_List.add(n1);
                 }
             }
+            if (nInToCut_List.isEmpty()) continue;
+            Collections.sort(nInToCut_List, Comparator.comparing(o->nodeMap.get(o)));
+            for (int nOutToCut : nInToCut_List.subList(0, nInToCut_List.size()-1)) {
+                edgeToDel.add(new Pair(nOutToCut, n2));
+            }
+            if (hasLongInEdge) {
+                edgeToDel.add(new Pair(nInToCut_List.get(nInToCut_List.size()-1), n2));
+            }
         }
-
         for (Pair<Integer, Integer> edge : edgeToDel){
-            inEdgeMap.get(edge.getSecond()).remove(edge.getFirst());
-            outEdgeMap.get(edge.getFirst()).remove(edge.getSecond());
+            inEdgesMap.get(edge.getSecond()).remove(edge.getFirst());
+            outEdgesMap.get(edge.getFirst()).remove(edge.getSecond());
             edgeInfoMap.remove(new Pair(edge.getFirst(), edge.getSecond()));
         }
 
@@ -750,31 +835,31 @@ public class InferSegment {
                 if (i > maxEdgeNum) {
                     Pair<Integer, Integer> edge = entry.getKey();
                     edgeInfoMap.remove(entry.getKey());
-                    inEdgeMap.get(edge.getSecond()).remove(edge.getFirst());
-                    outEdgeMap.get(edge.getFirst()).remove(edge.getSecond());
+                    inEdgesMap.get(edge.getSecond()).remove(edge.getFirst());
+                    outEdgesMap.get(edge.getFirst()).remove(edge.getSecond());
                 }
                 i++;
             }
         }
         startNodeSet.clear();
         endNodeSet.clear();
-        for (int n2 : inEdgeMap.keySet()){
-            if (!inEdgeMap.get(n2).isEmpty()) {
-                if (!outEdgeMap.containsKey(n2)) {
+        for (int n2 : inEdgesMap.keySet()){
+            if (!inEdgesMap.get(n2).isEmpty()) {
+                if (!outEdgesMap.containsKey(n2)) {
                     endNodeSet.add(n2);
                 } else {
-                    if (outEdgeMap.get(n2).isEmpty()) {
+                    if (outEdgesMap.get(n2).isEmpty()) {
                         endNodeSet.add(n2);
                     }
                 }
             }
         }
-        for (int n1 : outEdgeMap.keySet()){
-            if (!outEdgeMap.get(n1).isEmpty()) {
-                if (!inEdgeMap.containsKey(n1)) {
+        for (int n1 : outEdgesMap.keySet()){
+            if (!outEdgesMap.get(n1).isEmpty()) {
+                if (!inEdgesMap.containsKey(n1)) {
                     startNodeSet.add(n1);
                 } else {
-                    if (inEdgeMap.get(n1).isEmpty()) {
+                    if (inEdgesMap.get(n1).isEmpty()) {
                         startNodeSet.add(n1);
                     }
                 }
@@ -1369,9 +1454,9 @@ public class InferSegment {
         for (Map.Entry<Double, String> massAa : augedMassAaMap.entrySet()) {
             String augedAa = massAa.getValue();
             if ((isNorC == N_TAG && cModLabel.contains(augedAa.substring(augedAa.length()-1)))  // use n peak then should no C mod
-                || (isNorC == C_TAG && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use c peak then should no N mod
-                || (isNorC == NON_NC_TAG && cModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no C mod
-                || (isNorC == NON_NC_TAG && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no N mod
+                    || (isNorC == C_TAG && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use c peak then should no N mod
+                    || (isNorC == NON_NC_TAG && cModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no C mod
+                    || (isNorC == NON_NC_TAG && nModLabel.contains(augedAa.substring(augedAa.length()-1))) // use non-nc peak then should no N mod
             ) {
                 continue;
             }

@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="EcoliHuman" type="Application" factoryName="Application">
+    <output_file path="$USER_HOME$/Data/PXD005590/log.txt" is_save="true" />
+    <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
+    <module name="PIPI" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/005590.def $USER_HOME$/Data/PXD005590/B02_06_161103_A1_HCD_OT_4ul.mgf" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

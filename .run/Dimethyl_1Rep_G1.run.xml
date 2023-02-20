@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Dimethyl_1Rep_G1" type="Application" factoryName="Application">
+    <output_file path="$USER_HOME$/Data/PXD005590/log.txt" is_save="true" />
+    <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
+    <module name="PIPI" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/Dimethyl.def $USER_HOME$/Data/Dimethyl_1Rep/G1/deisotope/ $USER_HOME$/nashome/ResNas/Dimethyl_1Rep_Res/G1/" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
