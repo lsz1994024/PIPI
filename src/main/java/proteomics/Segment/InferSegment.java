@@ -460,30 +460,30 @@ public class InferSegment {
             return tempList;
         }
     }
-//    public List<ExpTag> cleanAbundantTags(List<ExpTag> allLongTagsList) {
-//        List<ExpTag> cleanTagList = new LinkedList<>();
-//        Set<String> prefixSet = new HashSet<>();
-////        Set<String> suffixSet = new HashSet<>();
-//        for (ExpTag tag : allLongTagsList) {
-//            String prefix = tag.getFreeAaString().substring(0,4);
-////            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
-//            boolean shouldAdd = true;
-//            if (!prefixSet.contains(prefix)) {
-//                prefixSet.add(prefix);
+    public List<ExpTag> cleanAbundantTagsPrefix(List<ExpTag> allLongTagsList) {
+        List<ExpTag> cleanTagList = new LinkedList<>();
+        Set<String> prefixSet = new HashSet<>();
+//        Set<String> suffixSet = new HashSet<>();
+        for (ExpTag tag : allLongTagsList) {
+            String prefix = tag.getFreeAaString().substring(0,4);
+//            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
+            boolean shouldAdd = true;
+            if (!prefixSet.contains(prefix)) {
+                prefixSet.add(prefix);
+            } else {
+                shouldAdd = false;
+            }
+//            if (!suffixSet.contains(suffix)) {
+//                suffixSet.add(suffix);
 //            } else {
 //                shouldAdd = false;
 //            }
-////            if (!suffixSet.contains(suffix)) {
-////                suffixSet.add(suffix);
-////            } else {
-////                shouldAdd = false;
-////            }
-//            if (shouldAdd) {
-//                cleanTagList.add(tag);
-//            }
-//        }
-//        return cleanTagList;
-//    }
+            if (shouldAdd) {
+                cleanTagList.add(tag);
+            }
+        }
+        return cleanTagList;
+    }
 
     public List<ExpTag> cleanAbundantTags(List<ExpTag> allLongTagsList) {
         Map<String, List<ExpTag>> tagStrClusterMap = new HashMap<>();
@@ -518,6 +518,43 @@ public class InferSegment {
         return cleanTagList;
     }
 
+    public List<ExpTag> cleanAbundantTagsNew(List<ExpTag> allLongTagsList) {
+        Map<String, List<ExpTag>> tagStrClusterMap = new HashMap<>();
+        for (ExpTag tag : allLongTagsList.subList(0, allLongTagsList.size())){
+            boolean shouldBeNewCluster = true;
+            for (String clusterStr : tagStrClusterMap.keySet()) {
+                String lcs = LCS(clusterStr, tag.getFreeAaString());
+                double leveDist = minDistance(clusterStr, tag.getFreeAaString());
+                if (lcs.length() >= tag.size()*0.5) {
+//                if (leveDist < tag.size()*0.5) {
+                    tagStrClusterMap.get(clusterStr).add(tag);
+//                    if (tagStrClusterMap.get(clusterStr).size() == 2) { // before add this tag it only has one tag, which means need to modify the tagstr key
+//                        tagStrClusterMap.put(lcs,tagStrClusterMap.get(clusterStr));
+//                        tagStrClusterMap.remove(clusterStr);
+//                    }
+                    shouldBeNewCluster = false;
+                    break; // only add into the first possible cluster
+                }
+            }
+            if (shouldBeNewCluster) {
+                List<ExpTag> tmpList = new ArrayList<>();
+                tmpList.add(tag);
+                tagStrClusterMap.put(tag.getFreeAaString(), tmpList);
+            }
+        }
+        List<ExpTag> cleanTagList = new LinkedList<>(); //todo what should I put into the list, cluster Name tags or the top tags in each cluster
+
+        for (String clusterStr : tagStrClusterMap.keySet()) {
+            List<ExpTag> clusterTagList = tagStrClusterMap.get(clusterStr);
+            Collections.sort(clusterTagList, Comparator.comparing(o->o.getTotalIntensity(), Comparator.reverseOrder()));
+            cleanTagList.add(clusterTagList.get(0));
+            if (clusterTagList.size() > 1 && (clusterTagList.get(1).getTotalIntensity()>0.95*clusterTagList.get(0).getTotalIntensity())) {
+                cleanTagList.add(clusterTagList.get(1));
+            }
+        }
+        Collections.sort(cleanTagList, Comparator.comparing(o->o.getTotalIntensity(), Comparator.reverseOrder()));
+        return cleanTagList;
+    }
     private static int minDistance(String word1, String word2) {
 
         int dp[][] = new int[word1.length() + 1][word2.length() + 1];
@@ -683,7 +720,7 @@ public class InferSegment {
         return finalList;
     }
 
-    public List<ExpTag> getLongTag11(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
+    public List<ExpTag> getLongTagCutEnds(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         List<ExpTag> outputList = new LinkedList<>();

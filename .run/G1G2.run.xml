@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="G1G2" type="CompoundRunConfigurationType">
+    <toRun name="Dimethyl_1Rep_G1" type="Application" />
+    <toRun name="Dimethyl_1Rep_G2" type="Application" />
+    <method v="2" />
+  </configuration>
+</component>
