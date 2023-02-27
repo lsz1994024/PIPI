@@ -266,7 +266,7 @@ public class PIPI {
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-                    continue;//22459   comment this continue line, if run all scans
+//                    continue;//22459   comment this continue line, if run all scans
                 }
             }
 
