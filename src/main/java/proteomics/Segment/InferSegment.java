@@ -31,6 +31,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static proteomics.PIPI.MIN_PEAK_SUM_INFER_AA;
+
 public class InferSegment {
     private static final Logger logger = LoggerFactory.getLogger(InferSegment.class);
     private static final int minTagNum = 200;
@@ -460,12 +462,13 @@ public class InferSegment {
             return tempList;
         }
     }
-    public List<ExpTag> cleanAbundantTagsPrefix(List<ExpTag> allLongTagsList) {
+    public List<ExpTag> cleanAbundantTagsPrefix(List<ExpTag> allLongTagsList, int minTagLen) {
+        if (allLongTagsList.isEmpty()) return allLongTagsList;
         List<ExpTag> cleanTagList = new LinkedList<>();
         Set<String> prefixSet = new HashSet<>();
 //        Set<String> suffixSet = new HashSet<>();
         for (ExpTag tag : allLongTagsList) {
-            String prefix = tag.getFreeAaString().substring(0,4);
+            String prefix = tag.getFreeAaString().substring(0,minTagLen);
 //            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
             boolean shouldAdd = true;
             if (!prefixSet.contains(prefix)) {
@@ -636,7 +639,7 @@ public class InferSegment {
                 double intensity2 = intensityArray[j];
                 if (intensity2 < 0.1) continue;//todo
 
-                if ( (intensity1 + intensity2) < 0.4) continue;  //todo
+                if ( (intensity1 + intensity2) < MIN_PEAK_SUM_INFER_AA) continue;  //todo
 
                 String aa = inferAA(mz1, mz2, isNorC);
 
@@ -758,7 +761,7 @@ public class InferSegment {
                 double intensity2 = intensityArray[j];
                 if (intensity2 < 0.1) continue;//todo
 
-//                if ( (intensity1 + intensity2) < 0.4) continue;  //todo
+                if ( (intensity1 + intensity2) < MIN_PEAK_SUM_INFER_AA) continue;  //todo
 
                 String aaStr = inferAA(mz1, mz2, isNorC);
 
@@ -1498,7 +1501,7 @@ public class InferSegment {
                 continue;
             }
 
-            if (Math.abs(mzDiff - massAa.getKey()) <= 2 * ms2Tolerance) {
+            if (Math.abs(mzDiff - massAa.getKey()) <= 1 * ms2Tolerance) { // should this be 1 or 2
                 aa = massAa.getValue();// including M~
             }
         }

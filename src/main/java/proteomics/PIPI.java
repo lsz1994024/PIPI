@@ -50,22 +50,35 @@ public class PIPI {
     static final int minTagLenToReduceProtDb = 5;
 
     //// normal
-    public static final boolean isPtmSimuTest = false; //normal //todo
-    static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 4;  //normal //todo
-    static final int maxTagLenToExtract = 99;  //normal //todo
-    static final boolean nTermSpecific = false; //normal //todo
+//    public static final boolean isPtmSimuTest = false; //normal //todo
+//    static final boolean usePfmAndReduceDb = true;  //normal //todo
+//    static final int minTagLenToExtract = 4;  //normal //todo
+//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final boolean nTermSpecific = false; //normal //todo
+    //    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+
     ///// ptmTest
 //    public static final boolean isPtmSimuTest = true; //simulation test //todo
 //    static final boolean usePfmAndReduceDb = false;  //simulation test //todo
 //    static final int minTagLenToExtract = 4;  //simulation test //todo
 //    static final int maxTagLenToExtract = 4;  //simulation test //todo
 //    static final boolean nTermSpecific = true; //simulation test //todo
+//    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+
     /////
+
+    ///synthetic
+    public static final boolean isPtmSimuTest = false; //normal //todo
+    static final boolean usePfmAndReduceDb = true;  //normal //todo
+    static final int minTagLenToExtract = 3;  //normal //todo
+    static final int maxTagLenToExtract = 9;  //normal //todo
+    static final boolean nTermSpecific = false; //normal //todo
+    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+    ///debuging parameters
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(55966));//35581
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(27996,28031,28012,28060,28047,28076,28180,29315,27952,28378,28848,28273));//35581 16918, 16847,16457,16483,
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -215,10 +228,6 @@ public class PIPI {
         Map<String, Integer> precursorChargeMap = new HashMap<>();
         Map<String, Double> precursorMassMap = new HashMap<>();
         TreeMap<Double, Set<String>> pcMassScanNameMap = new TreeMap<>();
-        Map<Integer, TreeMap<Double, Set<String>>> fileId_pcMassScanNameMap = new HashMap<>();
-        for (int fileId : fileIdNameMap.keySet()) {
-            fileId_pcMassScanNameMap.put(fileId, new TreeMap<>());
-        }
 
         logger.info("Get long tags to reduce proteins...");
         int threadNum_0 = Integer.valueOf(parameterMap.get("thread_num"));
@@ -260,7 +269,7 @@ public class PIPI {
 
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 5) {
+                if (Math.abs(scanNum-debugScanNum) < 2) {
                     shouldRun = true;
                 }
             }
@@ -389,11 +398,15 @@ public class PIPI {
         }
         Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
 
+//        if (protScoreLongList.size() < 10000) {
+//            minTagLenToExtract = 3;
+//        }
         Set<String> reducedProtIdSet = new HashSet<>();
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
             ii++;
-            if (ii > 35000) break;
+//            if (ii > 35000) break;
+            if (pair.getSecond() < 5000) break;
             reducedProtIdSet.add(pair.getFirst());
         }
 
@@ -572,7 +585,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 5) {
+                if (Math.abs(scanNum-debugScanNum) < 2) {
                     shouldRun = true;
                 }
             }
@@ -593,6 +606,12 @@ public class PIPI {
         int resultCountBone = 0;
         int totalCountBone = taskListBone.size();
         int countBone = 0;
+
+        Map<Integer, TreeMap<Double, Set<String>>> fileId_pcMassScanNameMap = new HashMap<>();
+        for (int fileId : fileIdNameMap.keySet()) {
+            fileId_pcMassScanNameMap.put(fileId, new TreeMap<>());
+        }
+
 
         Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
         PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");

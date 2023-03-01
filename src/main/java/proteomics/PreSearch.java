@@ -39,8 +39,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static proteomics.PIPI.*;
 import static proteomics.PTM.InferPTM.*;
 import static proteomics.PTM.InferPTM.N_PART;
-import static proteomics.Segment.InferSegment.C_TAG;
-import static proteomics.Segment.InferSegment.N_TAG;
+import static proteomics.Segment.InferSegment.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
     private static final Logger logger = LoggerFactory.getLogger(PreSearch.class);
@@ -104,10 +103,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         } finally {
             lock.unlock();
         }
-        if (lszDebugScanNum.contains(this.scanNum)) {
-            System.out.println(scanNum + ", entered");
-            int a = 1;
-        }
+
 
         double minPcMass = -1 * ms1Tolerance;
         double maxPcMass = ms1Tolerance;
@@ -134,9 +130,13 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         TreeMap<Double, Double> finalPlMap = inferSegment.addVirtualPeaks(precursorMass, plMap);
 
 //        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
-        List<ExpTag> allLongTagList = inferSegment.getLongTagCutEnds(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
+        if (lszDebugScanNum.contains(this.scanNum)) {
+            System.out.println(scanNum + ", entered");
+            int a = 1;
+        }
 
-        List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTagsPrefix(allLongTagList);
+        List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTagsPrefix(allLongTagList, minTagLenToExtract);
 
         allLongTagList = cleanedAllLongTagList;
         if (allLongTagList.isEmpty())  return null;
@@ -154,8 +154,10 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         int n_tags = 0;
         for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(10, allLongTagList.size()))){
 
-
             minTagLen = tagInfo.size() > 4 ? 5 : 4;
+            if (buildIndex.posProtMapReduced.size() < 5000) { // todo this is for synthetic only
+                minTagLen = 3;
+            }
             String tagStr = tagInfo.getFreeAaString();
             String revTagStr = new StringBuilder(tagStr).reverse().toString();
 
@@ -205,6 +207,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                             char[] subRevTagChar = subRevTagStr.toCharArray();
                             ExpTag subRevTagInfo = revTagInfo.subTag(0,tagStr.length()-n_cTermAaToCut);
                             if (!searchedTagStrSet.contains(subRevTagStr)) {
+                                subRevTagInfo.isNorC = NON_NC_TAG; // if c Tag is cut, it should wont be cTag
                                 int numResSub = searchAndSaveFuzzy(scanNum ,subRevTagInfo, ms1TolAbs, resPeptideListMap, peptideInfoMap, protIdSetByThisTag, fmIndex, subRevTagChar, minTagLen, expProcessedPL, finalPlMap, false);
                                 searchedTagStrSet.add(subRevTagStr);
                                 if (numResSub > 100) {

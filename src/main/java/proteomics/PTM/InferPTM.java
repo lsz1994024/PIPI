@@ -79,6 +79,13 @@ public class InferPTM {
         this.ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
 
         char[] aaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
+        int n_varPtm = 0;
+        for (String k : parameterMap.keySet()) {
+            if (!k.startsWith("mod")) continue;
+            String v = parameterMap.get(k);
+            if (v.startsWith("0.0")) break;
+            n_varPtm++ ;
+        }
         for (String k : parameterMap.keySet()) {
             if (!k.startsWith("mod")) continue;
 
@@ -91,7 +98,7 @@ public class InferPTM {
             char modSite = modStr[1].charAt(0);
             int modPosition = Integer.valueOf(modStr[2]);
             int priority = 1;
-            if (modSite == 'M' && modStr[3].contentEquals("Oxidation")) {
+            if (modSite == 'M' && modStr[3].contentEquals("Oxidation") && n_varPtm != 1) {
                 priority = 0; // oxidation on M is a common phonomenon but not an enriched modification
             }
             if (modPosition == 4) {//  position anywhere, highest prority
