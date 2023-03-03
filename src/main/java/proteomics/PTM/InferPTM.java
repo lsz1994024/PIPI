@@ -138,7 +138,7 @@ public class InferPTM {
     }
 
     public ModPepPool findPtmNew1(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, Peptide candiPep, PeptideInfo peptideInfo
-            , int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR) {
+            , int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR, Set<VarPtm> refVarPtmList) {
 //        double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
         // use the old way of findPtm but blocking tag region in the way as I block region with fixed mod
         String freeSeq = candiPep.getFreeSeq();
@@ -193,19 +193,6 @@ public class InferPTM {
             int a = 1;
         }
 
-
-//        String truthPep = "n"+"DNVFENNRLAFEVAEK"+"c";
-//        Peptide p1p = new Peptide(truthPep, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank);
-//        PositionDeltaMassMap fakePatten = new PositionDeltaMassMap(freeSeq.length());
-////        fakePatten.put(new Coordinate(0, 1), (58.005));
-////        fakePatten.put(new Coordinate(22, 23), (33.988));
-////        p1p.setVarPTM(fakePatten);
-//        Map<Integer, Double> matchedBions1 = new HashMap<>();
-//        Map<Integer, Double> matchedYions1 = new HashMap<>();
-//        double[][] temp11 = p1p.getIonMatrixNow();
-//        Set<Integer> jRange1 = IntStream.rangeClosed(0, truthPep.length()-3).boxed().collect(Collectors.toSet());
-//        double ss = massTool.buildVectorAndCalXCorr(p1p.getIonMatrixNow(), 1, expProcessedPL, matchedBions1, matchedYions1, jRange1) ;
-//        //stub end
 
         if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
@@ -270,16 +257,13 @@ public class InferPTM {
             }
         }
         modifiedZone = IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());
-//        modifiedZone = IntStream.range(1, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
 
         allPtmPatternBad.push(cleanPep);
         allPtmPattern.push(cleanPep);
         allPtmPatternBad.bestPep = allPtmPatternBad.getTopPepPtn();
         if (modifiedZone.isEmpty()) {
-//            allPtmPatternBad.bestPep.
             return allPtmPatternBad;
         }
-
 
         ModPepPool ptmInitialTemp = new ModPepPool(freeSeq, 1);
         Peptide cleanPeptide = new Peptide(freeSeq, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank);
@@ -414,6 +398,63 @@ public class InferPTM {
         return allPtmPattern;
     }
 
+    private Set<Integer> getInitModZoneComple(String freeSeq, boolean isDecoy, MassTool massTool, int localMaxMS2Charge,
+                                        double tagVecScore, int globalRank, SparseVector expProcessedPL, TreeMap<Double, Double> plMap){
+
+        Peptide cleanPep = new Peptide(freeSeq, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank);
+        int lb = 0;  //lb included
+        int rb = freeSeq.length() - 1;//rb included
+        Map<Integer, Double> matchedBions = new HashMap<>();
+        Map<Integer, Double> matchedYions = new HashMap<>();
+        double[][] ionMatrix = cleanPep.getIonMatrixNow();
+
+        Set<Integer> jRange = IntStream.rangeClosed(0, freeSeq.length()-1).boxed().collect(Collectors.toSet());
+
+        double cleanScore = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, matchedBions, matchedYions, jRange) ;
+        cleanPep.setScore(cleanScore);
+        cleanPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, cleanPep.getIonMatrix(), ms2Tolerance));
+        cleanPep.matchedBions.putAll(matchedBions);
+        cleanPep.matchedYions.putAll(matchedYions);
+
+        List<Integer> matchedBIndex = new ArrayList<>(matchedBions.keySet());
+        List<Integer> matchedYIndex = new ArrayList<>(matchedYions.keySet());
+        Collections.sort(matchedBIndex);
+        Collections.sort(matchedYIndex);
+        if (matchedBIndex.size() >= 2) {
+            if (matchedBIndex.get(matchedBIndex.size()-1) + (1-matchedBions.get(matchedBIndex.get(matchedBIndex.size()-1))) > matchedBIndex.get(matchedBIndex.size()-2)+4) {
+                matchedBions.remove(matchedBIndex.get(matchedBIndex.size()-1));
+            }
+        }
+        if (matchedYIndex.size() >= 2) {
+            if (matchedYIndex.get(0) - (1-matchedYions.get(matchedYIndex.get(0))) < matchedYIndex.get(1)-4) {
+                matchedYions.remove(matchedYIndex.get(0));
+            }
+        }
+
+        if (matchedBions.size() > 1) {  // should has at least two peaks to be trusted
+            lb = Collections.max(matchedBions.keySet()) + 1;
+        }
+        if (matchedYions.size() > 1) {
+            rb = Collections.min(matchedYions.keySet()) - 1;
+        }
+
+        if (rb - lb <= 0) {
+            double bSumIntens = 0;
+            for (double intes : matchedBions.values()) bSumIntens += intes;
+            double ySumIntens = 0;
+            for (double intes : matchedYions.values()) ySumIntens += intes;
+            if (bSumIntens > ySumIntens) {
+                rb = freeSeq.length() - 1;
+            } else {
+                lb = 0;
+            }
+        }
+        if (rb < lb) {
+            rb = freeSeq.length() - 1;
+            lb = 0;
+        }
+        return IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());
+    }
     private Set<Integer> getInitModZone(String freeSeq, boolean isDecoy, MassTool massTool, int localMaxMS2Charge,
                                         double tagVecScore, int globalRank, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double cutMass, double ncPart){
 
@@ -620,149 +661,100 @@ public class InferPTM {
         return modPepPoolGood;
     }
 
-//    private int checkCorrectMass(int scanNum, GRBEnv env, Set<Integer> modifiedZone, Map<Integer, VarPtm[]> posVarPtmArraySrcMap, double totalDeltaMass,String ptmFreePeptide, List<Map<Integer, Integer>> allSolsList) { // Sometimes, the precursor mass error may affects the digitized spectrum.
-//        int numTimeout = 0;
-//        int numOfSols = 0;
-//
-//        int numPtmsOnPep = 2;
-//        try {
-//            GRBModel model = new GRBModel(env);
-//            double t = 0.01;
-//            //obj function
-//            GRBLinExpr objFunction = new GRBLinExpr();
-//            objFunction.addConstant(t);
-//            model.setObjective(objFunction, GRB.MINIMIZE);
-//
-//            //variables
-//            Map<Integer, GRBVar[]> posVarsMap = new HashMap<>();
-//            GRBLinExpr totalPtmsOnPepConstr = new GRBLinExpr();
-//            GRBLinExpr totalMassOnPepConstr = new GRBLinExpr();
-//            for (int pos : modifiedZone){
-//                if (!posVarPtmArraySrcMap.containsKey(pos)) {
-//                    System.out.println("lsz Wrong");
-//                }
-//                if (posVarPtmArraySrcMap.get(pos) == null) {
-//                    int a = 1;
-//                }
-//                int numPtmsOnAA = posVarPtmArraySrcMap.get(pos).length;
-//                GRBVar[] varsArray = new GRBVar[numPtmsOnAA];
-//                for (int i = 0; i < numPtmsOnAA; i++){
-//                    varsArray[i] = model.addVar(0, 1, 0, GRB.BINARY, "isPtmSelected_"+pos+"_"+i);
-//                }
-//                posVarsMap.put(pos, varsArray);
-//
-//                GRBLinExpr onePtmOnAaConstr = new GRBLinExpr();
-//                double[] coeffOneAaArray = new double[numPtmsOnAA];
-//                Arrays.fill(coeffOneAaArray, 1);
-//                onePtmOnAaConstr.addTerms(coeffOneAaArray, posVarsMap.get(pos));
-//                model.addConstr(onePtmOnAaConstr, GRB.LESS_EQUAL, 1, "max1ptmOn1Pos_"+pos);
-//
-//
-//                totalPtmsOnPepConstr.addTerms(coeffOneAaArray, posVarsMap.get(pos));
-//
-//                double[] coeffMassAaArray = new double[numPtmsOnAA];
-//                for (int i = 0; i < numPtmsOnAA; i++){
-//                    coeffMassAaArray[i] = posVarPtmArraySrcMap.get(pos)[i].mass;
-//                }
-//                totalMassOnPepConstr.addTerms(coeffMassAaArray, posVarsMap.get(pos));
-//
-//            }
-//            model.addConstr(totalPtmsOnPepConstr, GRB.LESS_EQUAL, numPtmsOnPep, "constrTotalNumLT2");
-//            model.addConstr(totalPtmsOnPepConstr, GRB.GREATER_EQUAL, numPtmsOnPep-1, "constrTotalNumGT1");
-//            model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - t, "constrM1");
-//            model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass + t, "constrM2"); //or put this to constraints as a model.addRange
-//
-//            int solId = 0;
-//
-//            model.set(GRB.IntParam.MIPFocus, 1);
-//            model.set(GRB.IntParam.PoolSearchMode, 1);
-//            model.set(GRB.IntParam.PoolSolutions, 20);
-//            model.set(GRB.DoubleParam.TimeLimit, 6);
-//            model.optimize();
-//            switch (model.get(GRB.IntAttr.Status)) {
-//                case GRB.OPTIMAL:
-//                    break;
-//                case GRB.TIME_LIMIT:
-////                    model.dispose();
-////                    numTimeout++;
-//                    break;
-//                default:
-//                    model.dispose();
-//                    return 0;
-////                    break whileLoop;
-//            }
-//            int solCount = model.get(GRB.IntAttr.SolCount);
-//            for (int solNum = 0; solNum < solCount; solNum++) {
-//                model.set(GRB.IntParam.SolutionNumber, solNum);
-//                Map<Integer, Integer> positionOneMap = new HashMap<>();
-//                for (int pos : modifiedZone) {
-//                    GRBVar[] varsResArray = posVarsMap.get(pos);
-//                    for (int varId = 0; varId < varsResArray.length; varId++ ) {  //should I be careful about the binary variable to be really 0/1 instead of decimal
-//                        if (1 == Math.round(varsResArray[varId].get(GRB.DoubleAttr.Xn))) {
-//                            positionOneMap.put(pos, varId);
+    public ModPepPool settlePtmOnSideComple(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String seq, boolean isDecoy,
+                                      Map<Integer, VarPtm[]> posVarPtmArraySrcMap, double deltaMass, int precursorCharge, double ms1TolAbs, Map<Integer, VarPtm> refVarPtmMap) throws CloneNotSupportedException {
+        int localMaxMS2Charge = 1;
+        double tagVecScore = -0.99;
+        int globalRank = -1;
+
+        TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
+        Peptide lastPeptide = new Peptide(seq, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank);
+        lastPeptide.setVarPTM(new PosMassMap(seq.length()));
+//        lastPeptide.shouldPTM = true;
+
+        Set<Integer> modifiedZone = getInitModZoneComple(seq, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank, expProcessedPL, plMap);// e.g. nABCDEFc, modifiedZone={1,2,3,4,5,6}
+        ModPepPool modPepPoolGood = new ModPepPool(seq, 10);
+        ModPepPool modPepPoolBad = new ModPepPool(seq, 10);
+
+        double massToSettle = deltaMass;
+        Set<Integer> toModZone = new HashSet<>(modifiedZone);
+        double finalUnsettledMass = 0;
+        for (int loop = 1; loop <= 2; loop++) {
+            DividedZone dividedZone = dividePepNewComple(scanNum, toModZone, modPepPoolGood, modPepPoolBad, lastPeptide, posVarPtmArraySrcMap, massToSettle, seq, expProcessedPL, plMap, refVarPtmMap);
+
+            finalUnsettledMass = massToSettle - dividedZone.ptmMass;
+            if (modPepPoolBad.peptideTreeSet.isEmpty() ) { //fixme, why the first sentence
+                break;
+            }
+            toModZone = dividedZone.toModZone;
+            double massSettled = dividedZone.ptmMass;
+            massToSettle -= massSettled;
+            lastPeptide = modPepPoolBad.getTopPepPtn();
+            modPepPoolBad = new ModPepPool(seq, 1);
+            if (dividedZone.toModZone.isEmpty() || loop == 2) {
+                break;
+            }
+        }
+
+        // two make up strategy if there is no good pool found
+
+        if (modPepPoolGood.peptideTreeSet.isEmpty() && (massToSettle > minPtmMass && massToSettle < maxPtmMass)) {
+            //  just assign the remaining massToSettle to any aa in toModZone, and record the best one
+            double testMass = finalUnsettledMass;
+            if (Math.abs(testMass-1*MassTool.PROTON) < ms1TolAbs
+                    || Math.abs(testMass+1*MassTool.PROTON) < ms1TolAbs ) {
+                modPepPoolGood.push(lastPeptide);
+                return modPepPoolGood;
+            }
+
+            for (int pos : toModZone) { // here must use last toModZone and last massToSettle
+                VarPtm fakeVarPtm = new VarPtm(massToSettle, seq.charAt(pos), 4, String.format("PIPI_%s", massToSettle), "PIPI_unsettled", -1);
+                Peptide fakePeptide = lastPeptide.clone();
+//                        Peptide fakePeptide = new Peptide(partSeq, isDecoy, massTool, 1, tagVecScore, globalRank);
+                PosMassMap fakeNewPosMassMap = new PosMassMap(seq.length());
+//                        if (!modPepPoolBad.peptideTreeSet.isEmpty()){
+                for (Integer coor : lastPeptide.getVarPTMs().keySet()) {
+                    fakeNewPosMassMap.put(coor, lastPeptide.getVarPTMs().get(coor)); // copy the ptms from modPepPoolBad
+                }
 //                        }
-//                    }
-//                }
-//                allSolsList.add(positionOneMap);
-//            }
-//
-//            // solve the model
-////            Map<Integer, Integer> positionOneMap = new HashMap<>();
-////            whileLoop:
-////            while ( numOfSols < 20 ) {
-////                model.optimize();
-////                switch (model.get(GRB.IntAttr.Status)) {
-////                    case GRB.OPTIMAL:
-////                        break;
-////                    case GRB.TIME_LIMIT:
-//////                        System.out.println(scanNum + " :TimeOut");
-////                        model.dispose();
-////                        numTimeout++;
-////                        break whileLoop;
-////                    default:
-////                        model.dispose();
-////                        break whileLoop;
-////                }
-////
-////                numOfSols++;
-////                Map<Integer, Integer> positionOneMap = new HashMap<>();
-////                for (int pos : modifiedZone) {
-////                    GRBVar[] varsResArray = posVarsMap.get(pos);
-////                    for (int varId = 0; varId < varsResArray.length; varId++ ) {  //should I be careful about the binary variable to be really 0/1 instead of decimal
-//////                        double varValue = varsResArray[varId].get(GRB.DoubleAttr.X);
-//////                        double roundVar = Math.round(varsResArray[varId].get(GRB.DoubleAttr.X));
-////                        if (1 == Math.round(varsResArray[varId].get(GRB.DoubleAttr.X))) {
-////                            positionOneMap.put(pos, varId);
-////                        }
-////                    }
-////                }
-//////                PositionDeltaMassMap positionDeltaMassMap = new PositionDeltaMassMap(ptmFreePeptide.length());
-//////                Peptide peptide = new Peptide(ptmFreePeptide, isDecoy, massTool, localMaxMS2Charge, normalizedCrossCorr, globalRank);
-//////                for (Map.Entry<Integer, Integer> entry : positionOneMap.entrySet()){
-//////                    positionDeltaMassMap.put(new Coordinate(entry.getKey(), entry.getKey() + 1), posVarPtmArraySrcMap.get(entry.getKey())[entry.getValue()].mass);
-//////                }
-//////                peptide.setVarPTM(positionDeltaMassMap);
-//////                double[][] temp = peptide.getIonMatrix();
-//////                double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrix(), 2, expProcessedPL) - 0.01*(numPtmsOnPep-1);
-//////                if (score > 0) {
-////////                    peptide.lpScore = model.get(GRB.DoubleAttr.ObjVal);
-//////                    peptide.setScore(score);
-//////                    peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 2, peptide.getIonMatrix(), ms2Tolerance));
-//////                    peptidePTMPattern.update(peptide);
-//////                }
-////                allSolsList.add(positionOneMap);
-////                GRBLinExpr forMoreFeasiSolConstr = new GRBLinExpr();
-////                for (Map.Entry<Integer, Integer> entry : positionOneMap.entrySet()){
-////                    forMoreFeasiSolConstr.addTerm(1, posVarsMap.get(entry.getKey())[entry.getValue()]);
-////                }
-////                model.addConstr(forMoreFeasiSolConstr, GRB.LESS_EQUAL, numPtmsOnPep - 1, "forFeasiSol"); //or put this to constraints as a model.addRange
-////            }
-//            model.dispose();
-//        } catch (GRBException e) {
-//            System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-//        }
-//        return numOfSols;
-//    }
+                fakeNewPosMassMap.put(pos, massToSettle);
+                fakePeptide.posVarPtmResMap.put(pos, fakeVarPtm);
+                fakePeptide.setVarPTM(fakeNewPosMassMap);
+
+                Map<Integer, Double> matchedBions = new HashMap<>();
+                Map<Integer, Double> matchedYions = new HashMap<>();
+                double[][] ionMatrix = fakePeptide.getIonMatrixNow();
+
+                int lb = Math.max(0, Collections.min(toModZone));
+                int rb = Math.min(seq.length() - 1, Collections.max(toModZone));
+                Set<Integer> jRange = IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());
+                double fakeScore = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, matchedBions, matchedYions, jRange);
+                fakePeptide.setScore(fakeScore);
+                fakePeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fakePeptide.getIonMatrix(), ms2Tolerance));
+                fakePeptide.matchedBions.putAll(matchedBions);
+                fakePeptide.matchedYions.putAll(matchedYions);
+                modPepPoolGood.push(fakePeptide);
+            }
+        }
+
+        //directly try the complementary peptide
+        Peptide complePep = new Peptide(seq, isDecoy, massTool, localMaxMS2Charge, tagVecScore, globalRank);
+        PosMassMap complePosMassMap = new PosMassMap(seq.length());
+        for (int pos : refVarPtmMap.keySet()) {
+            complePosMassMap.put(pos, refVarPtmMap.get(pos).mass);
+            complePep.posVarPtmResMap.put(pos, refVarPtmMap.get(pos));
+        }
+        complePep.setVarPTM(complePosMassMap);
+        double[][] ionMatrix = complePep.getIonMatrixNow();
+
+        Set<Integer> jRange = IntStream.rangeClosed(0, seq.length()-1).boxed().collect(Collectors.toSet());
+        double compleScore = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, complePep.matchedBions, complePep.matchedYions, jRange);
+        complePep.setScore(compleScore); // init score needs to be bring in the 2-loop
+        modPepPoolGood.push(complePep);
+
+        return modPepPoolGood;
+    }
+
     public ModPepPool findPtmNew2(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, Peptide candiPep, PeptideInfo peptideInfo
             , int precursorCharge, int localMaxMS2Charge, double localMS1ToleranceL, double localMS1ToleranceR) throws Exception  {
 //        double ptmFreeMass = massTool.calResidueMass(ptmFreePeptide) + massTool.H2O;
@@ -777,7 +769,7 @@ public class InferPTM {
         double cDeltaMass = candiPep.cDeltaMass;
 
         if (Math.abs(nDeltaMass) <= 0.2 && Math.abs(cDeltaMass) <= 0.2) { //this must be a candidate borrowed from other scans and with no delta mass both sides but has total delta mass
-            return findPtmNew1(scanNum, expProcessedPL,  plMap, precursorMass, candiPep, peptideInfo, precursorCharge, localMaxMS2Charge, localMS1ToleranceL, localMS1ToleranceR);
+            return findPtmNew1(scanNum, expProcessedPL,  plMap, precursorMass, candiPep, peptideInfo, precursorCharge, localMaxMS2Charge, localMS1ToleranceL, localMS1ToleranceR, new HashSet<>());
         }
 
         ModPepPool fullModPepPool = new ModPepPool(freeSeq,5);
@@ -1037,7 +1029,138 @@ public class InferPTM {
         }
         return new DividedZone(keptZone, freeZone, ptmMass);
     }
-    private DividedZone dividePep(int scanNum, Set<Integer> modifiedZone, ModPepPool ptmGoodRes, ModPepPool ptmBadRes, ModPepPool ptmTemplate, Map<Integer, VarPtm[]> idxVarModMap, double totalDeltaMass, String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge, int localMaxMS2Charge, SortedMap<Double, Double> unUsedPlMap) { // Sometimes, the precursor mass error may affects the digitized spectrum.
+
+    private DividedZone dividePepNewComple(int scanNum, Set<Integer> modifiedZone, ModPepPool modPepPoolGood, ModPepPool modPepPoolBad, Peptide lastPeptide, Map<Integer, VarPtm[]> posVarPtmArraySrcMap,
+                                     double totalDeltaMass, String ptmFreePeptide, SparseVector expProcessedPL, TreeMap<Double, Double> plMap,Map<Integer, VarPtm> refVarPtmMap) throws CloneNotSupportedException {
+        // Sometimes, the precursor mass error may affects the digitized spectrum.
+        double ptmMass = 0;
+
+        Set<VarPtm> refVarPtmSet = new HashSet<>(refVarPtmMap.values());
+        for (int pos : modifiedZone) {
+            if (!posVarPtmArraySrcMap.containsKey(pos)) continue;
+
+            for (int ptmId = 0; ptmId < posVarPtmArraySrcMap.get(pos).length; ptmId++){
+                Peptide peptide = lastPeptide.clone();
+                PosMassMap newPosMassMap = new PosMassMap(ptmFreePeptide.length());
+                for (Integer coor : lastPeptide.getVarPTMs().keySet()) {
+                    newPosMassMap.put(coor, lastPeptide.getVarPTMs().get(coor)); // copy the ptms from lastPeptide
+                }
+                VarPtm thisPtm = posVarPtmArraySrcMap.get(pos)[ptmId];
+                newPosMassMap.put(pos, thisPtm.mass);
+                peptide.setVarPTM(newPosMassMap);
+                int thisPriority = thisPtm.priority;
+
+
+                double[][] ionMatrix = peptide.getIonMatrixNow();
+
+                Set<Integer> jRange = IntStream.rangeClosed(0, ptmFreePeptide.length()-1).boxed().collect(Collectors.toSet());
+                double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions, jRange) ;
+                double scoreLb = lastPeptide.getScore();
+
+                if (Math.abs(totalDeltaMass - thisPtm.mass) <= 0.01){
+                    scoreLb = lastPeptide.getScore()-1;
+                }
+                if (thisPriority == 1 || refVarPtmSet.contains(thisPtm)) { // if this ptm comes from the complementary peptide it should be priorized
+                    scoreLb = -1;
+                    score *= 2; //todo change it to that the priority one is only to consider not replacing the original one
+                }
+                if (score > scoreLb) {
+                    peptide.setScore(score);
+                    peptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, peptide.getIonMatrix(), ms2Tolerance));
+                    peptide.posVarPtmResMap.put(pos, thisPtm);
+                    if (Math.abs(totalDeltaMass - thisPtm.mass) <= 0.02){
+                        modPepPoolGood.push(peptide);
+                    } else {
+                        modPepPoolBad.push(peptide);
+                    }
+                }
+            }
+        }
+
+        //find keptZone n1Mass and freeZone
+        if (modPepPoolBad.peptideTreeSet.isEmpty()) {
+//            System.out.println(scanNum);
+            int a= 1;
+            return new DividedZone(new HashSet<>(), new HashSet<>(), ptmMass);
+        }
+        Peptide inFeasiTopPep = modPepPoolBad.getTopPepPtn();
+        Set<Integer> keptZone;
+        Set<Integer> freeZone;
+        int n1Pos = -1;
+        for (Integer coor : inFeasiTopPep.getVarPTMs().keySet()) {
+            if (modifiedZone.contains(coor)) {
+                n1Pos = coor;
+                ptmMass = inFeasiTopPep.getVarPTMs().get(coor);
+            }
+        }
+        boolean yBetterB;
+        if (inFeasiTopPep.matchedYions.size() > inFeasiTopPep.matchedBions.size()) {
+            yBetterB = true;
+        } else if (inFeasiTopPep.matchedYions.size() < inFeasiTopPep.matchedBions.size()) { /// B >>> Y
+            yBetterB = false;
+        } else {
+            double bIntes = 0;
+            double yIntes = 0;
+            for (double mz : inFeasiTopPep.matchedBions.values()) {
+                bIntes += mz;
+            }
+            for (double mz : inFeasiTopPep.matchedYions.values()) {
+                yIntes += mz;
+            }
+            yBetterB = yIntes > bIntes;
+        }
+        if (yBetterB) { // Y >>> B
+            int farestPos = Collections.max(modifiedZone);
+            int n1LB = Collections.min(modifiedZone);
+            int n1RB = Collections.max(modifiedZone);
+            for (int pos : inFeasiTopPep.matchedYions.keySet()) {
+                if (pos <= n1Pos) {
+                    if (pos > n1LB) {
+                        n1LB = pos;
+                    }
+                    if (pos < farestPos){
+                        farestPos = pos;
+                    }
+                } else if (pos > n1Pos) {
+                    if (pos < n1RB) {
+                        n1RB = pos;
+                    }
+                } else {
+                    System.out.println("lsz wrong 1");
+                }
+            }
+            keptZone = IntStream.rangeClosed(n1LB, n1RB).boxed().collect(Collectors.toSet());
+            freeZone = IntStream.range(Collections.min(modifiedZone), farestPos).boxed().collect(Collectors.toSet());
+        } else { /// B >>> Y
+            int closest = Collections.min(modifiedZone);
+            int n1LB = Collections.min(modifiedZone);
+            int n1RB = Collections.max(modifiedZone);
+            for (int pos : inFeasiTopPep.matchedBions.keySet()) {
+                if (pos < n1Pos) {
+                    if (pos > n1LB) {
+                        n1LB = pos+1;
+                    }
+                } else if (pos >= n1Pos) {
+                    if (pos < n1RB) {
+                        n1RB = pos;
+                    }
+                    if (pos > closest){
+                        closest = pos;
+                    }
+                } else {
+                    System.out.println("lsz wrong 1");
+                }
+            }
+            keptZone = IntStream.rangeClosed(n1LB, n1RB).boxed().collect(Collectors.toSet());
+            freeZone = IntStream.rangeClosed(closest+1, Collections.max(modifiedZone)).boxed().collect(Collectors.toSet());
+        }
+        return new DividedZone(keptZone, freeZone, ptmMass);
+    }
+
+    private DividedZone dividePep(int scanNum, Set<Integer> modifiedZone, ModPepPool ptmGoodRes, ModPepPool ptmBadRes, ModPepPool ptmTemplate, Map<Integer, VarPtm[]> idxVarModMap, double totalDeltaMass
+            , String ptmFreePeptide, boolean isDecoy, double normalizedCrossCorr, int globalRank, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, int precursorCharge
+            , int localMaxMS2Charge, SortedMap<Double, Double> unUsedPlMap) { // Sometimes, the precursor mass error may affects the digitized spectrum.
+
         double ptmMass = 0;
         for (int pos : modifiedZone) {
             if (!idxVarModMap.containsKey(pos)) continue;
@@ -1060,14 +1183,7 @@ public class InferPTM {
                 int lb = Math.max(0, Collections.min(modifiedZone));
                 int rb = Math.min(ptmFreePeptide.length()-1, Collections.max(modifiedZone));
                 Set<Integer> jRange = IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());
-//                Set<Integer> jRange = new HashSet<>();
-//                for (int i : modifiedZone) {
-//                    jRange.add(i-1);
-//                }
                 double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, matchedBions, matchedYions, jRange) ;
-//                double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, matchedBions, matchedYions,
-//                        IntStream.range(Collections.min(modifiedZone)-1, ptmFreePeptide.length()-2).boxed().collect(Collectors.toSet()),
-//                        IntStream.range(0, Collections.max(modifiedZone)).boxed().collect(Collectors.toSet())) ;
                 double scoreLb = 0;
                 if (Math.abs(totalDeltaMass - idxVarModMap.get(pos)[ptmId].mass) <= 0.01){
                     scoreLb = -1;
@@ -1416,6 +1532,85 @@ public class InferPTM {
 //        idxVarModMap.put(-1, modArray);
         return idxVarModMap;
     }
+
+    public Map<Integer, VarPtm[]> getIdxVarModMapNewComple(String partSeq, Set<Integer> fixModIdxes, int isProtNorC_Term) {
+//        partSeq, fixModIdxes, isNorC_Side, isProtNorC_Term
+        Map<Integer, VarPtm[]> idxVarModMap = new HashMap<>(partSeq.length() + 1, 1);
+        boolean hasProt_N_TermPtm = false;
+        boolean hasProt_C_TermPtm = false;
+        if (isProtNorC_Term == N_TERM_PROT) {
+            hasProt_N_TermPtm = true;
+        }
+        if (isProtNorC_Term == C_TERM_PROT) {
+            hasProt_C_TermPtm = true;
+        }
+        for (int i = 0; i < partSeq.length(); ++i) {
+            if (fixModIdxes.contains(i) && i != 0) continue;  // if that pos has fix mod but is not N term, dont let it
+            char aa = partSeq.charAt(i);
+
+            if (finalPtmMap.containsKey(aa)) {
+                Map<String, VarPtm> dstMap = new HashMap<>();
+                List<VarPtm> srcSet = finalPtmMap.get(aa);
+                if (i == 0) { //aa at seq n term
+                    for (VarPtm varPtm : srcSet) {
+                        if (massTable.get(partSeq.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
+
+                        if (varPtm.position == 4 || (varPtm.position == 2) || (varPtm.position == 0 && hasProt_N_TermPtm)) { // anywhere or pepN or (protN and pepPos at protN)
+                            String varPtmStr = varPtm.getStr();
+                            if (dstMap.containsKey(varPtmStr)) {
+                                VarPtm oldVarPtm = dstMap.get(varPtmStr);
+                                if (varPtm.priority > oldVarPtm.priority){
+                                    dstMap.put(varPtmStr, varPtm);
+                                }
+                            } else {
+                                dstMap.put(varPtmStr, varPtm);
+                            }
+                        }
+                    }
+                } else if (i == partSeq.length()-1) { //aa at seq c term
+                    for (VarPtm varPtm : srcSet) {
+                        if (massTable.get(partSeq.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
+
+                        if (varPtm.position == 4 || (varPtm.position == 3) || (varPtm.position == 1 && hasProt_C_TermPtm)) { // anywhere or pepC or (protC and pepPos at protC)
+                            String varPtmStr = varPtm.getStr();
+                            if (dstMap.containsKey(varPtmStr)) {
+                                VarPtm oldVarPtm = dstMap.get(varPtmStr);
+                                if (varPtm.priority > oldVarPtm.priority){
+                                    dstMap.put(varPtmStr, varPtm);
+                                }
+                            } else {
+                                dstMap.put(varPtmStr, varPtm);
+                            }
+                        }
+                    }
+                } else {//aa at middle
+                    for (VarPtm varPtm : srcSet) {
+                        if (massTable.get(partSeq.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
+
+                        if (varPtm.position == 4) { // anywhere
+                            String varPtmStr = varPtm.getStr();
+                            if (dstMap.containsKey(varPtmStr)) {
+                                VarPtm oldVarPtm = dstMap.get(varPtmStr);
+                                if (varPtm.priority > oldVarPtm.priority){
+                                    dstMap.put(varPtmStr, varPtm);
+                                }
+                            } else {
+                                dstMap.put(varPtmStr, varPtm);
+                            }
+                        }
+                    }
+                }
+                if (!dstMap.isEmpty()) {
+                    VarPtm[] modArray = new VarPtm[dstMap.size()];
+                    dstMap.values().toArray(modArray);
+                    Arrays.sort(modArray, Comparator.comparingDouble(VarPtm::getMass));
+                    idxVarModMap.put(i, modArray);
+                }
+            }
+        }
+        return idxVarModMap;
+    }
+
     private Map<Integer, Set<VarPtm>> getIdxVarModMapNewOld(String ptmFreePeptide, Set<Integer> fixModIdxes, int pepPos, int tagPosInPep, int tagLen) {
         Map<Integer, Set<VarPtm>> idxVarModMap = new HashMap<>(ptmFreePeptide.length() + 1, 1);
         boolean nHasProtPtm = false;

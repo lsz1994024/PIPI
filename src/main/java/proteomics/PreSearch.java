@@ -367,7 +367,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore(), ""
                 , pepSetString.substring(0, pepSetString.length()-1)
         );
-
+        entry.topPeptide = topPep;
+        entry.topPeptide.precursorMass = precursorMass;
         for (Peptide peptide : peptideArray) {
             entry.peptideInfoMapForRef.put(peptide.getFreeSeq(), peptideInfoMap.get(peptide.getFreeSeq()));
         }
@@ -378,6 +379,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             }
         }
         int c = 1;
+
+
         return entry;
     }
     private boolean isHomo(Peptide p1, Peptide p2, Map<String, PeptideInfo> peptideInfoMap) {
@@ -763,7 +766,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     }
     public class Entry { //copied from PtmSearch
         public Map<String, PeptideInfo> peptideInfoMapForRef = new HashMap<>();
-
+        public Peptide topPeptide = null;
         final int scanNum;
         final String scanName;
         final int precursorCharge;
