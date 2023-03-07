@@ -71,14 +71,14 @@ public class PIPI {
     public static final boolean isPtmSimuTest = false; //normal //todo
     static final boolean usePfmAndReduceDb = true;  //normal //todo
     static final int minTagLenToExtract = 3;  //normal //todo
-    static final int maxTagLenToExtract = 9;  //normal //todo
+    static final int maxTagLenToExtract = 99;  //normal //todo
     static final boolean nTermSpecific = false; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
     ///debuging parameters
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(27996,28031,28012,28060,28047,28076,28180,29315,27952,28378,28848,28273));//35581 16918, 16847,16457,16483,
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(30314));//35581 16918, 16847,16457,16483,
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -611,6 +611,7 @@ public class PIPI {
         Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
         PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConSpecCoder.setAutoCommit(false);
+        Map<VarPtm, Integer> varPtmCountMap = new HashMap<>();
         while (countBone < totalCountBone) {
             // record search results and delete finished ones.
             List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBone - countBone);
@@ -619,6 +620,13 @@ public class PIPI {
                     if (task.get() != null) {
                         PreSearch.Entry entry = task.get();
 
+                        for (VarPtm varPtm : entry.varPtmList){
+                            if (varPtmCountMap.containsKey(varPtm)) {
+                                varPtmCountMap.put(varPtm, varPtmCountMap.get(varPtm)+1);
+                            }else{
+                                varPtmCountMap.put(varPtm, 1);
+                            }
+                        }
                         allPeptideInfoMap.putAll(entry.peptideInfoMapForRef);
                         sqlPreparedStatement.setInt(1, entry.scanNum);
                         sqlPreparedStatement.setString(2, entry.scanName);
@@ -687,6 +695,10 @@ public class PIPI {
             Thread.sleep(6000);
         }
 
+
+//        for (VarPtm varPtm : varPtmCountMap.keySet()){
+//            System.out.println(varPtm.toString() + ","+varPtmCountMap.get(varPtm));
+//        }
         // shutdown threads.
         threadPoolBone.shutdown();
         if (!threadPoolBone.awaitTermination(60, TimeUnit.SECONDS)) {
@@ -744,31 +756,41 @@ public class PIPI {
                 for (Set<String> otherScanNameSet : local_other_pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - 0.02, true, mass + i*MassTool.PROTON + 0.02, true).values()) {
                     for (String otherScanName : otherScanNameSet) {
                         int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
-                        if (otherScanNum < thisScanNum+200 && otherScanNum > thisScanNum-200 && otherScanNum != thisScanNum) {
+                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
                             String otherPepString = scanName_TopPeptide_Map.get(otherScanName).getFreeSeq();
                             double otherScore = scanName_TopPeptide_Map.get(otherScanName).getScore();
 
-                            if (otherPepString.contentEquals(thisPepString)
-                                    || otherScore < thisScore * 0.95 )  // when the other pepstring is the same or the score is not good enough, we skip
+                            if (
+//                                    otherPepString.contentEquals(thisPepString) ||
+                                    otherScore < thisScore * 0.95 )  // when the other pepstring is the same or the score is not good enough, we skip
                             {
                                 continue;
                             }
 
                             if (complementaryPeptideQueue.size() < n_complementaryPeptides) {
                                 complementaryPeptideQueue.add(scanName_TopPeptide_Map.get(otherScanName));
+                                local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
                             } else {
                                 if (otherScore > complementaryPeptideQueue.peek().getScore()) {
                                     complementaryPeptideQueue.poll();
                                     complementaryPeptideQueue.add(scanName_TopPeptide_Map.get(otherScanName));
+                                    local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
                                 }
                             }
-
-                            local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
                         }
                     }
                 }
             }
             if (complementaryPeptideQueue.isEmpty()) continue; //
+
+            if (complementaryPeptideQueue.size() == 2) {
+                Peptide[] tmpArray = new Peptide[2];
+                complementaryPeptideQueue.toArray(tmpArray);
+                if (tmpArray[0].getFreeSeq().contentEquals(tmpArray[1].getFreeSeq())) {
+                    complementaryPeptideQueue.poll();
+                }
+            }
+
             int precursorCharge = precursorChargeMap.get(thisScanName);
             int precursorScanNo = 0;
             double precursorMass = precursorMassMap.get(thisScanName);

@@ -1,10 +1,10 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="PT9449" type="Application" factoryName="Application">
+  <configuration default="false" name="PT9449_Unmod" type="Application" factoryName="Application">
     <option name="ALTERNATIVE_JRE_PATH" value="corretto-1.8" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
     <module name="PIPI" />
-    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449.def $USER_HOME$/nashome/Dataset/PXD009449/02_K_Acetyl/02330a_GH1_3990_08_PTM_TrainKit_Kmod_Methyl_200fmol_3xHCD_R1.mgf $USER_HOME$/nashome/Dataset/PXD009449/02_K_Acetyl/" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449.def $USER_HOME$/nashome/Dataset/PXD009449/05_K_Unmod/02330a_GF1_3990_06_PTM_TrainKit_Kmod_Unmod_200fmol_3xHCD_R1_15m140i.mgf $USER_HOME$/nashome/Dataset/PXD009449/05_K_Unmod/" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

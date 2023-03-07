@@ -18,6 +18,9 @@ package ProteomicsLibrary;
 
 import ProteomicsLibrary.Types.AA;
 import ProteomicsLibrary.Types.SparseVector;
+import proteomics.Types.PepInfo;
+import proteomics.Types.Peptide;
+import proteomics.Types.PosMassMap;
 import proteomics.Types.VarPtm;
 
 import java.util.*;
@@ -744,6 +747,32 @@ public class MassTool {
         return xcorr * 0.25;
     }
 
+    public double getScoreWithPtmSeq(String ptmSeq, SparseVector expProcessedPL){
+        int aaI = 0;
+        int startI = -1;
+        int endI = -1;
+        String freeSeq = ptmSeq;
+        Map<Integer, Double> rawPosMassMap = new HashMap<>();
+        for (int anyI = 0; anyI < ptmSeq.length(); anyI++) {
+            char thisChar = ptmSeq.charAt(anyI);
+            if (thisChar == '(') {
+                startI = anyI+1;
+            } else if (thisChar == ')') {
+                endI = anyI;
+                rawPosMassMap.put(aaI-1, Double.valueOf(ptmSeq.substring(startI, endI)));
+                freeSeq = freeSeq.replaceFirst("\\("+ptmSeq.substring(startI, endI)+"\\)", "");
+            } else if (Character.isUpperCase(thisChar)){
+                aaI++;
+            }
+        }
+        PosMassMap fullPosMassMap = new PosMassMap(aaI);
+        for (int pos : rawPosMassMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+            fullPosMassMap.put(pos, rawPosMassMap.get(pos)); // copy the ptms from partModPepsUnsettled
+        }
+        Peptide peptide = new Peptide(freeSeq, true, this, 1, 0.999, 0);// these paras are dummy answer will be deleted
+        peptide.setVarPTM(fullPosMassMap);
+        return this.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions);
+    }
     public double buildVectorAndCalXCorr(double[][] ionMatrix, int precursorCharge, SparseVector xcorrPL,Map<Integer, Double> matchedBions, Map<Integer, Double> matchedYions) {
         int colNum = ionMatrix[0].length;
         int rowNum = Math.min(ionMatrix.length / 2, precursorCharge - 1) * 2;

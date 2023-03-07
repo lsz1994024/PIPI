@@ -104,7 +104,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             lock.unlock();
         }
 
-
+        TreeMap<Double, Double> sortedRawPlMap = new TreeMap<>(rawPLMap);
         double minPcMass = -1 * ms1Tolerance;
         double maxPcMass = ms1Tolerance;
         if (ms1ToleranceUnit == 1) {
@@ -139,6 +139,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTagsPrefix(allLongTagList, minTagLenToExtract);
 
         allLongTagList = cleanedAllLongTagList;
+        double s = massTool.getScoreWithPtmSeq("SEDTISK(14.016)M(15.995)NDFM(15.995)R", expProcessedPL);
+
         if (allLongTagList.isEmpty())  return null;
 
         double totalMass = precursorMass + 2 * MassTool.PROTON;
@@ -272,6 +274,22 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             n_tags++;
         }
 
+//        for (String pepSeq : resPeptideListMap.keySet()){
+//            List<Peptide> peptideList = resPeptideListMap.get(pepSeq);
+//            if (peptideList.size() > 1) {
+//                double lastScore = 500;
+//                Collections.sort(peptideList, Comparator.comparing(o->o.getScore(), Comparator.reverseOrder()));
+//                for (int i = 0; i < peptideList.size(); i++) {
+//                    if (peptideList.get(i).getScore() > 0.99* lastScore
+//                    && !peptideList.get(i-1).getVarPtmContainingSeqNow().contentEquals(peptideList.get(i).getVarPtmContainingSeqNow())
+//                    ) {
+//                        System.out.println(scanNum + "," + pepSeq + "," + resPeptideListMap.get(pepSeq).get(i-1).getVarPtmContainingSeqNow() + "," + peptideList.get(i-1).getScore()
+//                                +"," + peptideList.get(i).getVarPtmContainingSeqNow() + ","+ peptideList.get(i).getScore());
+//                    }
+//                    lastScore = peptideList.get(i).getScore();
+//                }
+//            }
+//        }
         TreeSet<Peptide> peptideSet = new TreeSet<>(Collections.reverseOrder());
         if (!resPeptideListMap.isEmpty()) {
             for (String pepSeq : resPeptideListMap.keySet()) {
@@ -369,14 +387,13 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         );
         entry.topPeptide = topPep;
         entry.topPeptide.precursorMass = precursorMass;
+        entry.varPtmList.addAll(topPep.posVarPtmResMap.values());
         for (Peptide peptide : peptideArray) {
             entry.peptideInfoMapForRef.put(peptide.getFreeSeq(), peptideInfoMap.get(peptide.getFreeSeq()));
         }
 //        System.out.println(scanNum + ","+entry.peptideInfoMapForRef.size() + "," + peptideArray.length);
         if (lszDebugScanNum.contains(scanNum)){
-            if (peptideInfoMap.containsKey(truth)) {
-                int a = 1;
-            }
+            int a = 1;
         }
         int c = 1;
 
@@ -668,7 +685,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 String freePepSeq = protSeq.substring(nPos, cPos+1);
                 StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
                 ptmPepSeqSB.replace(tagPosInPep, tagPosInPep+finderTag.size(), finderTag.getPtmAaString());
-
                 Peptide peptide = new Peptide(freePepSeq, true, massTool, 1, 0.999, 0);// these paras are dummy answer will be deleted
                 peptide.tagPosInPep = tagPosInPep;
                 peptide.ptmSeq = ptmPepSeqSB.toString();
@@ -792,6 +808,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         final int ptmNum;
         final int isSettled;
         final int shouldPtm;
+
+        List<VarPtm> varPtmList = new ArrayList<>();
         Entry(int scanNum, String scanName, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass
                 ,String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient
                 , double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac
