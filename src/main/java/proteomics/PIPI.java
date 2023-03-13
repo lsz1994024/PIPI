@@ -78,7 +78,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(30314));//35581 16918, 16847,16457,16483,
+    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(1447,1451,1458));//35581 16918, 16847,16457,16483,
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -580,7 +580,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 2) {
+                if (Math.abs(scanNum-debugScanNum) < 1000) {
                     shouldRun = true;
                 }
             }
@@ -608,6 +608,7 @@ public class PIPI {
         }
         Map<String, Map<String, PeptideInfo>> scanNamePeptideInfoMap = new HashMap<>();
         Map<String, Peptide> scanName_TopPeptide_Map = new HashMap<>();
+        Map<String, String> scanName_PepString_Map = new HashMap<>();
         Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
         PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, globalRank, normalizedCorrelationCoefficient, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConSpecCoder.setAutoCommit(false);
@@ -669,6 +670,7 @@ public class PIPI {
                             local_pcMassScanNameMap.put(entry.precursorMass, scanNumSet);
                         }
                         scanName_TopPeptide_Map.put(entry.scanName, entry.topPeptide);
+                        scanName_PepString_Map.put(entry.scanName, entry.peptideSet);
 
                         ++resultCountBone;
                     }
@@ -753,7 +755,7 @@ public class PIPI {
 
             TreeMap<Double, Set<String>> local_other_pcMassScanNameMap = fileId_pcMassScanNameMap.get(thisFileId);
             for (int i = 0; i <= 0; i++) {
-                for (Set<String> otherScanNameSet : local_other_pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - 0.02, true, mass + i*MassTool.PROTON + 0.02, true).values()) {
+                for (Set<String> otherScanNameSet : local_other_pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - mass*ms1Tolerance*1e-6, true, mass + i*MassTool.PROTON + mass*ms1Tolerance*1e-6, true).values()) {
                     for (String otherScanName : otherScanNameSet) {
                         int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
                         if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
@@ -761,8 +763,9 @@ public class PIPI {
                             double otherScore = scanName_TopPeptide_Map.get(otherScanName).getScore();
 
                             if (
-//                                    otherPepString.contentEquals(thisPepString) ||
-                                    otherScore < thisScore * 0.95 )  // when the other pepstring is the same or the score is not good enough, we skip
+//                                    otherPepString.contentEquals(thisPepString)||
+                                            otherScore <= thisScore * 0.8
+                            )  // when the other pepstring is the same or the score is not good enough, we skip
                             {
                                 continue;
                             }
@@ -770,11 +773,13 @@ public class PIPI {
                             if (complementaryPeptideQueue.size() < n_complementaryPeptides) {
                                 complementaryPeptideQueue.add(scanName_TopPeptide_Map.get(otherScanName));
                                 local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
+                                System.out.println(otherScanName + ",borrows");
                             } else {
                                 if (otherScore > complementaryPeptideQueue.peek().getScore()) {
                                     complementaryPeptideQueue.poll();
                                     complementaryPeptideQueue.add(scanName_TopPeptide_Map.get(otherScanName));
                                     local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
+                                    System.out.println(otherScanName + ",borrows");
                                 }
                             }
                         }
@@ -786,7 +791,7 @@ public class PIPI {
             if (complementaryPeptideQueue.size() == 2) {
                 Peptide[] tmpArray = new Peptide[2];
                 complementaryPeptideQueue.toArray(tmpArray);
-                if (tmpArray[0].getFreeSeq().contentEquals(tmpArray[1].getFreeSeq())) {
+                if (tmpArray[0].getVarPtmContainingSeqNow().contentEquals(tmpArray[1].getVarPtmContainingSeqNow())) {
                     complementaryPeptideQueue.poll();
                 }
             }
@@ -794,7 +799,7 @@ public class PIPI {
             int precursorCharge = precursorChargeMap.get(thisScanName);
             int precursorScanNo = 0;
             double precursorMass = precursorMassMap.get(thisScanName);
-            submitTimePtm++;
+            submitTimePtm++; // this is super large??
 //            System.out.println(thisScanName+" ptmSearch:");
             taskListPTM.add(threadPoolPtm.submit(new PtmSearch(thisScanNum, buildIndex, massTool, ms1Tolerance
                     , leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance
@@ -820,6 +825,9 @@ public class PIPI {
                     if (task.get() != null) {
                         PtmSearch.Entry entry = task.get();
 
+                        if (lszDebugScanNum.contains(entry.scanNum)) {
+                            int a = 1;
+                        }
                         if (  scanName_TopPeptide_Map.containsKey(entry.scanName)
                             && entry.score < scanName_TopPeptide_Map.get(entry.scanName).getScore()) {
                             toBeDeleteTaskList.add(task);
@@ -850,7 +858,15 @@ public class PIPI {
                         sqlPreparedStatementPTM.setString(21, entry.otherPtmPatterns);
                         sqlPreparedStatementPTM.setString(22, entry.aScore);
                         sqlPreparedStatementPTM.setString(23, entry.candidates);
-                        sqlPreparedStatementPTM.setString(24, entry.peptideSet);
+                        String peptideSetStr = null;
+                        if (  scanName_PepString_Map.containsKey(entry.scanName) ){
+//                            peptide.getVarPtmContainingSeqNow() + "," + peptide.getScore() + "," + String.join("_", peptideInfo.protIdSet) +",";
+                            peptideSetStr = entry.peptide + "," + entry.score + "," + String.join("_", allPeptideInfoMap.get(entry.peptide.replaceAll("[(\\[][^A-Znc()\\[\\]]+[)\\]]", "")).protIdSet)
+                                    +"," + scanName_PepString_Map.get(entry.scanName);
+                        } else {
+                            peptideSetStr = entry.peptideSet;
+                        }
+                        sqlPreparedStatementPTM.setString(24, peptideSetStr); //if a better complementary pep comes, need to insert it in the front
                         sqlPreparedStatementPTM.setInt(25, entry.whereIsTopCand);
                         sqlPreparedStatementPTM.setInt(26, entry.shouldPtm);
                         sqlPreparedStatementPTM.setInt(27, entry.hasPTM);
@@ -904,7 +920,7 @@ public class PIPI {
         }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        pfm(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName);
+        pfm(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName, varPtmCountMap);
 
         writePercolator(percolatorInputFileName, allPeptideInfoMap, sqlPath);
         Map<String, PercolatorEntry> percolatorResultMap = null;
@@ -1122,18 +1138,71 @@ public class PIPI {
             this.charge = charge;
         }
     }
-    class CandiScore{
+    class CandiScore implements Comparable<CandiScore>{
         public String ptmContainingSeq;
         public PeptideInfo peptideInfo;
         public double pepScore;
         public double protScore = 0;
+        public double varPtmTotalScore = 0;
         CandiScore(PeptideInfo peptideInfo, double pepScore, String ptmContainingSeq) {
             this.peptideInfo = peptideInfo;
             this.pepScore = pepScore;
             this.ptmContainingSeq = ptmContainingSeq;
         }
+
+        public void setVarPtmTotalScore(Map<String, Double> varPtmStrScoreRefMap) { //varPtmScoreRefMap is like K(14.016)->1.2
+            int startI = -1;
+            double varPtmTotalScore = 0;
+            for (int anyI = 0; anyI < ptmContainingSeq.length(); anyI++) {
+                char thisChar = ptmContainingSeq.charAt(anyI);
+                if (thisChar == '(') {
+                    startI = anyI-1;
+                } else if (thisChar == ')') {
+                    String thisVarPtmStr = ptmContainingSeq.substring(startI, anyI + 1);
+                    if (varPtmStrScoreRefMap.containsKey(thisVarPtmStr)) {
+                        varPtmTotalScore += varPtmStrScoreRefMap.get(thisVarPtmStr);
+                    }
+                }
+            }
+            this.varPtmTotalScore = varPtmTotalScore;
+        }
+        public int compareTo(CandiScore o2) {
+            if (this.protScore < o2.protScore) {
+                return -1;
+            } else if (this.protScore > o2.protScore) {
+                return 1;
+            } else {
+                if (this.varPtmTotalScore < o2.varPtmTotalScore) {
+                    return -1;
+                } else if (this.varPtmTotalScore > o2.varPtmTotalScore) {
+                    return 1;
+                } else {
+                    if (this.pepScore < o2.pepScore) {
+                        return -1;
+                    } else if (this.pepScore > o2.pepScore) {
+                        return 1;
+                    }
+                }
+            }
+            return 0;
+        }
     }
-    private void pfm(String outputDir, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap, MassTool massTool, String hostName) throws IOException, SQLException , CloneNotSupportedException{
+    private void pfm(String outputDir, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap, MassTool massTool, String hostName, Map<VarPtm, Integer> varPtmCountMap) throws IOException, SQLException {
+        //preprocess varPtmCountMap
+        Map<String, Double> varPtmRefScoreMap = new HashMap<>();
+        for (VarPtm varPtm : varPtmCountMap.keySet()) {
+            if (varPtmCountMap.get(varPtm) == 1) {
+                continue; // no need to care for those ptm only appears once because their log10 is naturally 0
+            }
+            varPtmRefScoreMap.put(varPtm.site+"("+InferPTM.df.format(varPtm.mass)+")", Math.log10(varPtmCountMap.get(varPtm)));
+        }
+        List<Map.Entry<VarPtm, Integer>> testList = new ArrayList<>(varPtmCountMap.entrySet());
+        Collections.sort(testList, Comparator.comparing(o->o.getValue(), Comparator.reverseOrder()));
+        for (Map.Entry<VarPtm, Integer> entry : testList) {
+            VarPtm varPtm = entry.getKey();
+            System.out.println(varPtm.site+",("+InferPTM.df.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df.format(Math.log10(varPtmCountMap.get(varPtm))));
+
+        }
         //collect data
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
@@ -1153,6 +1222,9 @@ public class PIPI {
                 int scanNum = sqlResultSet.getInt("scanNum");
                 String scanName = sqlResultSet.getString("scanName");
 
+                if (lszDebugScanNum.contains(scanNum)) {
+                    int a = 1;
+                }
                 String[] candiSetStr = peptideSet.split(",");
                 int numPep = candiSetStr.length/3;
 
@@ -1171,7 +1243,9 @@ public class PIPI {
                             break;
                         }
                     }
-                    candiScoreList.add(new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq)); //peptideInfo and their score
+                    CandiScore candiScore = new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq);
+                    candiScore.setVarPtmTotalScore(varPtmRefScoreMap);
+                    candiScoreList.add(candiScore); //peptideInfo and their score
                 }
                 Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
                 scanResList.add(new ScanRes(scanName, scanNum, expMass, candiScoreList, charge));
@@ -1190,15 +1264,6 @@ public class PIPI {
                         protPepScoreMap.put(protId, pepScoreMap);
                     }
                 }
-//                String scanName = sqlResultSet.getString("scanName");
-//                int isDecoy = sqlResultSet.getInt("isDecoy");
-//                int globalRank = sqlResultSet.getInt("globalRank");
-//                double normalizedCorrelationCoefficient = sqlResultSet.getDouble("normalizedCorrelationCoefficient");
-//                double deltaLCn = sqlResultSet.getDouble("deltaLCn");
-//                double deltaCn = sqlResultSet.getDouble("deltaCn");
-//                double ionFrac = sqlResultSet.getDouble("ionFrac");
-//                double matchedHighestIntensityFrac = sqlResultSet.getDouble("matchedHighestIntensityFrac");
-//                double explainedAaFrac = sqlResultSet.getDouble("explainedAaFrac");
             }
         }
         sqlResultSet.close();
@@ -1221,8 +1286,6 @@ public class PIPI {
         //normalize prot score
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
-//            protScoreMap.put(protId, protScoreMap.get(protId) / massTool.dummyDigest(protSeqMap.get(protId), 0).size());
-//            System.out.println(protId + "," + protScoreMap.get(protId));
         }
         //===============================
 
@@ -1286,8 +1349,14 @@ public class PIPI {
 
 
         System.out.println("end ori start new");
+//        for (ScanRes scanRes : scanResList) {
+//            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
+//        }
         for (ScanRes scanRes : scanResList) {
-            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
+            if (lszDebugScanNum.contains(scanRes.scanNum)) {
+                int a = 1;
+            }
+            Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
         }
 
         Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
@@ -1323,6 +1392,9 @@ public class PIPI {
 //        Map<Integer, TempRes> scanNumFinalScoreMap = new HashMap<>();
         List<Pair<Double, String>> finalExcelList = new ArrayList<>(scanResList.size());
         for (ScanRes scanRes : scanResList) {
+            if (lszDebugScanNum.contains(scanRes.scanNum)) {
+                int a = 1;
+            }
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
             CandiScore topCandi = candiScoreList.get(0);
             StringBuilder str = new StringBuilder();

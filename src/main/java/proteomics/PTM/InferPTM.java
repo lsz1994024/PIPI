@@ -1060,9 +1060,12 @@ public class InferPTM {
                 if (Math.abs(totalDeltaMass - thisPtm.mass) <= 0.01){
                     scoreLb = lastPeptide.getScore()-1;
                 }
-                if (thisPriority == 1 || refVarPtmSet.contains(thisPtm)) { // if this ptm comes from the complementary peptide it should be priorized
+                if (thisPriority == 1 ) { // if this ptm comes from the complementary peptide it should be priorized
                     scoreLb = -1;
                     score *= 2; //todo change it to that the priority one is only to consider not replacing the original one
+                }
+                if (refVarPtmSet.contains(thisPtm)) { // this is very important for synthetic dataset
+                    score *= 1;
                 }
                 if (score > scoreLb) {
                     peptide.setScore(score);

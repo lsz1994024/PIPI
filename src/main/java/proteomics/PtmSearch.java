@@ -167,14 +167,16 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                 if (modPepsSettled.peptideTreeSet.isEmpty()) {
                     continue; // how could it be return!!!
                 }
-                for (Peptide tempPeptide : modPepsSettled.getPeptideTreeSet()) {
-                    tempPeptide.bestPep = modPepsSettled.bestPep;
-                    if (tempPeptide.getScore() > 0) {
-                        if (peptideSet.size() < candisNum) {
-                            peptideSet.add(tempPeptide);
-                        } else if (tempPeptide.getScore() > peptideSet.last().getScore()) {
-                            peptideSet.pollLast();
-                            peptideSet.add(tempPeptide);
+                double topScore = modPepsSettled.getTopPepPtn().getScore();
+                for (Peptide candiPep : modPepsSettled.getPeptideTreeSet()) {
+                    if (candiPep.getScore() > 0.95* topScore){
+                        if (candiPep.getScore() > 0) {
+                            if (peptideSet.size() < candisNum) {
+                                peptideSet.add(candiPep);
+                            } else if (candiPep.getScore() > peptideSet.last().getScore()) {
+                                peptideSet.pollLast();
+                                peptideSet.add(candiPep);
+                            }
                         }
                     }
                 }
@@ -251,8 +253,12 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
                     int jPriority = pepList.get(j).getPriority();
                     if (iPriority < jPriority) {
                         pepIdsToRemove.add(i);
-                    } else  {
+                    } else if (iPriority > jPriority) {
                         pepIdsToRemove.add(j);
+                    } else {// iPriority == jPriority
+                        if (0.95*pepList.get(i).getScore() > pepList.get(j).getScore()) {
+                            pepIdsToRemove.add(j);
+                        }
                     }
 //                        break;
                 }
