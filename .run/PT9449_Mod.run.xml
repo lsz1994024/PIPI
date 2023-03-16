@@ -4,7 +4,7 @@
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
     <module name="PIPI" />
-    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449.def $USER_HOME$/nashome/Dataset/PXD009449/11_P_Hydroxyproline/02330a_GH3_3991_13_PTM_TrainKit_Pmod_Hydroxyproline_200fmol_3xHCD_R1_15m140i.mgf $USER_HOME$/nashome/Dataset/PXD009449/11_P_Hydroxyproline/" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449.def $USER_HOME$/nashome/Dataset/PXD009449/07_K_Crotonyl/02330a_GA3_3991_06_PTM_TrainKit_Kmod_Crotonyl_200fmol_3xHCD_R1_15m140i.mgf $USER_HOME$/nashome/Dataset/PXD009449/07_K_Crotonyl/" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

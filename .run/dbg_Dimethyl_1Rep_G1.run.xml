@@ -3,7 +3,7 @@
     <output_file path="$USER_HOME$/Data/PXD005590/log.txt" is_save="true" />
     <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
     <module name="PIPI" />
-    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/Dimethyl.def $USER_HOME$/Data/Dimethyl_1Rep/G1/deisotope/MS200117_R03_15m140i.mgf $USER_HOME$/nashome/ResNas/Dimethyl_1Rep_Res/G1/" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/Dimethyl.def $USER_HOME$/Data/Dimethyl_1Rep/G1/deisotope/MS200117_R02_15m140i.mgf $USER_HOME$/nashome/ResNas/Dimethyl_1Rep_Res/G1/" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

@@ -78,7 +78,8 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static final ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(1447,1451,1458));//35581 16918, 16847,16457,16483,
+    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(49218,48937));//35581 16918, 16847,16457,16483,
+    public static int neighborNum = 100;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -580,7 +581,7 @@ public class PIPI {
             int scanNum = Integer.valueOf(scanNameStr[2]);
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 1000) {
+                if (Math.abs(scanNum-debugScanNum) < neighborNum) {
                     shouldRun = true;
                 }
             }
@@ -733,7 +734,7 @@ public class PIPI {
         Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
         int submitTimePtm = 0;
 
-        int n_complementaryPeptides = 2;
+        int n_complementaryPeptides = 5;
         for (String thisScanName : validScanSet) {
             int thisFileId = fileNameIdMap.get( thisScanName.split("\\.")[0] );
             double mass = precursorMassMap.get(thisScanName);
@@ -743,14 +744,15 @@ public class PIPI {
                 int a = 1;
             }
 
-            String thisPepString = "XFAKEPEP";
+            String thisPtmSeq = "XFAKEPEP";
             double thisScore = 0d;
             if (scanName_TopPeptide_Map.containsKey(thisScanName)) {
-                thisPepString = scanName_TopPeptide_Map.get(thisScanName).getFreeSeq();
+                thisPtmSeq = scanName_TopPeptide_Map.get(thisScanName).getVarPtmContainingSeqNow();
                 thisScore = scanName_TopPeptide_Map.get(thisScanName).getScore();
             }
 
             PriorityQueue<Peptide> complementaryPeptideQueue = new PriorityQueue<>(n_complementaryPeptides);
+            Map<String, TreeMap<Integer, VarPtm>> ptmSeq_posVarPtmMap_Map = new HashMap<>();
             Map<String, PeptideInfo> local_PepSeq_PeptideInfo_Map = new HashMap<>();
 
             TreeMap<Double, Set<String>> local_other_pcMassScanNameMap = fileId_pcMassScanNameMap.get(thisFileId);
@@ -758,44 +760,25 @@ public class PIPI {
                 for (Set<String> otherScanNameSet : local_other_pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - mass*ms1Tolerance*1e-6, true, mass + i*MassTool.PROTON + mass*ms1Tolerance*1e-6, true).values()) {
                     for (String otherScanName : otherScanNameSet) {
                         int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
-                        if (otherScanNum < thisScanNum+1000 && otherScanNum > thisScanNum-1000 && otherScanNum != thisScanNum) {
-                            String otherPepString = scanName_TopPeptide_Map.get(otherScanName).getFreeSeq();
-                            double otherScore = scanName_TopPeptide_Map.get(otherScanName).getScore();
+                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
+                            String otherPtmSeq = scanName_TopPeptide_Map.get(otherScanName).getVarPtmContainingSeqNow();
+                            String otherFreeSeq = scanName_TopPeptide_Map.get(otherScanName).getFreeSeq();
 
-                            if (
-//                                    otherPepString.contentEquals(thisPepString)||
-                                            otherScore <= thisScore * 0.8
-                            )  // when the other pepstring is the same or the score is not good enough, we skip
-                            {
-                                continue;
-                            }
+                            if (otherPtmSeq.contentEquals(thisPtmSeq)) continue;
 
-                            if (complementaryPeptideQueue.size() < n_complementaryPeptides) {
-                                complementaryPeptideQueue.add(scanName_TopPeptide_Map.get(otherScanName));
-                                local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
-                                System.out.println(otherScanName + ",borrows");
-                            } else {
-                                if (otherScore > complementaryPeptideQueue.peek().getScore()) {
-                                    complementaryPeptideQueue.poll();
-                                    complementaryPeptideQueue.add(scanName_TopPeptide_Map.get(otherScanName));
-                                    local_PepSeq_PeptideInfo_Map.put(otherPepString, allPeptideInfoMap.get(otherPepString).clone());
-                                    System.out.println(otherScanName + ",borrows");
-                                }
+                            if (!ptmSeq_posVarPtmMap_Map.containsKey(otherPtmSeq)) {
+                                ptmSeq_posVarPtmMap_Map.put(otherPtmSeq, scanName_TopPeptide_Map.get(otherScanName).posVarPtmResMap);
+                                local_PepSeq_PeptideInfo_Map.put(otherFreeSeq, allPeptideInfoMap.get(otherFreeSeq).clone());
                             }
                         }
                     }
                 }
             }
-            if (complementaryPeptideQueue.isEmpty()) continue; //
 
-            if (complementaryPeptideQueue.size() == 2) {
-                Peptide[] tmpArray = new Peptide[2];
-                complementaryPeptideQueue.toArray(tmpArray);
-                if (tmpArray[0].getVarPtmContainingSeqNow().contentEquals(tmpArray[1].getVarPtmContainingSeqNow())) {
-                    complementaryPeptideQueue.poll();
-                }
+            if (ptmSeq_posVarPtmMap_Map.isEmpty()) {
+                continue;
             }
-
+//            System.out.println(thisScanNum + ", " + ptmSeq_posVarPtmMap_Map.size());
             int precursorCharge = precursorChargeMap.get(thisScanName);
             int precursorScanNo = 0;
             double precursorMass = precursorMassMap.get(thisScanName);
@@ -805,7 +788,7 @@ public class PIPI {
                     , leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance
                     , inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
                     , spectraParserArray[thisFileId], minClear, maxClear, lockPtm, thisScanName, precursorCharge
-                    , precursorMass, inferPTM, specProcessor, binomial, complementaryPeptideQueue, local_PepSeq_PeptideInfo_Map)));
+                    , precursorMass, inferPTM, specProcessor, binomial, ptmSeq_posVarPtmMap_Map, local_PepSeq_PeptideInfo_Map)));
 //                }
 //            }
         }
@@ -861,8 +844,7 @@ public class PIPI {
                         String peptideSetStr = null;
                         if (  scanName_PepString_Map.containsKey(entry.scanName) ){
 //                            peptide.getVarPtmContainingSeqNow() + "," + peptide.getScore() + "," + String.join("_", peptideInfo.protIdSet) +",";
-                            peptideSetStr = entry.peptide + "," + entry.score + "," + String.join("_", allPeptideInfoMap.get(entry.peptide.replaceAll("[(\\[][^A-Znc()\\[\\]]+[)\\]]", "")).protIdSet)
-                                    +"," + scanName_PepString_Map.get(entry.scanName);
+                            peptideSetStr = entry.peptideSet + "," + scanName_PepString_Map.get(entry.scanName);
                         } else {
                             peptideSetStr = entry.peptideSet;
                         }
@@ -1194,13 +1176,13 @@ public class PIPI {
             if (varPtmCountMap.get(varPtm) == 1) {
                 continue; // no need to care for those ptm only appears once because their log10 is naturally 0
             }
-            varPtmRefScoreMap.put(varPtm.site+"("+InferPTM.df.format(varPtm.mass)+")", Math.log10(varPtmCountMap.get(varPtm)));
+            varPtmRefScoreMap.put(varPtm.site+"("+InferPTM.df.format(varPtm.mass)+")", Math.sqrt(varPtmCountMap.get(varPtm)));
         }
         List<Map.Entry<VarPtm, Integer>> testList = new ArrayList<>(varPtmCountMap.entrySet());
         Collections.sort(testList, Comparator.comparing(o->o.getValue(), Comparator.reverseOrder()));
         for (Map.Entry<VarPtm, Integer> entry : testList) {
             VarPtm varPtm = entry.getKey();
-            System.out.println(varPtm.site+",("+InferPTM.df.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df.format(Math.log10(varPtmCountMap.get(varPtm))));
+            System.out.println(varPtm.site+",("+InferPTM.df.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df.format(Math.sqrt(varPtmCountMap.get(varPtm))));
 
         }
         //collect data
@@ -1230,24 +1212,35 @@ public class PIPI {
 
                 PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^A-Z]+", ""));
                 List<CandiScore> candiScoreList = new ArrayList<>();
-                double firstScore = 0;
+//                double firstScore = 0;
                 for (int i = 0; i < numPep; i++) {
                     //dont put in the impossible ones
                     String ptmContainingSeq = candiSetStr[3*i+0];
                     PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(ptmContainingSeq.replaceAll("[^A-Z]+", ""));
                     double thisScore = Double.valueOf(candiSetStr[3*i+1]);
-                    if (i == 0) {
-                        firstScore = thisScore;
-                    } else { //if any non-top candidates have poor score, break.
-                        if (thisScore < firstScore*0.5) {
-                            break;
-                        }
+//                    if (i == 0) {
+//                        firstScore = thisScore;
+//                    } else { //if any non-top candidates have poor score, break.
+//                        if (thisScore < firstScore*0.5) {
+//                            break; // this is very bad for complementary  because good score may just be at the end of it since it is concatnated pepSetString
+//                        }
+//                    }
+                    if (lszDebugScanNum.contains(scanNum) ){
+                        System.out.println(ptmContainingSeq + ", "+ thisScore);
                     }
                     CandiScore candiScore = new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq);
                     candiScore.setVarPtmTotalScore(varPtmRefScoreMap);
                     candiScoreList.add(candiScore); //peptideInfo and their score
                 }
                 Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
+                double topPepScore = candiScoreList.get(0).pepScore;
+                Iterator<CandiScore> iter = candiScoreList.iterator();
+                while (iter.hasNext()) {
+                    CandiScore candiScore = iter.next();
+                    if (candiScore.pepScore < 0.5 * topPepScore) {
+                        iter.remove();
+                    }
+                }
                 scanResList.add(new ScanRes(scanName, scanNum, expMass, candiScoreList, charge));
 
                 for (String protId : pepInfo.protIdSet){

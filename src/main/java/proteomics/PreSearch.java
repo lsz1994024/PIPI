@@ -115,7 +115,10 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
 
         double ms1TolAbs = Double.parseDouble(InferPTM.df.format(precursorMass*ms1Tolerance/1000000));
-
+        if (lszDebugScanNum.contains(this.scanNum)) {
+            System.out.println(scanNum + ", entered");
+            int a = 1;
+        }
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
 
         if (plMap.isEmpty()) return null;
@@ -297,11 +300,11 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 Collections.sort(peptideList, Comparator.comparing(o->o.getScore(), Comparator.reverseOrder()));
                 double topScore = peptideList.get(0).getScore();
                 for (Peptide candiPep : peptideList) {
-                    if (candiPep.getScore() > 0.95* topScore){
+                    if (candiPep.getScore() > 0* topScore){
                         if (candiPep.getScore() > 0) {
                             if (peptideSet.size() < candisNum) {
                                 peptideSet.add(candiPep);
-                            } else if (candiPep.getScore() > peptideSet.last().getScore()) {
+                            } else if (candiPep.compareTo( peptideSet.last() ) == 1) { //use the override '>' to compare because I am considering priority
                                 peptideSet.pollLast();
                                 peptideSet.add(candiPep);
                             }
@@ -327,7 +330,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     } else if (iPriority > jPriority) {
                         pepIdsToRemove.add(j);
                     } else {// iPriority == jPriority
-                        if (0.95*pepList.get(i).getScore() > pepList.get(j).getScore()) {
+
+                        if (onlyDifferUnsettledPtm(pepList.get(i), pepList.get(j))) {
                             pepIdsToRemove.add(j);
                         }
                     }
@@ -421,6 +425,37 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         SparseBooleanVector sbv1 = buildIndex.inferSegment.generateSegmentBooleanVector(p1.getFreeSeq());
         SparseBooleanVector sbv2 = buildIndex.inferSegment.generateSegmentBooleanVector(p2.getFreeSeq());
         return sbv1.dot(sbv2) > 0.3*Math.min(p1.getFreeSeq().length(), p2.getFreeSeq().length());
+    }
+
+    private boolean onlyDifferUnsettledPtm(Peptide p1, Peptide p2) {
+        SparseBooleanVector sbv1 = buildIndex.inferSegment.generateSegmentBooleanVector(p1.getFreeSeq());
+        SparseBooleanVector sbv2 = buildIndex.inferSegment.generateSegmentBooleanVector(p2.getFreeSeq());
+        if (sbv1.dot(sbv2) < 0.3*Math.min(p1.getFreeSeq().length(), p2.getFreeSeq().length())){
+            return false;
+        }
+
+        if (p1.posVarPtmResMap.size() != p2.posVarPtmResMap.size()) {
+            return false;
+        }
+        if (!p1.posVarPtmResMap.keySet().containsAll(p2.posVarPtmResMap.keySet())){
+            return false;
+        }
+        byte n_SameMass = 0;
+        for (int pos : p2.posVarPtmResMap.keySet()) {
+            if (p1.posVarPtmResMap.get(pos).mass == p2.posVarPtmResMap.get(pos).mass) {
+                n_SameMass++;
+            } else if (Math.abs(p1.posVarPtmResMap.get(pos).mass - p2.posVarPtmResMap.get(pos).mass) < 0.02) {
+                if (p1.posVarPtmResMap.get(pos).classification.contains("PIPI_unsettled") || p2.posVarPtmResMap.get(pos).classification.contains("PIPI_unsettled")) {
+                    n_SameMass++;
+                }
+            }
+//            if (Math.abs(p1.posVarPtmResMap.get(pos).mass - p2.posVarPtmResMap.get(pos).mass) < 0.02
+//                    && (p1.posVarPtmResMap.get(pos).classification.contains("PIPI_unsettled") || p2.posVarPtmResMap.get(pos).classification.contains("PIPI_unsettled"))
+//            ) {
+//                n_SameMass++;
+//            }
+        }
+        return n_SameMass == p1.posVarPtmResMap.size();
     }
     private boolean alreadySearched(ExpTag tagInfo, Set<ExpTag> usedTagInfoSet) {
         boolean res = false;
@@ -623,7 +658,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 double topScore = cPartPepsWithPtm.getTopPepPtn().getScore();
                 boolean shouldSkip = true;
                 for (Peptide peptide : cPartPepsWithPtm.peptideTreeSet){
-                    if (peptide.getScore() > 0.95 *topScore){
+                    if (peptide.getScore() >= 0.5 *topScore){
                         if (!peptide.posVarPtmResMap.isEmpty()){
                             cPosVarPtmResMap_List.add(peptide.posVarPtmResMap);
                             shouldSkip = false;
@@ -696,7 +731,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     double topScore = nPartpepsWithPtm.getTopPepPtn().getScore();
                     boolean shouldSkip = true;
                     for (Peptide peptide : nPartpepsWithPtm.peptideTreeSet) {
-                        if (peptide.getScore() > 0.95 * topScore) {
+                        if (peptide.getScore() >= 0.5 * topScore) {
                             if (!peptide.posVarPtmResMap.isEmpty()) {
                                 nPosVarPtmResMap_List.add(peptide.posVarPtmResMap);
                                 shouldSkip = false;

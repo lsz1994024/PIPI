@@ -119,7 +119,7 @@ public class SpecProcessor {
         if (newPlMap.subMap(0d, precursorMass).isEmpty()) {
             return new TreeMap<>();
         } else {
-            return topNStyleNormalization(sqrtPL(new TreeMap<>(newPlMap.subMap(0d, precursorMass))), topN);
+            return topNStyleNormalization(sqrtPL(new TreeMap<>(newPlMap.subMap(0d, precursorMass))), topN); //todo this deletes the precursorMass peak, ie the b-end ion and y-end ion
         }
     }
 
