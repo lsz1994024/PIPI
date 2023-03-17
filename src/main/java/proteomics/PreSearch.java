@@ -381,8 +381,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         entry = new PreSearch.Entry(
                 scanNum, scanName, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0
                 , precursorCharge, precursorMass, buildIndex.getLabelling(), topPep.getPtmContainingSeq(buildIndex.returnFixModMap())
-                , topPep.getTheoMass(), topPep.isDecoy() ? 1 : 0, topPep.getGlobalRank()
-                , topPep.getTagVecScore(), topPep.getScore(), deltaLCn, deltaCn
+                , topPep.getTheoMass(), topPep.isDecoy() ? 1 : 0, topPep.getScore(), deltaLCn, deltaCn
                 , topPep.getMatchedPeakNum(), topPep.getIonFrac(), topPep.getMatchedHighestIntensityFrac()
                 , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore(), ""
                 , pepSetString.substring(0, pepSetString.length()-1)
@@ -809,7 +808,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
 
                 if (posVarPtmResMap_List.isEmpty()){
-                    Peptide peptide = new Peptide(freePepSeq, true, massTool, 1, 0.999, 0);// these paras are dummy answer will be deleted
+                    Peptide peptide = new Peptide(freePepSeq, true, massTool);// these paras are dummy answer will be deleted
                     peptide.tagPosInPep = tagPosInPep;
                     peptide.ptmSeq = ptmPepSeqSB.toString();
                     peptide.finderTag = finderTag;
@@ -828,7 +827,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }else {
                     for (int i = 0; i < posVarPtmResMap_List.size(); i++) {
-                        Peptide peptide = new Peptide(freePepSeq, true, massTool, 1, 0.999, 0);// these paras are dummy answer will be deleted
+                        Peptide peptide = new Peptide(freePepSeq, true, massTool);// these paras are dummy answer will be deleted
                         peptide.tagPosInPep = tagPosInPep;
                         peptide.ptmSeq = ptmPepSeqSB.toString();
                         peptide.finderTag = finderTag;
@@ -916,8 +915,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         public final String peptide;
         final double theoMass;
         final int isDecoy;
-        final int globalRank;
-        final double normalizedCorrelationCoefficient;
         public final double score;
         final double deltaLCn;
         final double deltaCn;
@@ -936,7 +933,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         List<VarPtm> varPtmList = new ArrayList<>();
         Entry(int scanNum, String scanName, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass
-                ,String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient
+                ,String labelling, String peptide, double theoMass, int isDecoy
                 , double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac
                 , double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet) {
             this.scanNum = scanNum;
@@ -951,8 +948,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             this.peptide = peptide;
             this.theoMass = theoMass;
             this.isDecoy = isDecoy;
-            this.globalRank = globalRank;
-            this.normalizedCorrelationCoefficient = normalizedCorrelationCoefficient;
             this.score = score;
             this.deltaLCn = deltaLCn;
             this.deltaCn = deltaCn;

@@ -183,7 +183,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             for (int pos : refVarPtmMap.keySet()){
                 fullPosMassMap.put(pos, refVarPtmMap.get(pos).mass);
             }
-            Peptide peptide = new Peptide(pepFreeSeq, true, massTool, 1, 0.999, 0);// these paras are dummy answer will be deleted
+            Peptide peptide = new Peptide(pepFreeSeq, true, massTool);// these paras are dummy answer will be deleted
             if (!fullPosMassMap.isEmpty()) {
                 peptide.setVarPTM(fullPosMassMap);
             }
@@ -314,8 +314,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         entry = new Entry(
                 scanNum, scanName, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0
                 , precursorCharge, precursorMass, buildIndex.getLabelling(), topPep.getPtmContainingSeq(buildIndex.returnFixModMap())
-                , topPep.getTheoMass(), topPep.isDecoy() ? 1 : 0, topPep.getGlobalRank()
-                , topPep.getTagVecScore(), topPep.getScore(), deltaLCn, deltaCn
+                , topPep.getTheoMass(), topPep.isDecoy() ? 1 : 0, topPep.getScore(), deltaLCn, deltaCn
                 , topPep.getMatchedPeakNum(), topPep.getIonFrac(), topPep.getMatchedHighestIntensityFrac()
                 , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore(), ""
                 , pepSetString.substring(0, pepSetString.length()-1), whereIsTopCand
@@ -337,8 +336,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         public final String peptide;
         final double theoMass;
         final int isDecoy;
-        final int globalRank;
-        final double normalizedCorrelationCoefficient;
         public final double score;
         final double deltaLCn;
         final double deltaCn;
@@ -356,8 +353,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         final int isSettled;
         final int shouldPtm;
         Entry(int scanNum, String scanName, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass
-                ,String labelling, String peptide, double theoMass, int isDecoy, int globalRank, double normalizedCorrelationCoefficient
-                , double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac
+                ,String labelling, String peptide, double theoMass, int isDecoy, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac
                 , double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet, int whereIsTopCand ) {
             this.scanNum = scanNum;
             this.scanName = scanName;
@@ -371,8 +367,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             this.peptide = peptide;
             this.theoMass = theoMass;
             this.isDecoy = isDecoy;
-            this.globalRank = globalRank;
-            this.normalizedCorrelationCoefficient = normalizedCorrelationCoefficient;
             this.score = score;
             this.deltaLCn = deltaLCn;
             this.deltaCn = deltaCn;

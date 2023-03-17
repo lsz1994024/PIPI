@@ -19,7 +19,6 @@ package proteomics.Types;
 import ProteomicsLibrary.Types.Coordinate;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.MassTool;
-
 import java.util.*;
 
 public class Peptide implements Comparable<Peptide>, Cloneable{
@@ -35,13 +34,9 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public boolean isDecoy;
     private final String normalizedPeptideString;
     private final MassTool massTool;
-    private final int maxMs2Charge;
-    private final int globalRank;
-    private final double tagVecScore;
     public double absDeltaMass = 0d;
     public Peptide bestPep = null;
     private int hashCode;
-//    public boolean shouldPTM = false;
 
     // these fields need to be changed every time PTM changed.
     private PosMassMap varPtmMap = null;
@@ -65,24 +60,18 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public double precursorMass;
     public double calculatedMass;
 
-    public Peptide(String freeSeq, boolean isDecoy, MassTool massTool, int maxMs2Charge, double tagVecScore, int globalRank) {
+    public Peptide(String freeSeq, boolean isDecoy, MassTool massTool) {
         this.freeSeq = freeSeq;
         this.ptmSeq = freeSeq;
         this.isDecoy = isDecoy;
         this.normalizedPeptideString = InferSegment.normalizeSequence(freeSeq);
-        this.tagVecScore = tagVecScore;
         this.massTool = massTool;
-        this.maxMs2Charge = maxMs2Charge;
-        this.globalRank = globalRank;
 
         hashCode = freeSeq.hashCode();
     }
 
     public void setScanNum(int scanNum) {this.scanNum = scanNum;}
 
-    public int getGlobalRank() {
-        return globalRank;
-    }
 
     public int getPriority(){
         int res = 0;
@@ -94,7 +83,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public double[][] getIonMatrix() {
         if (ionMatrix == null) {
             varPtmContainingSeq = getVarPtmContainingSeq();
-            ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+            ionMatrix = massTool.buildIonArray(varPtmContainingSeq);
             theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
         }
         return ionMatrix;
@@ -102,49 +91,10 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
     public double[][] getIonMatrixNow() {
         varPtmContainingSeq = getVarPtmContainingSeqNow();
-        ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+        ionMatrix = massTool.buildIonArray(varPtmContainingSeq);
         theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
         return ionMatrix;
     }
-
-//    public String getVarPtmContainingSeqNow() {
-//        if (varPtmMap != null) {
-//            StringBuilder sb = new StringBuilder(freeSeq.length() * 5);
-//            int tempIdx = varPtmMap.firstKey().y;
-//            if (tempIdx > 1) {
-//                sb.append(freeSeq.substring(0, tempIdx - 1));
-//            }
-//            int i = tempIdx - 1;
-//            tempIdx = varPtmMap.lastKey().y;
-//            while (i < freeSeq.length()) {
-//                boolean hasMod = false;
-//                if (tempIdx > i) {
-//                    for (Coordinate co : varPtmMap.keySet()) {
-//                        if (co.y - 1 == i) {
-//                            sb.append(String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(i), varPtmMap.get(co)));
-//                            hasMod = true;
-//                            ++i;
-//                            break;
-//                        }
-//                    }
-//                    if (!hasMod) {
-//                        sb.append(freeSeq.charAt(i));
-//                        ++i;
-//                    }
-//                } else {
-//                    break;
-//                }
-//            }
-//            if (tempIdx < freeSeq.length()) {
-//                sb.append(freeSeq.substring(tempIdx));
-//            }
-//            varPtmContainingSeq = sb.toString();
-//        } else {
-//            varPtmContainingSeq = freeSeq;
-//        }
-//        return varPtmContainingSeq;
-//    }
-
 
     public String getVarPtmContainingSeqNow() {
         if (varPtmMap != null) {
@@ -184,15 +134,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return varPtmContainingSeq;
     }
 
-//    public double[][] getTheoIonMatrix() {
-//        if (theoIonMatrix == null) {
-//            varPtmContainingSeq = getVarPtmContainingSeq();
-//            theoIonMatrix = massTool.buildTheoBYIonsArray(varPtmContainingSeq, 1);
-//            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-//        }
-//        return theoIonMatrix;
-//    }
-
     public String getNormalizedPeptideString() {
         return normalizedPeptideString;
     }
@@ -204,22 +145,12 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public double getTheoMass() {
         if (theoMass < 0) {
             varPtmContainingSeq = getVarPtmContainingSeq();
-            ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
+            ionMatrix = massTool.buildIonArray(varPtmContainingSeq);
             theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
 //            chargeOneBIonArray = ionMatrix[0];
         }
         return theoMass;
     }
-
-//    public double[] getChargeOneBIonArray() {
-//        if (chargeOneBIonArray == null) {
-//            varPtmContainingSeq = getVarPtmContainingSeq();
-//            ionMatrix = massTool.buildIonArray(varPtmContainingSeq, maxMs2Charge);
-//            theoMass = massTool.calResidueMass(varPtmContainingSeq) + massTool.H2O;
-//            chargeOneBIonArray = ionMatrix[0];
-//        }
-//        return chargeOneBIonArray;
-//    }
 
     @Override
     public boolean equals(Object other) {
@@ -233,7 +164,7 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 
     public Peptide clone() throws CloneNotSupportedException {
         super.clone();//???
-        Peptide other = new Peptide(freeSeq, isDecoy, massTool, maxMs2Charge, tagVecScore, globalRank);
+        Peptide other = new Peptide(freeSeq, isDecoy, massTool);
         if (varPtmMap != null) {
             other.setVarPTM(varPtmMap.clone());
             other.setScore(score);
@@ -400,10 +331,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 ////        }
 //        return ptmContainingSeq;
 //    }
-
-    public double getTagVecScore() {
-        return tagVecScore;
-    }
 
     public void setScore(double score) {
         this.score = score;

@@ -669,7 +669,7 @@ public class MassTool {
         }
         return peptideSeqSet;
     }
-    public double[][] buildIonArray(String sequence, int maxCharge) { // there are n and c in the sequence
+    public double[][] buildIonArray(String sequence) { // there are n and c in the sequence
         AA[] aaArray = seqToAAList(sequence);
 
         double[][] ionArray = new double[2][aaArray.length];
@@ -769,7 +769,7 @@ public class MassTool {
         for (int pos : rawPosMassMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
             fullPosMassMap.put(pos, rawPosMassMap.get(pos)); // copy the ptms from partModPepsUnsettled
         }
-        Peptide peptide = new Peptide(freeSeq, true, this, 1, 0.999, 0);// these paras are dummy answer will be deleted
+        Peptide peptide = new Peptide(freeSeq, true, this);// these paras are dummy answer will be deleted
         peptide.setVarPTM(fullPosMassMap);
         return this.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions);
     }
