@@ -16,7 +16,6 @@
 
 package proteomics;
 
-import ProteomicsLibrary.Score;
 //import gurobi.GRB;
 //import gurobi.GRBEnv;
 //import gurobi.GRBModel;
@@ -37,7 +36,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static proteomics.PIPI.isPtmSimuTest;
 import static proteomics.PIPI.lszDebugScanNum;
-import static proteomics.PTM.InferPTM.*;
 
 public class PtmSearch implements Callable<PtmSearch.Entry> {
     private static final int candisNum = 20;
@@ -160,7 +158,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
         }
-        double ms1TolAbs = Double.parseDouble(InferPTM.df.format(precursorMass*ms1Tolerance/1000000));
+        double ms1TolAbs = Double.parseDouble(InferPTM.df3.format(precursorMass*ms1Tolerance/1000000));
 
         // Coding
         SparseVector expProcessedPL;

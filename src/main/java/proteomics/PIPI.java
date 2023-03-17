@@ -17,9 +17,6 @@
 package proteomics;
 
 import ProteomicsLibrary.*;
-import ProteomicsLibrary.Types.SparseBooleanVector;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +75,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(49218,48937));//35581 16918, 16847,16457,16483,
+    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(49218,49180));//35581 16918, 16847,16457,16483,
     public static int neighborNum = 100;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -1176,13 +1173,13 @@ public class PIPI {
             if (varPtmCountMap.get(varPtm) == 1) {
                 continue; // no need to care for those ptm only appears once because their log10 is naturally 0
             }
-            varPtmRefScoreMap.put(varPtm.site+"("+InferPTM.df.format(varPtm.mass)+")", Math.sqrt(varPtmCountMap.get(varPtm)));
+            varPtmRefScoreMap.put(varPtm.site+"("+InferPTM.df3.format(varPtm.mass)+")", Math.sqrt(varPtmCountMap.get(varPtm)));
         }
         List<Map.Entry<VarPtm, Integer>> testList = new ArrayList<>(varPtmCountMap.entrySet());
         Collections.sort(testList, Comparator.comparing(o->o.getValue(), Comparator.reverseOrder()));
         for (Map.Entry<VarPtm, Integer> entry : testList) {
             VarPtm varPtm = entry.getKey();
-            System.out.println(varPtm.site+",("+InferPTM.df.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df.format(Math.sqrt(varPtmCountMap.get(varPtm))));
+            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
 
         }
         //collect data

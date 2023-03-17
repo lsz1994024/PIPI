@@ -46,7 +46,7 @@ public class InferPTM {
     public static final byte N_TERM_PROT = -1;
     public static final byte NON_TERM_PROT = 0;
     public static final byte C_TERM_PROT = 1;
-    public final static DecimalFormat df = new DecimalFormat("0.000");
+    public final static DecimalFormat df3 = new DecimalFormat("0.000");
 
     private final MassTool massTool;
     private final Map<String, Double> elementTable;
