@@ -400,10 +400,17 @@ public class PIPI {
 //            minTagLenToExtract = 3;
 //        }
         Set<String> reducedProtIdSet = new HashSet<>();
+        int aa = 0;
+
+        for (Pair<String, Double> pair : protScoreLongList){
+            aa++;
+            System.out.println(aa + "," + pair.getFirst() + "," + pair.getSecond());
+        }
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
             ii++;
 //            if (ii > 35000) break;
+
             if (pair.getSecond() < 5000) break;
             reducedProtIdSet.add(pair.getFirst());
         }
@@ -1080,11 +1087,11 @@ public class PIPI {
         }
         List<Map.Entry<VarPtm, Integer>> testList = new ArrayList<>(varPtmCountMap.entrySet());
         Collections.sort(testList, Comparator.comparing(o->o.getValue(), Comparator.reverseOrder()));
-        for (Map.Entry<VarPtm, Integer> entry : testList) {
-            VarPtm varPtm = entry.getKey();
-            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
-
-        }
+//        for (Map.Entry<VarPtm, Integer> entry : testList) {
+//            VarPtm varPtm = entry.getKey();
+//            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
+//
+//        }
         //collect data
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
@@ -1117,9 +1124,9 @@ public class PIPI {
                     String ptmContainingSeq = candiSetStr[3*i+0];
                     PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(ptmContainingSeq.replaceAll("[^A-Z]+", ""));
                     double thisScore = Double.valueOf(candiSetStr[3*i+1]);
-                    if (lszDebugScanNum.contains(scanNum) ){
-                        System.out.println(ptmContainingSeq + ", "+ thisScore);
-                    }
+//                    if (lszDebugScanNum.contains(scanNum) ){
+//                        System.out.println(ptmContainingSeq + ", "+ thisScore);
+//                    }
                     CandiScore candiScore = new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq);
                     candiScore.setVarPtmTotalScore(varPtmRefScoreMap);
                     candiScoreList.add(candiScore); //peptideInfo and their score
