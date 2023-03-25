@@ -681,9 +681,10 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
 
-                if (isKR(protSeq.charAt(nPos))) {
-                    missCleav++; //current num of missed cleavage
-                }
+//                if (isKR(protSeq.charAt(nPos))) {  //this is not working because the continue above
+//                    missCleav++; //current num of missed cleavage
+//                }
+                missCleav = getNumOfMissCleavSite(protSeq.substring(nPos, cPos));
                 if (missCleav > massTool.missedCleavage && !isPtmSimuTest) {
                     break;         // stop extend to n term
                 }

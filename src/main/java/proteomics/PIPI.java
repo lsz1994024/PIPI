@@ -30,6 +30,7 @@ import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 import uk.ac.ebi.pride.tools.mgf_parser.MgfFile;
 import uk.ac.ebi.pride.tools.mzxml_parser.MzXMLFile;
 
+
 import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -52,7 +53,7 @@ public class PIPI {
 //    static final int minTagLenToExtract = 4;  //normal //todo
 //    static final int maxTagLenToExtract = 99;  //normal //todo
 //    static final boolean nTermSpecific = false; //normal //todo
-    //    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+//    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
 
     ///// ptmTest
 //    public static final boolean isPtmSimuTest = true; //simulation test //todo
@@ -71,11 +72,19 @@ public class PIPI {
     static final int maxTagLenToExtract = 99;  //normal //todo
     static final boolean nTermSpecific = false; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+
+    /// DL simu
+//    public static final boolean isPtmSimuTest = false; //normal //todo
+//    static final boolean usePfmAndReduceDb = true;  //normal //todo
+//    static final int minTagLenToExtract = 3;  //normal //todo
+//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final boolean nTermSpecific = true; //normal //todo
+//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
     ///debuging parameters
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(49218,49180));//35581 16918, 16847,16457,16483,
+    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(36037));//35581 16918, 16847,16457,16483,
     public static int neighborNum = 100;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -293,7 +302,7 @@ public class PIPI {
         int lastProgressGetLongTag = 0;
         int totalCountGetLongTag = taskListGetLongTag.size();
         int countGetLongTag = 0;
-        Map<String, Map<String, Double>> protTagScoreMapMap = new HashMap<>();
+        Map<String, List<GetLongTag.TagRes>> prot_TagResList_Map = new HashMap<>();
         while (countGetLongTag < totalCountGetLongTag) {
             // record search results and delete finished ones.
             List<Future<GetLongTag.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountGetLongTag - countGetLongTag);
@@ -301,32 +310,16 @@ public class PIPI {
                 if (task.isDone()) {
                     if (task.get() != null ) {
                         GetLongTag.Entry entry = task.get();
-                        for (String prot : entry.protTagScoreMap.keySet()){
-                            List<Pair<String, Double>> tagScoreList = entry.protTagScoreMap.get(prot);
-                            if (protTagScoreMapMap.containsKey(prot)) {
-                                Map<String, Double> tagScoreMap =  protTagScoreMapMap.get(prot);
-                                for (Pair<String, Double> tagScore : tagScoreList){
-                                    String tag = tagScore.getFirst();
-                                    if (tagScoreMap.containsKey(tag)){
-                                        tagScoreMap.put(tag, Math.min(tag.length()*2, tagScore.getSecond() + tagScoreMap.get(tag)));
-                                    } else {
-                                        tagScoreMap.put(tag, tagScore.getSecond());
-                                    }
-                                }
+                        for (String prot : entry.prot_TagResList_Map.keySet()){
+                            List<GetLongTag.TagRes> tagResList = entry.prot_TagResList_Map.get(prot);
+                            if  (prot_TagResList_Map.containsKey(prot)) {
+                                prot_TagResList_Map.get(prot).addAll(tagResList);
                             } else {
-                                Map<String, Double> tagScoreMap =  new HashMap<>();
-                                for (Pair<String, Double> tagScore : tagScoreList){
-                                    String tag = tagScore.getFirst();
-                                    if (tagScoreMap.containsKey(tag)){
-                                        tagScoreMap.put(tag, Math.min(tag.length()*2, tagScore.getSecond() + tagScoreMap.get(tag)));
-                                    } else {
-                                        tagScoreMap.put(tag, tagScore.getSecond());
-                                    }
-                                }
-                                protTagScoreMapMap.put(prot, tagScoreMap);
+                                List<GetLongTag.TagRes> tmpTagResList = new LinkedList<>();
+                                tmpTagResList.addAll(tagResList);
+                                prot_TagResList_Map.put(prot, tagResList);
                             }
                         }
-
                     }
 
                     toBeDeleteTaskList.add(task);
@@ -366,33 +359,38 @@ public class PIPI {
         //////////==================================================
         //   Score for Proteins
         Map<String, Integer> protLengthMap = buildIndex.protLengthMap;
-        Map<String, Double> protScoreFinalMap = new HashMap<>();
+        Map<String, Double> protCoverageMap = new HashMap<>();
         Map<String, Integer> tagNumMap = new HashMap<>();
-        for (String prot : protTagScoreMapMap.keySet()){
-            double score = 0;
-            double totalLen = 0;
-            Map<String , Double> tagScoreMap = protTagScoreMapMap.get(prot);
-            if (tagScoreMap.isEmpty()) {
-                continue;
+        for (String prot : prot_TagResList_Map.keySet()){
+            int protLen = buildIndex.protSeqMap.get(prot).length();
+            List<GetLongTag.TagRes> tagResList = prot_TagResList_Map.get(prot);
+            Map<Integer, Double> posProductMap = new HashMap<>(protLen);
+            for (int pos = 0; pos < protLen; pos++) {
+                posProductMap.put(pos, 1.0); //intial, all pos is with 1
             }
-            for  (String tag :tagScoreMap.keySet()) {
-                score += tagScoreMap.get(tag) * tag.length()* tag.length();
-                totalLen+= tag.length();
-            }
-            protScoreFinalMap.put(prot, score*totalLen/Math.sqrt(protLengthMap.get(prot)));
-
-            for (String tag :tagScoreMap.keySet()) {
-                if (tagNumMap.containsKey(tag)) {
-                    tagNumMap.put(tag, tagNumMap.get(tag)+1);
-                } else {
-                    tagNumMap.put(tag, 1);
+            for (GetLongTag.TagRes tagRes : tagResList) {
+                int relPos = tagRes.relPos;
+                List<Double> normedIaaList = tagRes.normedIaaList;
+                for (int aaPos = relPos; aaPos < relPos+tagRes.tagSeq.length(); aaPos++) {
+                    posProductMap.put(aaPos, posProductMap.get(aaPos)*(1- normedIaaList.get(aaPos-relPos)));
                 }
+            } // finish aa cal
+            double tempCoverage = 0;
+            for (int pos : posProductMap.keySet()) {
+                tempCoverage += 1-posProductMap.get(pos);
             }
+            protCoverageMap.put(prot, tempCoverage/protLen);
+
+//            System.out.println(prot + "," + tempCoverage +","+ protLen + "," + tempCoverage/protLen+":");
+//            for (GetLongTag.TagRes tagRes : tagResList) {
+//                System.out.println("   "+ tagRes.tagSeq + ","+tagRes.relPos + ","+tagRes.normedIaaList.stream().mapToDouble(Double::doubleValue).sum());
+//            }
+
         }
 
         List<Pair<String, Double>> protScoreLongList = new ArrayList<>();
-        for (String prot : protScoreFinalMap.keySet()){
-            protScoreLongList.add(new Pair<>(prot, protScoreFinalMap.get(prot)));
+        for (String prot : protCoverageMap.keySet()){
+            protScoreLongList.add(new Pair<>(prot, protCoverageMap.get(prot)));
         }
         Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
 
@@ -404,14 +402,12 @@ public class PIPI {
 
         for (Pair<String, Double> pair : protScoreLongList){
             aa++;
-            System.out.println(aa + "," + pair.getFirst() + "," + pair.getSecond());
+//            System.out.println(aa + "," + pair.getFirst() + "," + pair.getSecond());
         }
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
             ii++;
-//            if (ii > 35000) break;
-
-            if (pair.getSecond() < 5000) break;
+            if (pair.getSecond() < 0.1) break; //0.02 is good for normal and DL dataset.0.1 is good for synthetic
             reducedProtIdSet.add(pair.getFirst());
         }
 
@@ -1042,9 +1038,11 @@ public class PIPI {
         public void setVarPtmTotalScore(Map<String, Double> varPtmStrScoreRefMap) { //varPtmScoreRefMap is like K(14.016)->1.2
             int startI = -1;
             double varPtmTotalScore = 0;
+            int n_PtmOnPep = 0;
             for (int anyI = 0; anyI < ptmContainingSeq.length(); anyI++) {
                 char thisChar = ptmContainingSeq.charAt(anyI);
                 if (thisChar == '(') {
+                    n_PtmOnPep++;
                     startI = anyI-1;
                 } else if (thisChar == ')') {
                     String thisVarPtmStr = ptmContainingSeq.substring(startI, anyI + 1);
@@ -1053,7 +1051,7 @@ public class PIPI {
                     }
                 }
             }
-            this.varPtmTotalScore = varPtmTotalScore;
+            this.varPtmTotalScore = varPtmTotalScore/n_PtmOnPep;
         }
         public int compareTo(CandiScore o2) {
             if (this.protScore < o2.protScore) {
@@ -1087,11 +1085,21 @@ public class PIPI {
         }
         List<Map.Entry<VarPtm, Integer>> testList = new ArrayList<>(varPtmCountMap.entrySet());
         Collections.sort(testList, Comparator.comparing(o->o.getValue(), Comparator.reverseOrder()));
-//        for (Map.Entry<VarPtm, Integer> entry : testList) {
-//            VarPtm varPtm = entry.getKey();
-//            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
-//
-//        }
+        int j = 0;
+        for (Map.Entry<VarPtm, Integer> entry : testList) {
+            VarPtm varPtm = entry.getKey();
+            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
+            if (j>5) {
+                String varPtmStr = varPtm.site+"("+InferPTM.df3.format(varPtm.mass)+")";
+                varPtmRefScoreMap.remove(varPtmStr);
+            }
+            j++;
+        }
+        for (Map.Entry<VarPtm, Integer> entry : testList) {
+            VarPtm varPtm = entry.getKey();
+            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
+
+        }
         //collect data
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
