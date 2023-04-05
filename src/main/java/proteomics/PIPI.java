@@ -66,21 +66,21 @@ public class PIPI {
     /////
 
     ///synthetic
-    public static final boolean isPtmSimuTest = false; //normal //todo
-    static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 3;  //normal //todo
-    static final int maxTagLenToExtract = 99;  //normal //todo
-    static final boolean nTermSpecific = false; //normal //todo
-    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-
-    /// DL simu
 //    public static final boolean isPtmSimuTest = false; //normal //todo
 //    static final boolean usePfmAndReduceDb = true;  //normal //todo
 //    static final int minTagLenToExtract = 3;  //normal //todo
 //    static final int maxTagLenToExtract = 99;  //normal //todo
-//    static final boolean nTermSpecific = true; //normal //todo
+//    static final boolean nTermSpecific = false; //normal //todo
 //    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    ///debuging parameters
+
+    /// DL simu
+    public static final boolean isPtmSimuTest = false; //normal //todo
+    static final boolean usePfmAndReduceDb = true;  //normal //todo
+    static final int minTagLenToExtract = 3;  //normal //todo
+    static final int maxTagLenToExtract = 99;  //normal //todo
+    static final boolean nTermSpecific = true; //normal //todo
+    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    /debuging parameters
 
 
     public static final int[] debugScanNumArray = new int[]{};
@@ -407,7 +407,7 @@ public class PIPI {
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
             ii++;
-            if (pair.getSecond() < 0.1) break; //0.02 is good for normal and DL dataset.0.1 is good for synthetic
+            if (pair.getSecond() < 0.02) break; //0.02 is good for normal and DL dataset.0.1 is good for synthetic
             reducedProtIdSet.add(pair.getFirst());
         }
 
@@ -901,23 +901,23 @@ public class PIPI {
         pfm(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName, varPtmCountMap);
 
 //        writePercolator(percolatorInputFileName, allPeptideInfoMap, sqlPath);
-        Map<String, PercolatorEntry> percolatorResultMap = null;
-
-        if (parameterMap.get("add_decoy").contentEquals("0")) {
-            logger.warn("add_decoy = 0. Don't estimate FDR.");
-        } else {
-            logger.info("Estimating FDR...");
-            String percolatorOutputFileName = spectraPath + "." + labelling + ".output.temp";
-            String percolatorDecoyOutputFileName = spectraPath + "." + labelling + ".Decoyoutput.temp";
-            String percolatorProteinOutputFileName = spectraPath + "." + labelling + ".protein.tsv";
-            percolatorResultMap = runPercolator(percolatorPath, percolatorInputFileName, percolatorOutputFileName, percolatorDecoyOutputFileName, percolatorProteinOutputFileName, parameterMap.get("db") + ".TD.fasta", parameterMap.get("enzyme_name_1"));
-            if (percolatorResultMap.isEmpty()) {
-                throw new Exception(String.format(Locale.US, "Percolator failed to estimate FDR. Please check if Percolator is installed and the percolator_path in %s is correct.", parameterPath));
-            }
-            if (!outputPercolatorInput) {
-                (new File(percolatorOutputFileName)).delete();
-            }
-        }
+//        Map<String, PercolatorEntry> percolatorResultMap = null;
+//
+//        if (parameterMap.get("add_decoy").contentEquals("0")) {
+//            logger.warn("add_decoy = 0. Don't estimate FDR.");
+//        } else {
+//            logger.info("Estimating FDR...");
+//            String percolatorOutputFileName = spectraPath + "." + labelling + ".output.temp";
+//            String percolatorDecoyOutputFileName = spectraPath + "." + labelling + ".Decoyoutput.temp";
+//            String percolatorProteinOutputFileName = spectraPath + "." + labelling + ".protein.tsv";
+//            percolatorResultMap = runPercolator(percolatorPath, percolatorInputFileName, percolatorOutputFileName, percolatorDecoyOutputFileName, percolatorProteinOutputFileName, parameterMap.get("db") + ".TD.fasta", parameterMap.get("enzyme_name_1"));
+//            if (percolatorResultMap.isEmpty()) {
+//                throw new Exception(String.format(Locale.US, "Percolator failed to estimate FDR. Please check if Percolator is installed and the percolator_path in %s is correct.", parameterPath));
+//            }
+//            if (!outputPercolatorInput) {
+//                (new File(percolatorOutputFileName)).delete();
+//            }
+//        }
 
         if (!outputPercolatorInput) {
             (new File(percolatorInputFileName)).delete();

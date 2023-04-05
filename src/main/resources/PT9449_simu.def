@@ -10,14 +10,14 @@ db = /home/slaiad/Code/PIPI/src/main/resources/sequences.fasta # Protein databas
 # output_dir = /home/slaiad/nashome/ResNas/Dimethyl_1Rep_Res/G1/
 
 database_type = Others # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
-add_decoy = 1           # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
+add_decoy = 1          # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
 add_contaminant = 0     # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
 missed_cleavage = 2     # Maximum number of allowed missed cleavage.l
 min_peptide_length = 6  # Minimum length of a peptide chain.
-max_peptide_length = 50 # Maximum length of a peptide chain.
+max_peptide_length = 35 # Maximum length of a peptide chain.
 
 # Spectrum
-ms_level = 2,3 # The searched MS level.
+ms_level = 2 # The searched MS level.
 
 # Tolerance
 ms1_tolerance_unit = 1 # 0: Da; 1: ppm
