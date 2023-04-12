@@ -48,12 +48,13 @@ public class PIPI {
     static final int minTagLenToReduceProtDb = 5;
 
     //// normal
-//    public static final boolean isPtmSimuTest = false; //normal //todo
-//    static final boolean usePfmAndReduceDb = true;  //normal //todo
-//    static final int minTagLenToExtract = 4;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
-//    static final boolean nTermSpecific = false; //normal //todo
-//    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+    public static final boolean isPtmSimuTest = false; //normal //todo
+    static final boolean usePfmAndReduceDb = true;  //normal //todo
+    static final int minTagLenToExtract = 4;  //normal //todo
+    static final int maxTagLenToExtract = 99;  //normal //todo
+    static final boolean nTermSpecific = false; //normal //todo
+    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
 
     ///// ptmTest
 //    public static final boolean isPtmSimuTest = true; //simulation test //todo
@@ -62,6 +63,8 @@ public class PIPI {
 //    static final int maxTagLenToExtract = 4;  //simulation test //todo
 //    static final boolean nTermSpecific = true; //simulation test //todo
 //    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+//    static final double proteinCovThres = do know;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+
 
     /////
 
@@ -72,14 +75,18 @@ public class PIPI {
 //    static final int maxTagLenToExtract = 99;  //normal //todo
 //    static final boolean nTermSpecific = false; //normal //todo
 //    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+
 
     /// DL simu
-    public static final boolean isPtmSimuTest = false; //normal //todo
-    static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 3;  //normal //todo
-    static final int maxTagLenToExtract = 99;  //normal //todo
-    static final boolean nTermSpecific = true; //normal //todo
-    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    public static final boolean isPtmSimuTest = false; //normal //todo
+//    static final boolean usePfmAndReduceDb = true;  //normal //todo
+//    static final int minTagLenToExtract = 3;  //normal //todo
+//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final boolean nTermSpecific = true; //normal //todo
+//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+
 //    /debuging parameters
 
 
@@ -1108,7 +1115,7 @@ public class PIPI {
 
         List<ScanRes> scanResList = new ArrayList<>();
         while (sqlResultSet.next()) {
-            String peptide = sqlResultSet.getString("peptide"); //this is ptmContaining Seq without n or c
+            String topPeptide = sqlResultSet.getString("peptide"); //this is ptmContaining Seq without n or c
             if (!sqlResultSet.wasNull()) {
                 int charge = sqlResultSet.getInt("precursorCharge");
 //                double theoMass = sqlResultSet.getDouble("theoMass");
@@ -1125,7 +1132,7 @@ public class PIPI {
                 String[] candiSetStr = peptideSet.split(",");
                 int numPep = candiSetStr.length/3;
 
-                PeptideInfo pepInfo = allPeptideInfoMap.get(peptide.replaceAll("[^A-Z]+", ""));
+                PeptideInfo pepInfo = allPeptideInfoMap.get(topPeptide.replaceAll("[^A-Z]+", ""));
                 List<CandiScore> candiScoreList = new ArrayList<>();
                 for (int i = 0; i < numPep; i++) {
                     //dont put in the impossible ones
@@ -1141,10 +1148,12 @@ public class PIPI {
                 }
                 Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
                 double topPepScore = candiScoreList.get(0).pepScore;
+//                System.out.println(scanNum + "," + topPepScore + "," + (candiScoreList.get(0).peptideInfo.isDecoy ? 1 : 0)); // print all top candidates scores
+
                 Iterator<CandiScore> iter = candiScoreList.iterator();
                 while (iter.hasNext()) {
                     CandiScore candiScore = iter.next();
-                    if (candiScore.pepScore < 0.5 * topPepScore) {
+                    if (candiScore.pepScore < 0.5 * topPepScore) { // candidates with score < 0.5* topscore are not consider in PFM
                         iter.remove();
                     }
                 }
@@ -1153,14 +1162,14 @@ public class PIPI {
                 for (String protId : pepInfo.protIdSet){
                     if (protPepScoreMap.containsKey(protId)){
                         Map<String, Double> pepScoreMap = protPepScoreMap.get(protId);
-                        if (pepScoreMap.containsKey(peptide)){
-                            pepScoreMap.put(peptide, Math.max(pepScoreMap.get(peptide), score)); // use max score of repeated peptides for any protein
+                        if (pepScoreMap.containsKey(topPeptide)){
+                            pepScoreMap.put(topPeptide, Math.max(pepScoreMap.get(topPeptide), score)); // use max score of repeated peptides for any protein
                         } else {
-                            pepScoreMap.put(peptide, score);
+                            pepScoreMap.put(topPeptide, score);
                         }
                     } else {
                         Map<String, Double> pepScoreMap = new HashMap<>();
-                        pepScoreMap.put(peptide, score);
+                        pepScoreMap.put(topPeptide, score);
                         protPepScoreMap.put(protId, pepScoreMap);
                     }
                 }
@@ -1186,6 +1195,7 @@ public class PIPI {
         //normalize prot score
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
+//            System.out.println(protId + "," + protScoreMap.get(protId) + "," + protSeqMap.get(protId).length()); // print all top candidates scores
         }
         //===============================
 
