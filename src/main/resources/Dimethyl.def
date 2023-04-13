@@ -7,7 +7,7 @@ percolator_path = /usr/bin/percolator # Please input absolute path of Percolator
 db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target
 #db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target
 # Output directory
-# output_dir = /home/slaiad/nashome/ResNas/Dimethyl_1Rep_Res/G1/
+#output_dir = /home/slaiad/nashome/ResNas/Dimethyl_1Rep_Res/G1/
 
 database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1           # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
@@ -48,21 +48,6 @@ mod05 = 34.063117,X,2,n_X34
 #mod07 = 527.107908,X,0,N_X527
 #mod08 = 526.123892,K,4,any_K526
 #mod09 = 526.123892,X,0,N_X526
-
-# mod02 = 0.0@X!
-# mod03 = 0.0@X%
-# mod04 = 0.0@X^
-# mod05 = 0.0@X&
-# mod06 = 0.0@X*
-# mod07 = 0.0@X+
-# mod08 = 0.0@X<
-# mod09 = 0.0@X>
-# mod10 = 0.0@X?
-
-# Considered N/C-terminal modifications in generating tags.
-# Empty ones must with value 0.0.
-# The maximum number for each terminal is 9.
-# Please only specify enriched PTM and chemical labelling PTM.
 
 # Fix modification
 G = 0
