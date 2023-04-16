@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PT9449_simu" type="Application" factoryName="Application">
+    <option name="ALTERNATIVE_JRE_PATH" value="corretto-1.8" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <output_file path="$USER_HOME$/nashome/Dataset/PXD009449/DLsimu/log.txt" is_save="true" />
+    <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
+    <module name="PIPI" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449_simu.def $USER_HOME$/nashome/Dataset/PXD009449/DLsimu/03/test_2_NumNoise_7_intens_02_to_04_0638.mgf $USER_HOME$/nashome/Dataset/PXD009449/DLsimu/03/" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
