@@ -704,9 +704,9 @@ public class PIPI {
         }
 
 
-//        for (VarPtm varPtm : varPtmCountMap.keySet()){
-//            System.out.println(varPtm.toString() + ","+varPtmCountMap.get(varPtm));
-//        }
+        for (VarPtm varPtm : varPtmCountMap.keySet()){
+            System.out.println("varPtm ,"+varPtm.getStr() + ","+varPtmCountMap.get(varPtm));
+        }
         // shutdown threads.
         threadPoolBone.shutdown();
         if (!threadPoolBone.awaitTermination(60, TimeUnit.SECONDS)) {
@@ -1010,22 +1010,23 @@ public class PIPI {
             }
             varPtmRefScoreMap.put(varPtm.site+"("+InferPTM.df3.format(varPtm.mass)+")", Math.sqrt(varPtmCountMap.get(varPtm)));
         }
-        List<Map.Entry<VarPtm, Integer>> testList = new ArrayList<>(varPtmCountMap.entrySet());
-        Collections.sort(testList, Comparator.comparing(o->o.getValue(), Comparator.reverseOrder()));
+        System.out.println(varPtmCountMap.size());
+        System.out.println(varPtmRefScoreMap.size());
+        List<Map.Entry<String, Double>> testList = new ArrayList<>(varPtmRefScoreMap.entrySet());
+        Collections.sort(testList, Map.Entry.comparingByValue(Comparator.reverseOrder()));
         int j = 0;
-        for (Map.Entry<VarPtm, Integer> entry : testList) {
-            VarPtm varPtm = entry.getKey();
-            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
-            if (j>5) {
-                String varPtmStr = varPtm.site+"("+InferPTM.df3.format(varPtm.mass)+")";
+        for (Map.Entry<String, Double> entry : testList) {
+            String varPtmStr = entry.getKey();
+            System.out.println(varPtmStr+","+InferPTM.df3.format(entry.getValue()) + "," + Math.pow(entry.getValue(),2));
+            if (j>18) {  // this 5 is too small for PT09449 where 17 modification is considered
+                System.out.println("removed, "+ varPtmStr);
                 varPtmRefScoreMap.remove(varPtmStr);
             }
             j++;
         }
-        for (Map.Entry<VarPtm, Integer> entry : testList) {
-            VarPtm varPtm = entry.getKey();
-//            System.out.println(varPtm.site+",("+InferPTM.df3.format(varPtm.mass)+"),"+varPtmCountMap.get(varPtm)+", "+InferPTM.df3.format(Math.sqrt(varPtmCountMap.get(varPtm))));
 
+        for (String varPtmStr : varPtmRefScoreMap.keySet()) {
+            System.out.println("after,"+varPtmStr + "," + InferPTM.df3.format(varPtmRefScoreMap.get(varPtmStr)));
         }
         //collect data
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
@@ -1223,7 +1224,7 @@ public class PIPI {
             }
         }
         BufferedWriter newWriter = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".Proteins.csv"));
-        newWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
+        newWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore\n");
 
 //        Map<Integer, TempRes> scanNumFinalScoreMap = new HashMap<>();
         List<Pair<Double, String>> finalExcelList = new ArrayList<>(scanResList.size());
@@ -1236,7 +1237,7 @@ public class PIPI {
             StringBuilder str = new StringBuilder();
             str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(topCandi.peptideInfo.isDecoy ? 0 : 1);
             for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.peptideInfo.freeSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
+                str.append(","+candiScore.ptmContainingSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore).append(","+candiScore.varPtmTotalScore);
             }
             str.append("\n");
             newWriter.write(str.toString());

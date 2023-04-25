@@ -17,6 +17,8 @@
 package proteomics.Types;
 
 
+import proteomics.PTM.InferPTM;
+
 public class VarPtm implements Comparable<VarPtm>{
 
     public final double mass;
@@ -38,12 +40,12 @@ public class VarPtm implements Comparable<VarPtm>{
         this.classification = classification;
         this.onlyProteinTerminalIfnc = false;
         this.name = name;
-        toString = mass + "@" + site+ "@" + position;
-        hashCode = (mass + "@" + site).hashCode();//var mod only differ by mass and site
+        toString = InferPTM.df3.format(mass) + "@" + site+ "@" + position;
+        hashCode = (InferPTM.df3.format(mass) + "@" + site).hashCode();//var mod only differ by mass and site
     }
 
     public String getStr(){
-        return mass + "@" + site;
+        return InferPTM.df3.format(mass) + "@" + site;
     }
     public int hashCode() {
         return hashCode;
