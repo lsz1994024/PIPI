@@ -1316,12 +1316,19 @@ public class InferPTM {
                 }
                 for (Element spec : modElem.elements("specificity")) {
                     String classification = spec.attributeValue("classification");
-                    if (classification.contentEquals("Isotopic label") || classification.contains("glycos") || classification.contains("Other")) continue;
-
+                    if ( classification.contains("glycos") || classification.contains("Other")) {
+                        continue;
+                    }
 //                    if (!recordIdWithPsiName.contains(recordId) && !classification.contentEquals("AA substitution")) continue;
 
                     String siteStr = spec.attributeValue("site");
                     String positionStr = spec.attributeValue("position");
+                    if (classification.contentEquals("Isotopic label") && !(name.contentEquals("Propionyl") && siteStr.contentEquals("K")) && !(name.contentEquals("Succinyl") && siteStr.contentEquals("K"))) { // only for synthetic ptm data, because the authors uses them
+                        continue;
+                    }
+//                    if (classification.contentEquals("Isotopic label") && !(name.contentEquals("Succinyl") && siteStr.contentEquals("K")) ) {
+//                        continue;
+//                    }
                     int position = 0;
                     switch (positionStr) {
                         case "Protein N-term":

@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PT9449_Mod_21_Y_Nitrotyrosine" type="Application" factoryName="Application">
+    <option name="ALTERNATIVE_JRE_PATH" value="corretto-1.8" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
+    <module name="PIPI" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449.def $USER_HOME$/nashome/Dataset/PXD009449/21_Y_Nitrotyrosine/02330a_GF3_3991_11_PTM_TrainKit_Ymod_Nitrotyr_200fmol_3xHCD_R1_15m140i.mgf $USER_HOME$/nashome/Dataset/PXD009449/21_Y_Nitrotyrosine/" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
