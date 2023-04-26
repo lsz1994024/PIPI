@@ -77,7 +77,7 @@ public class PIPI {
     static final boolean nTermSpecific = false; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
     static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-    static final int  maxNumVarPtmConsidered = 5;
+    static final int  maxNumVarPtmConsidered = 1;
 
 //    / DL simu
 //    public static final boolean isPtmSimuTest = false; //normal //todo
