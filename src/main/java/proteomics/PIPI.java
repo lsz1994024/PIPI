@@ -55,6 +55,7 @@ public class PIPI {
 //    static final boolean nTermSpecific = false; //normal //todo
 //    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
 //    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+//    static final int  maxNumVarPtmConsidered = 5;
 
     ///// ptmTest
 //    public static final boolean isPtmSimuTest = true; //simulation test //todo
@@ -64,29 +65,29 @@ public class PIPI {
 //    static final boolean nTermSpecific = true; //simulation test //todo
 //    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
 //    static final double proteinCovThres = do know;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-
+//    static final int  maxNumVarPtmConsidered = 5;
 
     /////
 
     ///synthetic
-//    public static final boolean isPtmSimuTest = false; //normal //todo
-//    static final boolean usePfmAndReduceDb = true;  //normal //todo
-//    static final int minTagLenToExtract = 3;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
-//    static final boolean nTermSpecific = false; //normal //todo
-//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-//    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-
-
-//    / DL simu
     public static final boolean isPtmSimuTest = false; //normal //todo
     static final boolean usePfmAndReduceDb = true;  //normal //todo
     static final int minTagLenToExtract = 3;  //normal //todo
     static final int maxTagLenToExtract = 99;  //normal //todo
-    static final boolean nTermSpecific = true; //normal //todo
+    static final boolean nTermSpecific = false; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+    static final int  maxNumVarPtmConsidered = 5;
 
+//    / DL simu
+//    public static final boolean isPtmSimuTest = false; //normal //todo
+//    static final boolean usePfmAndReduceDb = true;  //normal //todo
+//    static final int minTagLenToExtract = 3;  //normal //todo
+//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final boolean nTermSpecific = true; //normal //todo
+//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+//    static final int  maxNumVarPtmConsidered = 18;
 //    /debuging parameters
 
 
@@ -1018,7 +1019,7 @@ public class PIPI {
         for (Map.Entry<String, Double> entry : testList) {
             String varPtmStr = entry.getKey();
             System.out.println(varPtmStr+","+InferPTM.df3.format(entry.getValue()) + "," + Math.pow(entry.getValue(),2));
-            if (j>18) {  // this 5 is too small for PT09449 where 17 modification is considered
+            if (j>maxNumVarPtmConsidered) {  // this 5 is too small for PT09449 where 17 modification is considered
                 System.out.println("removed, "+ varPtmStr);
                 varPtmRefScoreMap.remove(varPtmStr);
             }
