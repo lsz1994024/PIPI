@@ -4,16 +4,14 @@ thread_num = 80 # Thread number. Set to 0 to using all the CPU resources in the 
 percolator_path = /usr/bin/percolator # Please input absolute path of Percolator binary file.
 
 # Database
-db = /home/slaiad/Code/PIPI/src/main/resources/sequences.fasta # Protein database. ncbi-soybean-target
-#db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target
-# Output directory
-# output_dir = /home/slaiad/nashome/ResNas/Dimethyl_1Rep_Res/G1/
+db = /home/slaiad/nashome/Dataset/PXD008782/ecoli.fasta # Protein database. uniprot_homo_sapiens
+# db = /home/slaiad/Data/Simulation_Data/fake.fasta # Protein database.
 
-database_type = Others # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
-add_decoy = 1           # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
-add_contaminant = 1     # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
-missed_cleavage = 2     # Maximum number of allowed missed cleavage.l
-min_peptide_length = 6  # Minimum length of a peptide chain.
+database_type = UniProt # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
+add_decoy = 1 # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
+add_contaminant = 1 # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
+missed_cleavage = 2 # Maximum number of allowed missed cleavage.
+min_peptide_length = 6 # Minimum length of a peptide chain.
 max_peptide_length = 50 # Maximum length of a peptide chain.
 
 # Spectrum
@@ -21,15 +19,15 @@ ms_level = 2,3 # The searched MS level.
 
 # Tolerance
 ms1_tolerance_unit = 1 # 0: Da; 1: ppm
-ms1_tolerance = 10
-ms2_tolerance = 0.01 # Unit is Da. e.g. high-resolution MS/MS: 0.01; low-resolution MS/MS: 0.5
+ms1_tolerance = 20
+ms2_tolerance = 0.02 # Unit is Da. e.g. high-resolution MS/MS: 0.01; low-resolution MS/MS: 0.5
 mz_bin_offset = 0 # Offset in digitization the spectrum. e.g. high-resolution MS/MS: 0; low-resolution MS/MS: 0.4
 min_clear_mz = 112.5 # Clear out all peaks in the specified m/z range, mainly for iTRAQ/TMT data.
 max_clear_mz = 121.5
 
 # Modification related
-min_ptm_mass = -50 # Min allowed PTM mass.
-max_ptm_mass = 50 # Max allowed PTM mass.
+min_ptm_mass = -250 # Min allowed PTM mass.
+max_ptm_mass = 250 # Max allowed PTM mass.
 
 # Isotopic labelling strategy
 15N = 0 # 1: 15N. 0: 14N.
@@ -39,12 +37,10 @@ max_ptm_mass = 50 # Max allowed PTM mass.
 # Maximum number is 10.
 # Empty entries must start with 0.0.
 # Please only specify enriched PTM and chemical labelling PTM.
+# mod01 = mass,site,position,name
+# position: 0 protein N, 1 protein C, 2 peptide N, 3 peptide C, 4 anywhere
+# mod01 = 15.994915,M,0,Oxidation
 mod01 = 15.994915,M,4,Oxidation
-
-# Considered N/C-terminal modifications in generating tags.
-# Empty ones must with value 0.0.
-# The maximum number for each terminal is 9.
-# Please only specify enriched PTM and chemical labelling PTM.
 
 # Fix modification
 G = 0

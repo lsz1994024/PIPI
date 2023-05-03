@@ -103,13 +103,13 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             lock.unlock();
         }
 
-        TreeMap<Double, Double> sortedRawPlMap = new TreeMap<>(rawPLMap);
-        double minPcMass = -1 * ms1Tolerance;
-        double maxPcMass = ms1Tolerance;
-        if (ms1ToleranceUnit == 1) {
-            minPcMass = (precursorMass * leftInverseMs1Tolerance);
-            maxPcMass = (precursorMass * rightInverseMs1Tolerance);
-        }
+//        TreeMap<Double, Double> sortedRawPlMap = new TreeMap<>(rawPLMap);
+//        double minPcMass = -1 * ms1Tolerance;
+//        double maxPcMass = ms1Tolerance;
+//        if (ms1ToleranceUnit == 1) {
+//            minPcMass = (precursorMass * leftInverseMs1Tolerance);
+//            maxPcMass = (precursorMass * rightInverseMs1Tolerance);
+//        }
 
 
 
