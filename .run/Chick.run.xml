@@ -3,7 +3,7 @@
     <output_file path="$USER_HOME$/Data/PXD001468/log.txt" is_save="true" />
     <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
     <module name="PIPI" />
-    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/Chick.def $USER_HOME$/Data/PXD001468/b1906_293T_proteinID_01A_QE3_122212.mgf" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/Chick.def $USER_HOME$/nashome/Dataset/PXD001468/ $USER_HOME$/nashome/Dataset/PXD001468/" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

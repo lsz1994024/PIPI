@@ -1292,7 +1292,10 @@ public class InferPTM {
 
     private void readModFromUnimod() throws Exception {
         SAXReader reader = new SAXReader();
-        Document document = reader.read(new File("/home/slaiad/Code/PIPI/src/main/resources/unimod.xml"));
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("unimod.xml"); // PTMs from Unimod except for AA substitutions, isotopic labellings
+//        BufferedReader reader1 = new BufferedReader(new InputStreamReader(inputStream));
+////        inputStream.getClass().
+        Document document = reader.read(inputStream);
         Element rootElement = document.getRootElement();
         Iterator<Element> rootIter = rootElement.elementIterator();
 
