@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="004732" type="Application" factoryName="Application">
+    <output_file path="$USER_HOME$/Data/PXD001468/log.txt" is_save="true" />
+    <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
+    <module name="PIPI" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/004732.def $USER_HOME$/nashome/Dataset/PXD004732/pool001/01625b_GA1-TUM_first_pool_1_01_01-3xHCD-1h-R1.mgf $USER_HOME$/nashome/Dataset/PXD004732/pool001/" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

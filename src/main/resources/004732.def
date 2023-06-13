@@ -4,12 +4,13 @@ thread_num = 80 # Thread number. Set to 0 to using all the CPU resources in the 
 percolator_path = /usr/bin/percolator # Please input absolute path of Percolator binary file.
 
 # Database
-db = /home/slaiad/Data/Simulation_Data/fake.fasta
+db = /home/slaiad/Data/uniprot_homo_sapiens_004732.fasta
+#db = /home/slaiad/nashome/Dataset/PXD004732/uniprot_homo_sapiens_004732.fasta
 database_type = Others # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1 # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
 add_contaminant = 0 # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
-missed_cleavage = 3 # Maximum number of allowed missed cleavage.
-min_peptide_length = 5 # Minimum length of a peptide chain.
+missed_cleavage = 2 # Maximum number of allowed missed cleavage.
+min_peptide_length = 6 # Minimum length of a peptide chain.
 max_peptide_length = 50 # Maximum length of a peptide chain.
 
 # Spectrum
@@ -35,23 +36,9 @@ max_ptm_mass = 250 # Max allowed PTM mass.
 # Maximum number is 10.
 # Empty entries must start with 0.0.
 # Please only specify enriched PTM and chemical labelling PTM.
-mod01 = 15.994915@M~ # Oxidation
-mod02 = 0.0@X!
-mod03 = 0.0@X%
-mod04 = 0.0@X^
-mod05 = 0.0@X&
-mod06 = 0.0@X*
-mod07 = 0.0@X+
-mod08 = 0.0@X<
-mod09 = 0.0@X>
-mod10 = 0.0@X?
+mod01 = 15.994915,M,4,Oxidation
 
-# Considered N/C-terminal modifications in generating tags.
-# Empty ones must with value 0.0.
-# The maximum number for each terminal is 9.
-# Please only specify enriched PTM and chemical labelling PTM.
-Nterm = 0.0
-Cterm = 0.0
+
 
 # Fix modification
 G = 0

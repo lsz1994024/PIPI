@@ -5,7 +5,7 @@
     <output_file path="$USER_HOME$/nashome/Dataset/PXD009449/DLsimu/log.txt" is_save="true" />
     <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
     <module name="PIPI" />
-    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449_simu.def $USER_HOME$/nashome/Dataset/PXD009449/DLsimu/diffNCE/24/test_2_NumNoise_7_intens_01_to_0300_24_0260_rt_24.mgf $USER_HOME$/nashome/Dataset/PXD009449/DLsimu/diffNCE/24/" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/PT9449_simu.def $USER_HOME$/nashome/Dataset/PXD009449/DLsimu/diffNCE/42/test_2_NumNoise_7_intens_01_to_0300_42_0291_rt_42.mgf $USER_HOME$/nashome/Dataset/PXD009449/DLsimu/diffNCE/42/" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>
