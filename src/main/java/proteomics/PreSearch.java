@@ -521,6 +521,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         int numRes = 0;
         SearchInterval searchRes = fmIndex.fmSearchFuzzy(tagChar);
+        if (searchRes == null) {
+            return 0;
+        }
         numRes = searchRes.ep-searchRes.sp+1;
 //        if (numRes > 50) {
 //            return numRes;

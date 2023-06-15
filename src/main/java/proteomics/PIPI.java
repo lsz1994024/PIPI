@@ -716,7 +716,7 @@ public class PIPI {
 
 
         for (VarPtm varPtm : varPtmCountMap.keySet()){
-            System.out.println("varPtm ,"+varPtm.getStr() + ","+varPtmCountMap.get(varPtm));
+//            System.out.println("varPtm ,"+varPtm.getStr() + ","+varPtmCountMap.get(varPtm));
         }
         // shutdown threads.
         threadPoolBone.shutdown();
@@ -1028,9 +1028,9 @@ public class PIPI {
         int j = 0;
         for (Map.Entry<String, Double> entry : testList) {
             String varPtmStr = entry.getKey();
-            System.out.println(varPtmStr+","+InferPTM.df3.format(entry.getValue()) + "," + Math.pow(entry.getValue(),2));
+//            System.out.println(varPtmStr+","+InferPTM.df3.format(entry.getValue()) + "," + Math.pow(entry.getValue(),2));
             if (j>maxNumVarPtmConsidered) {  // this 5 is too small for PT09449 where 17 modification is considered
-                System.out.println("removed, "+ varPtmStr);
+//                System.out.println("removed, "+ varPtmStr);
                 varPtmRefScoreMap.remove(varPtmStr);
             }
             j++;
@@ -1204,7 +1204,12 @@ public class PIPI {
             if (lszDebugScanNum.contains(scanRes.scanNum)) {
                 int a = 1;
             }
-            Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
+            try {
+                Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
+            } catch (Exception e){
+                System.out.println("lsz error +" +scanRes.scanNum);
+            }
+//            Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
         }
 
         Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
@@ -1274,7 +1279,9 @@ public class PIPI {
 
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
+//        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipiV.csv"));
+
         writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {
             writer.write(pair.getSecond());
