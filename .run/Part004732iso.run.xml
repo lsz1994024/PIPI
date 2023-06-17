@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Part004732iso" type="CompoundRunConfigurationType">
+    <toRun name="004732_001" type="Application" />
+    <toRun name="004732_021" type="Application" />
+    <toRun name="004732_041" type="Application" />
+    <toRun name="004732_061" type="Application" />
+    <toRun name="004732_081" type="Application" />
+    <method v="2" />
+  </configuration>
+</component>
