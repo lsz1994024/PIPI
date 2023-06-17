@@ -65,10 +65,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
     private String truth;
     private final double ms2Tolerance;
     private final InferPTM inferPTM;
+    private final int minPepLen;
+    private final int maxPepLen;
     public PreSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms2Tolerance, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance
             , int ms1ToleranceUnit, double minPtmMass, double maxPtmMass, int localMaxMs2Charge
             , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge, double precursorMass
-            , SpecProcessor specProcessor, String truth) {
+            , SpecProcessor specProcessor, String truth, int minPepLen, int maxPepLen) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -91,6 +93,8 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         this.truth = truth;
         this.ms2Tolerance = ms2Tolerance;
         this.inferPTM = buildIndex.getInferPTM();
+        this.minPepLen = minPepLen;
+        this.maxPepLen = maxPepLen;
     }
 
     @Override
@@ -670,6 +674,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             int min_nPos = (finderTag.isNorC == N_TAG && Math.abs(finderTag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? tagPosInProt : 0;  //if it is from N tag and (when fuzzy) it is still N tag
             int max_nPos = (finderTag.isNorC == N_TAG && Math.abs(finderTag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? tagPosInProt : tagPosInProt-1;
             for (int nPos = max_nPos; nPos >= min_nPos; nPos--) {
+                if (cPos+1-nPos < minPepLen){
+                    continue;
+                }
+                else if ( cPos+1-nPos > maxPepLen) {
+                    break;
+                }
                 if (isX(protSeq.charAt(nPos))) break;
                 if (nPos < tagPosInProt) {
                     nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));

@@ -611,7 +611,7 @@ public class PIPI {
             int fileId = fileNameIdMap.get( scanNameStr[0] );
             taskListBone.add(threadPoolBone.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
                     , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor , "dasdsads")));
+                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor , "dasdsads", Integer.valueOf(parameterMap.get("min_peptide_length")), Integer.valueOf(parameterMap.get("max_peptide_length")))));
         }
         System.out.println("totalSubmit in Bone, "+ submitNumBone);
 

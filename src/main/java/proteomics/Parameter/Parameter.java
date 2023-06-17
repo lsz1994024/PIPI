@@ -33,7 +33,7 @@ public class Parameter {
     public Parameter(String parameterFile) throws IOException {
         BufferedReader parameterReader = new BufferedReader(new FileReader(parameterFile));
         String line = parameterReader.readLine().trim();
-        if (!line.contentEquals("# " + PIPI.versionStr)) {
+        if (!line.split(" ")[1].contentEquals(PIPI.versionStr)) {
             throw new IOException(String.format(Locale.US, "The parameter file version (%s) is not compatible with current PIPI version (%s).", line.substring(2), PIPI.versionStr));
         }
         while ((line = parameterReader.readLine()) != null) {
