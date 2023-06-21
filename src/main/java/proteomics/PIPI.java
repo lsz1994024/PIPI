@@ -48,14 +48,14 @@ public class PIPI {
     static final int minTagLenToReduceProtDb = 5;
 
     //// normal
-//    public static final boolean isPtmSimuTest = false; //normal //todo
-//    static final boolean usePfmAndReduceDb = true;  //normal //todo
-//    static final int minTagLenToExtract = 4;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
-//    static final boolean nTermSpecific = false; //normal //todo
-//    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
-//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-//    static final int  maxNumVarPtmConsidered = 5;
+    public static final boolean isPtmSimuTest = false; //normal //todo
+    static final boolean usePfmAndReduceDb = true;  //normal //todo
+    static final int minTagLenToExtract = 4;  //normal //todo
+    static final int maxTagLenToExtract = 99;  //normal //todo
+    static final boolean nTermSpecific = false; //normal //todo
+    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+    static final int  maxNumVarPtmConsidered = 5;
 
     // dimethyl
 //    public static final boolean isPtmSimuTest = false; //normal //todo
@@ -80,14 +80,14 @@ public class PIPI {
     /////
 
     ///synthetic
-    public static final boolean isPtmSimuTest = false; //normal //todo
-    static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 3;  //normal //todo
-    static final int maxTagLenToExtract = 99;  //normal //todo
-    static final boolean nTermSpecific = true; //normal //todo
-    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-    static final int  maxNumVarPtmConsidered = 1;
+//    public static final boolean isPtmSimuTest = false; //normal //todo
+//    static final boolean usePfmAndReduceDb = true;  //normal //todo
+//    static final int minTagLenToExtract = 3;  //normal //todo
+//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final boolean nTermSpecific = true; //normal //todo
+//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+//    static final int  maxNumVarPtmConsidered = 1;
 
 //    / DL simu
 //    public static final boolean isPtmSimuTest = false; //normal //todo
@@ -1280,7 +1280,7 @@ public class PIPI {
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
 //        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipiV.csv"));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipiNoreduce_ms2005.csv"));
 
         writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {

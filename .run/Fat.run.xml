@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Fat" type="Application" factoryName="Application">
+    <output_file path="$USER_HOME$/Data/PXD010154/pipilog.txt" is_save="true" />
+    <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
+    <module name="PIPI" />
+    <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/src/main/resources/Fat.def $USER_HOME$/nashome/Dataset/PXD010154/Fat/mgf $USER_HOME$/nashome/Dataset/PXD010154/Fat/mgf" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
