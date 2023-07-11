@@ -465,22 +465,32 @@ public class InferSegment {
     public List<ExpTag> cleanAbundantTagsPrefix(List<ExpTag> allLongTagsList, int minTagLen) {
         if (allLongTagsList.isEmpty()) return allLongTagsList;
         List<ExpTag> cleanTagList = new LinkedList<>();
-        Set<String> prefixSet = new HashSet<>();
-//        Set<String> suffixSet = new HashSet<>();
+        Set<String> prefixSetOfNtags = new HashSet<>();
+        Set<String> prefixSetOfCtags = new HashSet<>();
+        Set<String> prefixSetOfNonNCtags = new HashSet<>();
         for (ExpTag tag : allLongTagsList) {
             String prefix = tag.getFreeAaString().substring(0,minTagLen);
-//            String suffix = tag.getFreeAaString().substring(tag.size()-4,tag.size());
+            int nOrc = tag.isNorC;
             boolean shouldAdd = true;
-            if (!prefixSet.contains(prefix)) {
-                prefixSet.add(prefix);
-            } else {
-                shouldAdd = false;
+            if (-1 == nOrc){ //n tag
+                if (!prefixSetOfNtags.contains(prefix)) {
+                    prefixSetOfNtags.add(prefix);
+                } else {
+                    shouldAdd = false;
+                }
+            } else if (1 == nOrc) {//c tag
+                if (!prefixSetOfCtags.contains(prefix)) {
+                    prefixSetOfCtags.add(prefix);
+                } else {
+                    shouldAdd = false;
+                }
+            } else{ //non nc
+                if (!prefixSetOfNonNCtags.contains(prefix)) {
+                    prefixSetOfNonNCtags.add(prefix);
+                } else {
+                    shouldAdd = false;
+                }
             }
-//            if (!suffixSet.contains(suffix)) {
-//                suffixSet.add(suffix);
-//            } else {
-//                shouldAdd = false;
-//            }
             if (shouldAdd) {
                 cleanTagList.add(tag);
             }

@@ -102,7 +102,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(36037));//35581 16918, 16847,16457,16483,
+    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(15555));//35581 16918, 16847,16457,16483,
     public static int neighborNum = 100;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -165,7 +165,6 @@ public class PIPI {
         double maxClear = Double.valueOf(parameterMap.get("max_clear_mz"));
         String percolatorPath = parameterMap.get("percolator_path");
         boolean outputPercolatorInput = (Integer.valueOf(parameterMap.get("output_percolator_input")) == 1);
-//        String outputDir = parameterMap.get("output_dir");
 
         // Check if Percolator can be executed.
         if (!(new File(percolatorPath)).exists()) {
@@ -237,22 +236,10 @@ public class PIPI {
             String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
             datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         }
-//        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
-//
-//        Map<Integer, String> pepTruth = new HashMap<>();
-//        String line;
-//        while ((line = parameterReader.readLine()) != null) {
-//            if (line.isEmpty()) continue;
-//            line = line.trim();
-//            String[] splitRes = line.split(",");
-//            String pepWithMod = splitRes[1].replace('I','L');
-//            pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
-//        }
 
         SpecProcessor specProcessor = new SpecProcessor(massTool);
         Map<String, Integer> precursorChargeMap = new HashMap<>();
         Map<String, Double> precursorMassMap = new HashMap<>();
-        TreeMap<Double, Set<String>> pcMassScanNameMap = new TreeMap<>();
 
         logger.info("Get long tags to reduce proteins...");
         int threadNum_0 = Integer.valueOf(parameterMap.get("thread_num"));
@@ -261,7 +248,7 @@ public class PIPI {
         }
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             //change thread 1
-//            threadNum_0 = 1;
+            threadNum_0 = 1;
         }
         System.out.println("thread NUM "+ threadNum_0);
 
@@ -269,10 +256,23 @@ public class PIPI {
         Map<String, Integer> isotopeCorrectionNumMap = new HashMap<>();
         Map<String, Double> ms1PearsonCorrelationCoefficientMap = new HashMap<>();
 
+        BufferedReader bReader = new BufferedReader(new FileReader(outputDir+"truth.csv"));
+        Map<Integer, String> backboneTruth = new HashMap<>();
+        String line;
+        while ((line = bReader.readLine()) != null) {
+            line = line.trim();
+            String[] splitRes = line.split(",");
+            if (splitRes[0].contentEquals("scanNum")) {
+                continue;
+            }
+            String backbone = splitRes[1].replace('I','L');
+            backboneTruth.put(Integer.valueOf(splitRes[0]), backbone);
+        }
+
         //////////==================================================
         //   Get Long Tags
         ExecutorService threadPoolGetLongTag = Executors.newFixedThreadPool(threadNum_0);
-        ArrayList<Future<GetLongTag.Entry>> taskListGetLongTag = new ArrayList<>(datasetReader.getUsefulSpectraNum() + 10);
+        ArrayList<Future<PreSearch.Entry>> taskListGetLongTag = new ArrayList<>(datasetReader.getUsefulSpectraNum() + 10);
         Connection sqlConSpecCoderX = DriverManager.getConnection(sqlPath);
         Statement sqlStateGetLongTag = sqlConSpecCoderX.createStatement();
         ResultSet sqlResSetGetLongTag = sqlStateGetLongTag.executeQuery("SELECT scanName, scanNum, precursorCharge" +
@@ -292,26 +292,22 @@ public class PIPI {
             isotopeCorrectionNumMap.put(scanName, sqlResSetGetLongTag.getInt("isotopeCorrectionNum"));
             ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetGetLongTag.getDouble("ms1PearsonCorrelationCoefficient"));
 
+            String[] scanNameStr = scanName.split("\\.");
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < 2) {
+                if (Math.abs(scanNum-debugScanNum) < neighborNum) {
                     shouldRun = true;
                 }
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-//                    continue;//22459   comment this continue line, if run all scans
+                    continue;//22459   comment this continue line, if run all scans
                 }
             }
-
-            int fileId = fileNameIdMap.get( scanName.split("\\.")[0] );
-
-            precursorChargeMap.put(scanName, precursorCharge);
-            precursorMassMap.put(scanName, precursorMass);
-            submitNumSpecCoderX++;
-            validScanSet.add(scanName);
-            taskListGetLongTag.add(threadPoolGetLongTag.submit(new GetLongTag(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockGetLongTag, scanName, precursorCharge
-                    , precursorMass, specProcessor, "dsasda", ms2Tolerance)));
+            int fileId = fileNameIdMap.get( scanNameStr[0] );
+            taskListGetLongTag.add(threadPoolGetLongTag.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
+                    , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
+                    , spectraParserArray[fileId], minClear, maxClear, lockGetLongTag, scanName, precursorCharge, precursorMass, specProcessor , backboneTruth.get(scanNum), Integer.valueOf(parameterMap.get("min_peptide_length")), Integer.valueOf(parameterMap.get("max_peptide_length")))));
         }
         System.out.println("totalSubmit in SpecCoder, "+ submitNumSpecCoderX);
         sqlResSetGetLongTag.close();
@@ -320,24 +316,15 @@ public class PIPI {
         int lastProgressGetLongTag = 0;
         int totalCountGetLongTag = taskListGetLongTag.size();
         int countGetLongTag = 0;
-        Map<String, List<GetLongTag.TagRes>> prot_TagResList_Map = new HashMap<>();
+        Map<Integer, Map<String, Double>> scanVarLenTruthGoodnessMap = new HashMap<>();
         while (countGetLongTag < totalCountGetLongTag) {
             // record search results and delete finished ones.
-            List<Future<GetLongTag.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountGetLongTag - countGetLongTag);
-            for (Future<GetLongTag.Entry> task : taskListGetLongTag) {
+            List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountGetLongTag - countGetLongTag);
+            for (Future<PreSearch.Entry> task : taskListGetLongTag) {
                 if (task.isDone()) {
                     if (task.get() != null ) {
-                        GetLongTag.Entry entry = task.get();
-                        for (String prot : entry.prot_TagResList_Map.keySet()){
-                            List<GetLongTag.TagRes> tagResList = entry.prot_TagResList_Map.get(prot);
-                            if  (prot_TagResList_Map.containsKey(prot)) {
-                                prot_TagResList_Map.get(prot).addAll(tagResList);
-                            } else {
-                                List<GetLongTag.TagRes> tmpTagResList = new LinkedList<>();
-                                tmpTagResList.addAll(tagResList);
-                                prot_TagResList_Map.put(prot, tagResList);
-                            }
-                        }
+                        PreSearch.Entry entry = task.get();
+                        scanVarLenTruthGoodnessMap.put(entry.scanNum, entry.varLenTruthGoodnessMap);
                     }
 
                     toBeDeleteTaskList.add(task);
@@ -372,556 +359,24 @@ public class PIPI {
         }
         //   ==========END=============Get Long Tags
         //////////==================================================
-
-
-        //////////==================================================
-        //   Score for Proteins
-        Map<String, Integer> protLengthMap = buildIndex.protLengthMap;
-        Map<String, Double> protCoverageMap = new HashMap<>();
-        Map<String, Integer> tagNumMap = new HashMap<>();
-        for (String prot : prot_TagResList_Map.keySet()){
-            int protLen = buildIndex.protSeqMap.get(prot).length();
-            List<GetLongTag.TagRes> tagResList = prot_TagResList_Map.get(prot);
-            Map<Integer, Double> posProductMap = new HashMap<>(protLen);
-            for (int pos = 0; pos < protLen; pos++) {
-                posProductMap.put(pos, 1.0); //intial, all pos is with 1
-            }
-            for (GetLongTag.TagRes tagRes : tagResList) {
-                int relPos = tagRes.relPos;
-                List<Double> normedIaaList = tagRes.normedIaaList;
-                for (int aaPos = relPos; aaPos < relPos+tagRes.tagSeq.length(); aaPos++) {
-                    posProductMap.put(aaPos, posProductMap.get(aaPos)*(1- normedIaaList.get(aaPos-relPos)));
-                }
-            } // finish aa cal
-            double tempCoverage = 0;
-            for (int pos : posProductMap.keySet()) {
-                tempCoverage += 1-posProductMap.get(pos);
-            }
-            protCoverageMap.put(prot, tempCoverage/protLen);
-
-//            System.out.println(prot + "," + tempCoverage +","+ protLen + "," + tempCoverage/protLen+":");
-//            for (GetLongTag.TagRes tagRes : tagResList) {
-//                System.out.println("   "+ tagRes.tagSeq + ","+tagRes.relPos + ","+tagRes.normedIaaList.stream().mapToDouble(Double::doubleValue).sum());
-//            }
-
+        //write res
+        List<Pair<Double, String>> finalExcelList = new ArrayList<>(scanVarLenTruthGoodnessMap.size());
+        for (int scanNum : scanVarLenTruthGoodnessMap.keySet()) {
+            Map<String, Double> varLenTruthGoodnessMap = scanVarLenTruthGoodnessMap.get(scanNum);
+            String finalStr = String.format(Locale.US, "%d,%s,%s,%s,%s,%s,%s,%s,%s,%s\n", scanNum, backboneTruth.get(scanNum),
+                    varLenTruthGoodnessMap.get("3"),varLenTruthGoodnessMap.get("4"),varLenTruthGoodnessMap.get("5"),varLenTruthGoodnessMap.get("6"),
+                    varLenTruthGoodnessMap.get("7"),varLenTruthGoodnessMap.get("8"),varLenTruthGoodnessMap.get("9"),varLenTruthGoodnessMap.get("V"));
+            finalExcelList.add(new Pair(varLenTruthGoodnessMap.get("V"), finalStr));
         }
+        // official output with pfm
+        Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"res.csv"));
 
-        List<Pair<String, Double>> protScoreLongList = new ArrayList<>();
-        for (String prot : protCoverageMap.keySet()){
-            protScoreLongList.add(new Pair<>(prot, protCoverageMap.get(prot)));
-        }
-        Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
-
-//        if (protScoreLongList.size() < 10000) {
-//            minTagLenToExtract = 3;
-//        }
-        Set<String> reducedProtIdSet = new HashSet<>();
-        int aa = 0;
-
-        for (Pair<String, Double> pair : protScoreLongList){
-            aa++;
-//            System.out.println(aa + "," + pair.getFirst() + "," + pair.getSecond());
-        }
-        int ii = 0;
-        for (Pair<String, Double> pair : protScoreLongList){
-            ii++;
-            if (pair.getSecond() < proteinCovThres) break;
-            reducedProtIdSet.add(pair.getFirst());
-        }
-
-        if (! usePfmAndReduceDb)
-        {
-            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
-        }
-
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0) {
-            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
-        }
-        // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
-        Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
-        while (iter.hasNext()) {
-            if (!reducedProtIdSet.contains(iter.next())) {
-                iter.remove();
-            }
-        }
-
-        System.out.println("Protein size: "+protLengthMap.size()+" reduced to " + reducedProtIdSet.size());
-
-
-        //  END Score for Proteins
-        //////////==================================================
-
-
-        //////////==================================================
-        //   Get Tags and Get Peptide Candidates
-        logger.info("Building decoy...");
-        int threadNum_1 = Integer.valueOf(parameterMap.get("thread_num"));
-        if (threadNum_1 == 0) {
-            threadNum_1 = 3 + Runtime.getRuntime().availableProcessors();
-        }
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            //change thread 1
-//            threadNum_1 = 1;
-        }
-        System.out.println("thread NUM "+ threadNum_1);
-
-        ExecutorService threadPoolBuildDecoyProts = Executors.newFixedThreadPool(threadNum_1);
-        ArrayList<Future<BuildDecoyProts.Entry>> taskListBuildDecoyProts = new ArrayList<>(reducedProtIdSet.size() + 10);
-        ReentrantLock lockSpecCoder = new ReentrantLock();
-
-//        int submitNumGetPepCandis = 0;
-        for (String protId : reducedProtIdSet) {    //All protSeq are recorded but some decoy version are not because their targets are not in the reducedProtIdSet
-            taskListBuildDecoyProts.add(threadPoolBuildDecoyProts.submit(new BuildDecoyProts(parameterMap, buildIndex, protId)));
-        }
-//        System.out.println("totalSubmit in GetPepCandi, "+ submitNumGetPepCandis);
-
-        int lastProgressBuildDecoyProts = 0;
-        int totalCountBuildDecoyProts = taskListBuildDecoyProts.size();
-        int countBuildDecoyProts = 0;
-        double minPeptideMass = 9999;
-        double maxPeptideMass = 0;
-
-        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = new HashMap<>();
-        while (countBuildDecoyProts < totalCountBuildDecoyProts) {
-            // record search results and delete finished ones.
-            List<Future<BuildDecoyProts.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBuildDecoyProts - countBuildDecoyProts);
-            for (Future<BuildDecoyProts.Entry> task : taskListBuildDecoyProts) {
-                if (task.isDone()) {
-                    if (task.get() != null ) {
-                        BuildDecoyProts.Entry entry = task.get();
-                        String protId = entry.protId;
-                        String decoyProtSeq = entry.decoyProtSeq;
-                        String decoyProtId = "DECOY_"+protId;
-                        buildIndex.protSeqMap.put(decoyProtId, decoyProtSeq);
-
-                    }
-                    toBeDeleteTaskList.add(task);
-                } else if (task.isCancelled()) {
-                    toBeDeleteTaskList.add(task);
-                }
-            }
-            countBuildDecoyProts += toBeDeleteTaskList.size();
-            taskListBuildDecoyProts.removeAll(toBeDeleteTaskList);
-            taskListBuildDecoyProts.trimToSize();
-
-            int progress = countBuildDecoyProts * 20 / totalCountBuildDecoyProts;
-            if (progress != lastProgressBuildDecoyProts) {
-                logger.info("Build Decoy Prots {}%...", progress * 5);
-                lastProgressBuildDecoyProts = progress;
-            }
-
-            if (countBuildDecoyProts == totalCountBuildDecoyProts) {
-                break;
-            }
-            Thread.sleep(6000);
-        }
-        // shutdown threads.
-        threadPoolBuildDecoyProts.shutdown();
-        if (!threadPoolBuildDecoyProts.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPoolBuildDecoyProts.shutdownNow();
-            if (!threadPoolBuildDecoyProts.awaitTermination(60, TimeUnit.SECONDS))
-                throw new Exception("Pool did not terminate");
-        }
-        if (lockSpecCoder.isLocked()) {
-            lockSpecCoder.unlock();
-        }
-
-        // build reduced protein fm index
-//        long t1=System.currentTimeMillis();
-        logger.info("Generating reduced FM index...");
-
-        BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProtReduced.txt"));
-        int dotPos = 0;
-        int dotNum = 0;
-        buildIndex.dotPosArrReduced = new int[buildIndex.protSeqMap.keySet().size()];
-
-        for (String protId : buildIndex.protSeqMap.keySet()) {
-            buildIndex.dotPosArrReduced[dotNum] = dotPos;
-            buildIndex.posProtMapReduced.put(dotNum, protId);
-            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
-            buildIndex.protSeqMap.put(protId, protSeq);
-            writerProt.write("." + protSeq.replace('I', 'L'));
-            dotNum++;
-            dotPos += protSeq.length()+1;
-            int numOfTags = buildIndex.inferSegment.getLongTagNumForProt(protSeq);
-            protLengthMap.put(protId, numOfTags);
-        }
-        writerProt.close();
-//        long t2=System.currentTimeMillis();
-        char[] text = buildIndex.loadFile("catProtReduced.txt", true);
-//        long t3=System.currentTimeMillis();
-        buildIndex.fmIndexReduced = new FMIndex(text);
-//        long t4=System.currentTimeMillis();
-//
-//        System.out.println("time," + (t4-t3) + "," + (t3-t2)+ "," + (t2-t1));
-        buildIndex.minPeptideMass = minPeptideMass;
-        buildIndex.maxPeptideMass = maxPeptideMass;
-        buildIndex.tagProtPosMap = tagProtPosMap;
-        // writer concatenated fasta
-        Map<String, String> proteinAnnotationMap;
-        String dbPath = parameterMap.get("db");
-        DbTool dbTool = buildIndex.dbTool;
-        DbTool contaminantsDb = null;
-        if (true) { //addContaminants = true
-            contaminantsDb = new DbTool(null, "contaminants");
-            proteinAnnotationMap = contaminantsDb.getProteinAnnotateMap();
-            proteinAnnotationMap.putAll(dbTool.getProteinAnnotateMap()); // using the target annotation to replace contaminant sequence if there is conflict.
-        } else {
-            proteinAnnotationMap = dbTool.getProteinAnnotateMap();
-        }
-        BufferedWriter writer = new BufferedWriter(new FileWriter(dbPath + ".TD.fasta"));
-        for (String protId : buildIndex.protSeqMap.keySet()) {
-            writer.write(String.format(Locale.US, ">%s %s\n", protId, proteinAnnotationMap.getOrDefault(protId, "")));
-            writer.write(buildIndex.protSeqMap.get(protId) + "\n");
+        writer.write("scanNum,truthPep,res3,res4,res5,res6,res7,res8,res9,resV,\n");
+        for (Pair<Double, String> pair : finalExcelList) {
+            writer.write(pair.getSecond());
         }
         writer.close();
-
-        logger.info("Pre searching...");
-        int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
-        if (threadNum == 0) {
-            threadNum = 3 + Runtime.getRuntime().availableProcessors();
-        }
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            // change thread PreSearch
-            threadNum = 1;
-        }
-        System.out.println("thread NUM "+ threadNum);
-        ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
-        ArrayList<Future<PreSearch.Entry>> taskListBone = new ArrayList<>(validScanSet.size() + 10);
-        ReentrantLock lockBone = new ReentrantLock();
-        int submitNumBone = 0;
-        for (String scanName : validScanSet) {
-            String[] scanNameStr = scanName.split("\\.");
-            int precursorCharge = precursorChargeMap.get(scanName);
-
-            double precursorMass = precursorMassMap.get(scanName);
-            submitNumBone++;
-            int scanNum = Integer.valueOf(scanNameStr[2]);
-            boolean shouldRun = false;
-            for (int debugScanNum : lszDebugScanNum) {
-                if (Math.abs(scanNum-debugScanNum) < neighborNum) {
-                    shouldRun = true;
-                }
-            }
-            if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-                if (!shouldRun) {
-                    continue;//22459   comment this continue line, if run all scans
-                }
-            }
-            int fileId = fileNameIdMap.get( scanNameStr[0] );
-            taskListBone.add(threadPoolBone.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
-                    , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor , "dasdsads", Integer.valueOf(parameterMap.get("min_peptide_length")), Integer.valueOf(parameterMap.get("max_peptide_length")))));
-        }
-        System.out.println("totalSubmit in Bone, "+ submitNumBone);
-
-        Map<String, PeptideInfo> allPeptideInfoMap = new HashMap<>();
-        int lastProgressBone = 0;
-        int resultCountBone = 0;
-        int totalCountBone = taskListBone.size();
-        int countBone = 0;
-
-        Map<Integer, TreeMap<Double, Set<String>>> fileId_pcMassScanNameMap = new HashMap<>();
-        for (int fileId : fileIdNameMap.keySet()) {
-            fileId_pcMassScanNameMap.put(fileId, new TreeMap<>());
-        }
-        Map<String, Map<String, PeptideInfo>> scanNamePeptideInfoMap = new HashMap<>();
-        Map<String, Peptide> scanName_TopPeptide_Map = new HashMap<>();
-        Map<String, String> scanName_PepString_Map = new HashMap<>();
-        Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
-        PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        sqlConSpecCoder.setAutoCommit(false);
-        Map<VarPtm, Integer> varPtmCountMap = new HashMap<>();
-        while (countBone < totalCountBone) {
-            // record search results and delete finished ones.
-            List<Future<PreSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBone - countBone);
-            for (Future<PreSearch.Entry> task : taskListBone) {
-                if (task.isDone()) {
-                    if (task.get() != null) {
-                        PreSearch.Entry entry = task.get();
-
-                        for (VarPtm varPtm : entry.varPtmList){
-                            if (varPtmCountMap.containsKey(varPtm)) {
-                                varPtmCountMap.put(varPtm, varPtmCountMap.get(varPtm)+1);
-                            }else{
-                                varPtmCountMap.put(varPtm, 1);
-                            }
-                        }
-                        allPeptideInfoMap.putAll(entry.peptideInfoMapForRef);
-                        sqlPreparedStatement.setInt(1, entry.scanNum);
-                        sqlPreparedStatement.setString(2, entry.scanName);
-                        sqlPreparedStatement.setInt(3, entry.precursorCharge);
-                        sqlPreparedStatement.setDouble(4, entry.precursorMass);
-                        sqlPreparedStatement.setString(5, mgfTitleMap.get(entry.scanName));
-                        sqlPreparedStatement.setInt(6, isotopeCorrectionNumMap.get(entry.scanName));
-                        sqlPreparedStatement.setDouble(7, ms1PearsonCorrelationCoefficientMap.get(entry.scanName));
-                        sqlPreparedStatement.setString(8, entry.labelling);
-                        sqlPreparedStatement.setString(9, entry.peptide);
-                        sqlPreparedStatement.setDouble(10, entry.theoMass);
-                        sqlPreparedStatement.setInt(11, entry.isDecoy);
-                        sqlPreparedStatement.setDouble(12, entry.score);
-                        sqlPreparedStatement.setDouble(13, entry.deltaLCn);
-                        sqlPreparedStatement.setDouble(14, entry.deltaCn);
-                        sqlPreparedStatement.setInt(15, entry.matchedPeakNum);
-                        sqlPreparedStatement.setDouble(16, entry.ionFrac);
-                        sqlPreparedStatement.setDouble(17, entry.matchedHighestIntensityFrac);
-                        sqlPreparedStatement.setDouble(18, entry.explainedAaFrac);
-                        sqlPreparedStatement.setString(19, entry.otherPtmPatterns);
-                        sqlPreparedStatement.setString(20, entry.aScore);
-                        sqlPreparedStatement.setString(21, entry.candidates);
-                        sqlPreparedStatement.setString(22, entry.peptideSet);
-                        sqlPreparedStatement.setInt(23, -1);//whereIsTopCand dummy to be deleted
-                        sqlPreparedStatement.setInt(24, entry.shouldPtm);
-                        sqlPreparedStatement.setInt(25, entry.hasPTM);
-                        sqlPreparedStatement.setInt(26, entry.ptmNum);
-                        sqlPreparedStatement.setInt(27, entry.isSettled);
-
-                        sqlPreparedStatement.executeUpdate();
-                        int fileId = fileNameIdMap.get( entry.scanName.split("\\.")[0] );
-                        TreeMap<Double,Set<String>> local_pcMassScanNameMap = fileId_pcMassScanNameMap.get(fileId);
-                        if (local_pcMassScanNameMap.containsKey(entry.precursorMass)) {
-                            local_pcMassScanNameMap.get(entry.precursorMass).add(entry.scanName);
-                        }else {
-                            Set<String> scanNumSet = new HashSet<>();
-                            scanNumSet.add(entry.scanName);
-                            local_pcMassScanNameMap.put(entry.precursorMass, scanNumSet);
-                        }
-                        scanName_TopPeptide_Map.put(entry.scanName, entry.topPeptide);
-                        scanName_PepString_Map.put(entry.scanName, entry.peptideSet);
-
-                        ++resultCountBone;
-                    }
-
-                    toBeDeleteTaskList.add(task);
-                } else if (task.isCancelled()) {
-                    toBeDeleteTaskList.add(task);
-                }
-            }
-            countBone += toBeDeleteTaskList.size();
-            taskListBone.removeAll(toBeDeleteTaskList);
-            taskListBone.trimToSize();
-
-            sqlConSpecCoder.commit();
-            int progress = countBone * 20 / totalCountBone;
-            if (progress != lastProgressBone) {
-                logger.info("PreSearching {}%...", progress * 5);
-                lastProgressBone = progress;
-            }
-
-            if (countBone == totalCountBone) {
-                break;
-            }
-            Thread.sleep(6000);
-        }
-
-
-        for (VarPtm varPtm : varPtmCountMap.keySet()){
-//            System.out.println("varPtm ,"+varPtm.getStr() + ","+varPtmCountMap.get(varPtm));
-        }
-        // shutdown threads.
-        threadPoolBone.shutdown();
-        if (!threadPoolBone.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPoolBone.shutdownNow();
-            if (!threadPoolBone.awaitTermination(60, TimeUnit.SECONDS))
-                throw new Exception("Pool did not terminate");
-        }
-        sqlConSpecCoder.commit();
-        sqlConSpecCoder.setAutoCommit(true);
-        sqlConSpecCoder.close();
-        if (lockBone.isLocked()) {
-            lockBone.unlock();
-        }
-
-        System.out.println("resultCount," +resultCountBone);
-
-        System.out.println("lsz +" +","+allPeptideInfoMap.size());
-
-        logger.info("Complementary searching...");
-        if (threadNum == 0) {
-            threadNum = 3 + Runtime.getRuntime().availableProcessors();
-        }
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-//            change thread Complementary searching
-            threadNum = 1;
-        }
-        ExecutorService threadPoolPtm = Executors.newFixedThreadPool(threadNum);
-        ArrayList<Future<PtmSearch.Entry>> taskListPTM = new ArrayList<>(validScanSet.size() + 10);
-        ReentrantLock lockPtm = new ReentrantLock();
-        Binomial binomial = new Binomial(Integer.valueOf(parameterMap.get("max_peptide_length")) * 2);
-        int submitTimePtm = 0;
-
-        int n_complementaryPeptides = 5;
-        for (String thisScanName : validScanSet) {
-            int thisFileId = fileNameIdMap.get( thisScanName.split("\\.")[0] );
-            double mass = precursorMassMap.get(thisScanName);
-            int thisScanNum = Integer.valueOf( thisScanName.split("\\.")[2] );
-
-            if (lszDebugScanNum.contains(thisScanNum)) {
-                int a = 1;
-            }
-
-            String thisPtmSeq = "XFAKEPEP";
-            double thisScore = 0d;
-            if (scanName_TopPeptide_Map.containsKey(thisScanName)) {
-                thisPtmSeq = scanName_TopPeptide_Map.get(thisScanName).getVarPtmContainingSeqNow();
-                thisScore = scanName_TopPeptide_Map.get(thisScanName).getScore();
-            }
-
-            PriorityQueue<Peptide> complementaryPeptideQueue = new PriorityQueue<>(n_complementaryPeptides);
-            Map<String, TreeMap<Integer, VarPtm>> ptmSeq_posVarPtmMap_Map = new HashMap<>();
-            Map<String, PeptideInfo> local_PepSeq_PeptideInfo_Map = new HashMap<>();
-
-            TreeMap<Double, Set<String>> local_other_pcMassScanNameMap = fileId_pcMassScanNameMap.get(thisFileId);
-            for (int i = 0; i <= 0; i++) {
-                for (Set<String> otherScanNameSet : local_other_pcMassScanNameMap.subMap(mass + i*MassTool.PROTON - mass*ms1Tolerance*1e-6, true, mass + i*MassTool.PROTON + mass*ms1Tolerance*1e-6, true).values()) {
-                    for (String otherScanName : otherScanNameSet) {
-                        int otherScanNum = Integer.valueOf( otherScanName.split("\\.")[2] );
-                        if (otherScanNum < thisScanNum+2000 && otherScanNum > thisScanNum-2000 && otherScanNum != thisScanNum) {
-                            String otherPtmSeq = scanName_TopPeptide_Map.get(otherScanName).getVarPtmContainingSeqNow();
-                            String otherFreeSeq = scanName_TopPeptide_Map.get(otherScanName).getFreeSeq();
-
-                            if (otherPtmSeq.contentEquals(thisPtmSeq)) continue;
-
-                            if (!ptmSeq_posVarPtmMap_Map.containsKey(otherPtmSeq)) {
-                                ptmSeq_posVarPtmMap_Map.put(otherPtmSeq, scanName_TopPeptide_Map.get(otherScanName).posVarPtmResMap);
-                                local_PepSeq_PeptideInfo_Map.put(otherFreeSeq, allPeptideInfoMap.get(otherFreeSeq).clone());
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (ptmSeq_posVarPtmMap_Map.isEmpty()) {
-                continue;
-            }
-//            System.out.println(thisScanNum + ", " + ptmSeq_posVarPtmMap_Map.size());
-            int precursorCharge = precursorChargeMap.get(thisScanName);
-            int precursorScanNo = 0;
-            double precursorMass = precursorMassMap.get(thisScanName);
-            submitTimePtm++; // this is super large??
-//            System.out.println(thisScanName+" ptmSearch:");
-            taskListPTM.add(threadPoolPtm.submit(new PtmSearch(thisScanNum, buildIndex, massTool, ms1Tolerance
-                    , leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tolerance
-                    , inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[thisFileId], minClear, maxClear, lockPtm, thisScanName, precursorCharge
-                    , precursorMass, inferPTM, specProcessor, binomial, ptmSeq_posVarPtmMap_Map, local_PepSeq_PeptideInfo_Map)));
-//                }
-//            }
-        }
-        System.out.println("submit times in Ptm" + submitTimePtm);
-        // check progress every minute, record results,and delete finished tasks.
-        int lastProgressPtm = 0;
-        int resultCountPtm = 0;
-        int totalCountPtm = taskListPTM.size();
-        int countPtm = 0;
-        Connection sqlConPTM = DriverManager.getConnection(sqlPath);
-        PreparedStatement sqlPreparedStatementPTM = sqlConPTM.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        sqlConPTM.setAutoCommit(false);
-        while (countPtm < totalCountPtm) {
-            List<Future<PtmSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountPtm - countPtm);
-            for (Future<PtmSearch.Entry> task : taskListPTM) {
-                if (task.isDone()) {
-                    if (task.get() != null) {
-                        PtmSearch.Entry entry = task.get();
-
-                        if (lszDebugScanNum.contains(entry.scanNum)) {
-                            int a = 1;
-                        }
-                        if (  scanName_TopPeptide_Map.containsKey(entry.scanName)
-                            && entry.score < scanName_TopPeptide_Map.get(entry.scanName).getScore()) {
-                            toBeDeleteTaskList.add(task);
-                            continue; // if the complementary is not better dont change in sql
-                        }
-
-                        sqlPreparedStatementPTM.setInt(1, entry.scanNum);
-                        sqlPreparedStatementPTM.setString(2, entry.scanName);
-
-                        sqlPreparedStatementPTM.setInt(3, entry.precursorCharge);
-                        sqlPreparedStatementPTM.setDouble(4, entry.precursorMass);
-                        sqlPreparedStatementPTM.setString(5, mgfTitleMap.get(entry.scanName));
-                        sqlPreparedStatementPTM.setInt(6, isotopeCorrectionNumMap.get(entry.scanName));
-                        sqlPreparedStatementPTM.setDouble(7, ms1PearsonCorrelationCoefficientMap.get(entry.scanName));
-                        sqlPreparedStatementPTM.setString(8, entry.labelling);
-                        sqlPreparedStatementPTM.setString(9, entry.peptide);
-                        sqlPreparedStatementPTM.setDouble(10, entry.theoMass);
-                        sqlPreparedStatementPTM.setInt(11, entry.isDecoy);
-                        sqlPreparedStatementPTM.setDouble(12, entry.score);
-                        sqlPreparedStatementPTM.setDouble(13, entry.deltaLCn);
-                        sqlPreparedStatementPTM.setDouble(14, entry.deltaCn);
-                        sqlPreparedStatementPTM.setInt(15, entry.matchedPeakNum);
-                        sqlPreparedStatementPTM.setDouble(16, entry.ionFrac);
-                        sqlPreparedStatementPTM.setDouble(17, entry.matchedHighestIntensityFrac);
-                        sqlPreparedStatementPTM.setDouble(18, entry.explainedAaFrac);
-                        sqlPreparedStatementPTM.setString(19, entry.otherPtmPatterns);
-                        sqlPreparedStatementPTM.setString(20, entry.aScore);
-                        sqlPreparedStatementPTM.setString(21, entry.candidates);
-                        String peptideSetStr = null;
-                        if (  scanName_PepString_Map.containsKey(entry.scanName) ){
-//                            peptide.getVarPtmContainingSeqNow() + "," + peptide.getScore() + "," + String.join("_", peptideInfo.protIdSet) +",";
-                            peptideSetStr = entry.peptideSet + "," + scanName_PepString_Map.get(entry.scanName);
-                        } else {
-                            peptideSetStr = entry.peptideSet;
-                        }
-                        sqlPreparedStatementPTM.setString(22, peptideSetStr); //if a better complementary pep comes, need to insert it in the front
-                        sqlPreparedStatementPTM.setInt(23, entry.whereIsTopCand);
-                        sqlPreparedStatementPTM.setInt(24, entry.shouldPtm);
-                        sqlPreparedStatementPTM.setInt(25, entry.hasPTM);
-                        sqlPreparedStatementPTM.setInt(26, entry.ptmNum);
-                        sqlPreparedStatementPTM.setInt(27, entry.isSettled);
-
-                        sqlPreparedStatementPTM.executeUpdate();
-                        ++resultCountPtm;
-                    }
-
-                    toBeDeleteTaskList.add(task);
-                } else if (task.isCancelled()) {
-                    toBeDeleteTaskList.add(task);
-                }
-            }
-            countPtm += toBeDeleteTaskList.size();
-            taskListPTM.removeAll(toBeDeleteTaskList);
-            taskListPTM.trimToSize();
-
-            sqlConPTM.commit();
-
-            int progress = countPtm * 20 / totalCountPtm;
-            if (progress != lastProgressPtm) {
-                logger.info("Complementary Searching {}%...", progress * 5);
-//                System.out.println(toBeDeleteTaskList.size()+ ","+ taskListPTM.size() +"," + count2 + ", " + totalCount + "," + lastProgress);
-                lastProgressPtm = progress;
-            }
-
-            if (countPtm == totalCountPtm) {
-                break;
-            }
-            Thread.sleep(6000);
-        }
-        // shutdown threads.
-        threadPoolPtm.shutdown();
-        if (!threadPoolPtm.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPoolPtm.shutdownNow();
-            if (!threadPoolPtm.awaitTermination(60, TimeUnit.SECONDS))
-                throw new Exception("Pool did not terminate");
-        }
-
-        sqlConPTM.commit();
-        sqlConPTM.setAutoCommit(true);
-        sqlConPTM.close();
-        if (lockPtm.isLocked()) {
-            lockPtm.unlock();
-        }
-
-        if (resultCountPtm == 0) {
-            throw new Exception("There is no useful results.");
-        }
-
-        String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
-        pfm(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName, varPtmCountMap);
-
-        if (!outputPercolatorInput) {
-            (new File(percolatorInputFileName)).delete();
-        }
-
         logger.info("Saving results...");
     }
 

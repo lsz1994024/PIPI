@@ -44,9 +44,6 @@ public class BuildIndex {
     public FMIndex fmIndexFull;
     public int[] dotPosArrFull;
     public Map<Integer, String> posProtMapFull = new HashMap<>();
-    public FMIndex fmIndexReduced;
-    public int[] dotPosArrReduced;
-    public Map<Integer, String> posProtMapReduced = new HashMap<>();
     public Map<String, String> protSeqMap;
     public Map<String, Set<Pair<String,Integer>>> tagProtPosMap = new HashMap<>();
     public BuildIndex(Map<String, String> parameterMap) throws Exception {
