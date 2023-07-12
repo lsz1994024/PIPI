@@ -53,7 +53,7 @@ public class PIPI {
     static final int minTagLenToExtract = 4;  //normal //todo
     static final int maxTagLenToExtract = 99;  //normal //todo
     static final boolean nTermSpecific = false; //normal //todo
-    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+    public    static final double MIN_PEAK_SUM_INFER_AA = 0.5;
     static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
     static final int  maxNumVarPtmConsidered = 5;
 
@@ -102,7 +102,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(15555));//35581 16918, 16847,16457,16483,
+    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(14075));//35581 16918, 16847,16457,16483,
     public static int neighborNum = 100;
     public static void main(String[] args) {
         long startTime = System.nanoTime();

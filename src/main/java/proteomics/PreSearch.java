@@ -156,14 +156,16 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             Set<String> searchedTagStrSet = new HashSet<>();
             int minTagLen = 4;
             Map<String, Double> pepScoreMap = new HashMap<>();
-            for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(200, allLongTagList.size()))){
+            for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(300, allLongTagList.size()))){
                 minTagLen = tagInfo.size() > 4 ? 5 : 4;
                 if (buildIndex.posProtMapFull.size() < 5000) { // todo this is for synthetic only
                     minTagLen = 3;
                 }
                 String tagStr = tagInfo.getFreeAaString();
                 String revTagStr = new StringBuilder(tagStr).reverse().toString();
-
+//                if (!lenStr.contentEquals("V")) {
+//                    tagInfo.isNorC = NON_NC_TAG;
+//                }
                 if (tagInfo.isNorC == N_TAG) { //n tag
                     String tagStrMzStr = tagStr + df3.format(tagInfo.getHeadLocation());
                     if (!searchedTagStrSet.contains(tagStrMzStr)) {
@@ -271,7 +273,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             double truthGoodness = 0;  // how many candidates has higher score than the truth
 
             if (allLongTagList.isEmpty()) {
-                truthGoodness = 9999; // error   no tags
+                truthGoodness = 9998; // error   no tags
             } else {
                 if (pepScoreMap.containsKey(truth)) {
                     truthGoodness = Math.min(8000, pepStrList.indexOf(truth));
