@@ -48,14 +48,14 @@ public class PIPI {
     static final int minTagLenToReduceProtDb = 5;
 
     //// normal
-    public static final boolean isPtmSimuTest = false; //normal //todo
-    static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 4;  //normal //todo
-    static final int maxTagLenToExtract = 99;  //normal //todo
-    static final boolean nTermSpecific = false; //normal //todo
-    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
-    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-    static final int  maxNumVarPtmConsidered = 5;
+//    public static final boolean isPtmSimuTest = false; //normal //todo
+//    static final boolean usePfmAndReduceDb = true;  //normal //todo
+//    static final int minTagLenToExtract = 4;  //normal //todo
+//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final boolean nTermSpecific = false; //normal //todo
+//    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
+//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+//    static final int  maxNumVarPtmConsidered = 5;
 
     // dimethyl
 //    public static final boolean isPtmSimuTest = false; //normal //todo
@@ -80,14 +80,14 @@ public class PIPI {
     /////
 
     ///synthetic
-//    public static final boolean isPtmSimuTest = false; //normal //todo
-//    static final boolean usePfmAndReduceDb = true;  //normal //todo
-//    static final int minTagLenToExtract = 3;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
-//    static final boolean nTermSpecific = true; //normal //todo
-//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-//    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-//    static final int  maxNumVarPtmConsidered = 1;
+    public static final boolean isPtmSimuTest = false; //normal //todo
+    static final boolean usePfmAndReduceDb = true;  //normal //todo
+    static final int minTagLenToExtract = 3;  //normal //todo
+    static final int maxTagLenToExtract = 99;  //normal //todo
+    static final boolean nTermSpecific = true; //normal //todo
+    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+    static final int  maxNumVarPtmConsidered = 1;
 
 //    / DL simu
 //    public static final boolean isPtmSimuTest = false; //normal //todo
@@ -168,13 +168,13 @@ public class PIPI {
 //        String outputDir = parameterMap.get("output_dir");
 
         // Check if Percolator can be executed.
-        if (!(new File(percolatorPath)).exists()) {
-            throw new NullPointerException(String.format(Locale.US, "Cannot find Percolator from %s.", percolatorPath));
-        }
-
-        if (!(new File(percolatorPath)).canExecute()) {
-            throw new Exception(String.format(Locale.US, "Percolator (%s) exits but cannot be executed.", percolatorPath));
-        }
+//        if (!(new File(percolatorPath)).exists()) {
+//            throw new NullPointerException(String.format(Locale.US, "Cannot find Percolator from %s.", percolatorPath));
+//        }
+//
+//        if (!(new File(percolatorPath)).canExecute()) {
+//            throw new Exception(String.format(Locale.US, "Percolator (%s) exits but cannot be executed.", percolatorPath));
+//        }
 
         String[] tempArray = parameterMap.get("ms_level").split(",");
         Set<Integer> msLevelSet = new HashSet<>(tempArray.length + 1, 1);

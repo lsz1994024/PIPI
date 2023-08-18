@@ -1,17 +1,17 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="All004732iso" type="CompoundRunConfigurationType">
-    <toRun name="004732_001" type="Application" />
-    <toRun name="004732_011" type="Application" />
-    <toRun name="004732_021" type="Application" />
-    <toRun name="004732_031" type="Application" />
-    <toRun name="004732_041" type="Application" />
-    <toRun name="004732_051" type="Application" />
-    <toRun name="004732_061" type="Application" />
-    <toRun name="004732_071" type="Application" />
-    <toRun name="004732_081" type="Application" />
-    <toRun name="004732_091" type="Application" />
-    <toRun name="004732_101" type="Application" />
-    <toRun name="004732_111" type="Application" />
+    <toRun name="004732_005" type="Application" />
+    <toRun name="004732_015" type="Application" />
+    <toRun name="004732_025" type="Application" />
+    <toRun name="004732_035" type="Application" />
+    <toRun name="004732_045" type="Application" />
+    <toRun name="004732_055" type="Application" />
+    <toRun name="004732_065" type="Application" />
+    <toRun name="004732_075" type="Application" />
+    <toRun name="004732_085" type="Application" />
+    <toRun name="004732_095" type="Application" />
+    <toRun name="004732_105" type="Application" />
+    <toRun name="004732_115" type="Application" />
     <method v="2" />
   </configuration>
 </component>
