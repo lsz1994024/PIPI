@@ -108,7 +108,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             lock.unlock();
         }
 
-        double ms1TolAbs = Double.parseDouble(InferPTM.df3.format(precursorMass*ms1Tolerance/1000000));
         if (lszDebugScanNum.contains(this.scanNum)) {
             System.out.println(scanNum + ", entered");
             int a = 1;
@@ -163,9 +162,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 String tagStr = tagInfo.getFreeAaString();
                 String revTagStr = new StringBuilder(tagStr).reverse().toString();
-//                if (!lenStr.contentEquals("V")) {
-//                    tagInfo.isNorC = NON_NC_TAG;
-//                }
                 if (tagInfo.isNorC == N_TAG) { //n tag
                     String tagStrMzStr = tagStr + df3.format(tagInfo.getHeadLocation());
                     if (!searchedTagStrSet.contains(tagStrMzStr)) {
