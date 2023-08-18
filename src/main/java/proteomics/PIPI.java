@@ -1280,7 +1280,7 @@ public class PIPI {
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
 //        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipiNoreduce_ms2005.csv"));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipiV.csv"));
 
         writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {
