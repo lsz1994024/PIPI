@@ -10,7 +10,7 @@ database_type = UniProt # Different types have different fasta header patterns. 
 add_decoy = 1 # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
 add_contaminant = 0 # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
 missed_cleavage = 1 # Maximum number of allowed missed cleavage.
-min_peptide_length = 9 # Minimum length of a peptide chain.
+min_peptide_length = 11 # Minimum length of a peptide chain.
 max_peptide_length = 50 # Maximum length of a peptide chain.
 
 # Spectrum
