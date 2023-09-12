@@ -102,7 +102,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(36037));//35581 16918, 16847,16457,16483,
+    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(0));//35581 16918, 16847,16457,16483,
     public static int neighborNum = 100;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -605,7 +605,7 @@ public class PIPI {
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-                    continue;//22459   comment this continue line, if run all scans
+//                    continue;//22459   comment this continue line, if run all scans
                 }
             }
             int fileId = fileNameIdMap.get( scanNameStr[0] );

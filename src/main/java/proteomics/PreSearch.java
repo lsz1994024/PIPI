@@ -20,6 +20,7 @@ import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
 import ProteomicsLibrary.Types.SparseBooleanVector;
 import ProteomicsLibrary.Types.SparseVector;
+import gurobi.GRBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import proteomics.FM.FMIndex;
@@ -106,16 +107,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         } finally {
             lock.unlock();
         }
-
-//        TreeMap<Double, Double> sortedRawPlMap = new TreeMap<>(rawPLMap);
-//        double minPcMass = -1 * ms1Tolerance;
-//        double maxPcMass = ms1Tolerance;
-//        if (ms1ToleranceUnit == 1) {
-//            minPcMass = (precursorMass * leftInverseMs1Tolerance);
-//            maxPcMass = (precursorMass * rightInverseMs1Tolerance);
-//        }
-
-
 
         double ms1TolAbs = Double.parseDouble(InferPTM.df3.format(precursorMass*ms1Tolerance/1000000));
         if (lszDebugScanNum.contains(this.scanNum)) {
@@ -521,7 +512,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 //    }
 
     private int searchAndSaveFuzzy(int scanNum, ExpTag tagInfo, double ms1TolAbs, Map<String, List<Peptide>> resPeptideListMap, Map<String, PeptideInfo> peptideInfoMap
-            , Set<String> protIdSetByThisTag, FMIndex fmIndex, char[] tagChar, int minTagLen, SparseVector expProcessedPL,TreeMap<Double, Double> plMap, boolean isFirstTime) throws CloneNotSupportedException {
+            , Set<String> protIdSetByThisTag, FMIndex fmIndex, char[] tagChar, int minTagLen, SparseVector expProcessedPL,TreeMap<Double, Double> plMap, boolean isFirstTime) throws CloneNotSupportedException, GRBException {
 
         int numRes = 0;
         SearchInterval searchRes = fmIndex.fmSearchFuzzy(tagChar);
@@ -586,7 +577,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         return false;
     }
     private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, Map<String, List<Peptide>> resPeptideListMap
-            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap) throws CloneNotSupportedException {
+            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap) throws CloneNotSupportedException, GRBException {
 
         double tagCMass = finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
         //tagCMass is correct even the tag is fuzzy. because FM starts searching from C
@@ -642,9 +633,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             boolean isCTermFree = false;
             if (Math.abs(cDeltaMass) > 0.1) { // not ptm free in c part
                 Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(cPartSeq);
-                Map<Integer, VarPtm[]> partPosVarModArrayMap = inferPTM.getIdxVarModMapNew(cPartSeq, fixModIdxes, C_PART, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
+                Map<Double, Integer> allMassMaxTimesMapC = inferPTM.getIdxVarModMapNew(cPartSeq, fixModIdxes, C_PART, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
                 ModPepPool cPartPepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, cPartSeq, false,
-                        partPosVarModArrayMap, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs);
+                        allMassMaxTimesMapC, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs);
 
                 if (cPartPepsWithPtm.peptideTreeSet.isEmpty()) {
                     continue;
@@ -722,9 +713,9 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 boolean isNTermFree = false;
                 if (Math.abs(nDeltaMass) > 0.1) {
                     Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(nPartSeq);
-                    Map<Integer, VarPtm[]> partPosVarModArrayMap = inferPTM.getIdxVarModMapNew(nPartSeq, fixModIdxes, N_PART, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
+                    Map<Double, Integer> allMassMaxTimesMapN = inferPTM.getIdxVarModMapNew(nPartSeq, fixModIdxes, N_PART, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
                     ModPepPool nPartpepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, nPartSeq, false,
-                            partPosVarModArrayMap, nCutMass, nDeltaMass, precursorCharge, N_PART, ms1TolAbs);
+                            allMassMaxTimesMapN, nCutMass, nDeltaMass, precursorCharge, N_PART, ms1TolAbs);
 
                     if (nPartpepsWithPtm.peptideTreeSet.isEmpty()) {
                         continue; // how could it be return!!!
@@ -889,8 +880,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
             }
         }
-//        System.out.println(scanNum + ", n_extention," + finderTag.getFreeAaString() +","+ n_extension);
-
         return;
     }
 
