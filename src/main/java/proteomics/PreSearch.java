@@ -21,6 +21,7 @@ import ProteomicsLibrary.SpecProcessor;
 import ProteomicsLibrary.Types.SparseBooleanVector;
 import ProteomicsLibrary.Types.SparseVector;
 import gurobi.GRBException;
+import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import proteomics.FM.FMIndex;
@@ -520,9 +521,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             return 0;
         }
         numRes = searchRes.ep-searchRes.sp+1;
-//        if (numRes > 50) {
-//            return numRes;
-//        }
         int solCount = 0;
         if (searchRes.settled) {
             for (int ii = searchRes.sp; ii <= searchRes.ep; ii++) {
@@ -555,8 +553,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             }
 
         }
-//        System.out.println(scanNum + "," + tagInfo.getFreeAaString() + "," + numRes);
-
         return solCount;
 
     }
@@ -633,9 +629,13 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             boolean isCTermFree = false;
             if (Math.abs(cDeltaMass) > 0.1) { // not ptm free in c part
                 Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(cPartSeq);
-                Map<Double, Integer> allMassMaxTimesMapC = inferPTM.getIdxVarModMapNew(cPartSeq, fixModIdxes, C_PART, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
+
+                Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeq.length());
+                List<Pair<Integer, Set<Double>>> multiTimeMassGroups = new ArrayList<>(cPartSeq.length());
+                Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(cPartSeq.length(), 1);
+                Map<Double, List<Integer>> allMassAllPosesMapC = inferPTM.getMassPosInfoMap(cPartSeq, fixModIdxes, C_PART, isProtNorC_Term, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map);
                 ModPepPool cPartPepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, cPartSeq, false,
-                        allMassMaxTimesMapC, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs);
+                        allMassAllPosesMapC, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map);
 
                 if (cPartPepsWithPtm.peptideTreeSet.isEmpty()) {
                     continue;
@@ -713,9 +713,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                 boolean isNTermFree = false;
                 if (Math.abs(nDeltaMass) > 0.1) {
                     Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(nPartSeq);
-                    Map<Double, Integer> allMassMaxTimesMapN = inferPTM.getIdxVarModMapNew(nPartSeq, fixModIdxes, N_PART, isProtNorC_Term); //todo no need to generate var mod list for aa again and again, make it stored.
+                    Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(nPartSeq.length());
+                    List<Pair<Integer, Set<Double>>> multiTimeMassGroups = new ArrayList<>(nPartSeq.length());
+                    Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeq.length(), 1);
+                    Map<Double, List<Integer>> allMassAllPosesMapN = inferPTM.getMassPosInfoMap(nPartSeq, fixModIdxes, N_PART, isProtNorC_Term, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map); //todo no need to generate var mod list for aa again and again, make it stored.
                     ModPepPool nPartpepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, nPartSeq, false,
-                            allMassMaxTimesMapN, nCutMass, nDeltaMass, precursorCharge, N_PART, ms1TolAbs);
+                            allMassAllPosesMapN, nCutMass, nDeltaMass, precursorCharge, N_PART, ms1TolAbs, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map);
 
                     if (nPartpepsWithPtm.peptideTreeSet.isEmpty()) {
                         continue; // how could it be return!!!
