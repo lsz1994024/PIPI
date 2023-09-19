@@ -101,7 +101,8 @@ public class InferPTM {
             char modSite = modStr[1].charAt(0);
             int modPosition = Integer.valueOf(modStr[2]);
             int priority = 1;
-            if (modSite == 'M' && modStr[3].contentEquals("Oxidation") && n_varPtm != 1) {
+            if (modSite == 'M' && modStr[3].contentEquals("Oxidation") && n_varPtm != 0) {
+//                if (modSite == 'M' && modStr[3].contentEquals("Oxidation") && n_varPtm != 1) {
                 priority = 0; // oxidation on M is a common phonomenon but not an enriched modification
             }
             if (modPosition == 4) {//  position anywhere, highest prority
@@ -399,11 +400,11 @@ public class InferPTM {
         return allPtmPattern;
     }
 
-    public List<Map<Double, Integer>> findBestPtmMIP(int scanNum, Map<Double, List<Integer>> allMassAllPosesMap, double totalDeltaMass, String partSeq,
+    public List<Map<Double, Integer>> findBestPtmMIP(int scanNum, GRBEnv env, Map<Double, List<Integer>> allMassAllPosesMap, double totalDeltaMass, String partSeq,
              double ms1TolAbs, Map<Integer, Set<Double>> oneTimeMassGroups, List<Pair<Integer, Set<Double>>> multiTimeMassGroups) throws GRBException {
 
         List<Map<Double, Integer>> massTimeMapList = new LinkedList<>();
-        GRBEnv env = new GRBEnv();
+
         try {
             GRBModel model = new GRBModel(env);
             double t = 0.01;
@@ -416,26 +417,21 @@ public class InferPTM {
             GRBLinExpr totalNumsOnPepConstr = new GRBLinExpr();
             GRBLinExpr totalMassOnPepConstr = new GRBLinExpr();
 
-            GRBVar fakeProtonVar = model.addVar(-1, 1, 0, GRB.INTEGER, "fakeProton");
-//            GRBVar fake001Var = model.addVar(-1, 1, 0, GRB.INTEGER, "fake001");
-            totalMassOnPepConstr.addTerm(MassTool.PROTON, fakeProtonVar);
-//            totalMassOnPepConstr.addTerm(0.01, fake001Var);
+//            GRBVar fakeProtonVar = model.addVar(-1, 1, 0, GRB.INTEGER, "fakeProton");
+//            totalMassOnPepConstr.addTerm(MassTool.PROTON, fakeProtonVar);
 
             Map<Double, GRBVar> massVarMap = new HashMap<>();
-            massVarMap.put(MassTool.PROTON, fakeProtonVar);
-//            massVarMap.put(0.01, fake001Var);
+//            massVarMap.put(MassTool.PROTON, fakeProtonVar);
             for (double mass : allMassAllPosesMap.keySet()) {
                 GRBVar tmpVar = model.addVar(0, allMassAllPosesMap.get(mass).size(), 0, GRB.INTEGER, "isPtmSelected_"+mass);
                 massVarMap.put(mass, tmpVar);
                 totalMassOnPepConstr.addTerm(mass, tmpVar); // + m_i * x_i
                 totalNumsOnPepConstr.addTerm(1,tmpVar); // + 1 * x_i
             }
-//            model.addConstr(totalMassOnPepConstr, GRB.EQUAL, Double.parseDouble(df2.format(totalDeltaMass)) , "totalMassOnPepConstr");
             model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs , "constrM1");
             model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass +ms1TolAbs, "constrM2"); //or put this to constraints as a model.addRange
 
             model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, Math.min(partSeq.length(),4), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
-//            model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, 3, "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
             // two extra constraints on the numebr of PTMs.
             for (int pos : oneTimeMassGroups.keySet()) {
@@ -460,15 +456,15 @@ public class InferPTM {
 
 
             Set<Double> allMassSet = new HashSet<>(allMassAllPosesMap.keySet());
-            allMassSet.add(MassTool.PROTON);
-//            allMassSet.add(0.01);
-
-            int poolSolutions = 1000;
+//            allMassSet.add(MassTool.PROTON);
+            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")){
+                int a = 1;
+            }
+            int poolSolutions = 100;
             model.set(GRB.IntParam.MIPFocus, 1);
             model.set(GRB.IntParam.PoolSearchMode, 1);
             model.set(GRB.IntParam.PoolSolutions, poolSolutions);
             model.set(GRB.DoubleParam.TimeLimit, 1); // second
-
 
             model.optimize();
             switch (model.get(GRB.IntAttr.Status)) {
@@ -486,7 +482,7 @@ public class InferPTM {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
                 Map<Double, Integer> massTimeMap = new HashMap<>();
                 for (double mass : allMassSet){
-                    if (mass == MassTool.PROTON) continue; //dont record the mass of proton because it should not be placed on any aa as a ptm
+//                    if (mass == MassTool.PROTON) continue; //dont record the mass of proton because it should not be placed on any aa as a ptm
 
                     GRBVar var = massVarMap.get(mass);
                     int time = (int) Math.round(var.get(GRB.DoubleAttr.Xn));
@@ -494,14 +490,10 @@ public class InferPTM {
                         massTimeMap.put(mass, time);
                     }
                 }
+//                if ( ! massTimeMap.isEmpty()) {   // when there is only one proton ptm, it will not be count,
                 massTimeMapList.add(massTimeMap);
+//                }
             }
-
-//            for (Map<Double, Integer> map : massTimeMapList) {
-//                List<Double> massList = new ArrayList<>(map.keySet());
-//                Collections.sort(massList, Comparator.reverseOrder());
-//                System.out.println(massList);
-//            }
             model.dispose();
         } catch (GRBException e) {
             System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
@@ -715,7 +707,7 @@ public class InferPTM {
 //        return modPepPoolGood;
 //    }
 
-    public ModPepPool getFeasibleMassPosMap(List<Map<Double, Integer>> massTimeMapList, TreeMap<Double, Double> plMap, String partSeq,
+    public ModPepPool getFeasibleMassPosMap(int scanNum, List<Map<Double, Integer>> massTimeMapList, TreeMap<Double, Double> plMap, String partSeq,
                                             double cutMass, byte ncPart, SparseVector expProcessedPL, boolean isDecoy, Map<Double, List<Integer>> allMassAllPosesMap,
                                             Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map) {
         ModPepPool modPepPool = new ModPepPool(partSeq, 10);
@@ -763,9 +755,17 @@ public class InferPTM {
 //                    tmpPeptide.posVarPtmResMap.put(pos, posVarPtmArraySrcMap.get(pos)[ptmId]);
                     tmpPeptide.posVarPtmResMap.put(pos, pos_MassVarPtm_Map.get(pos).get(mass));
                 }
-                tmpPeptide.setVarPTM(posMassMap);
-                double[][] ionMatrix = tmpPeptide.getIonMatrixNow();
-                updateIonMatrix(ionMatrix, cutMass, ncPart);
+
+                double[][] ionMatrix = tmpPeptide.getIonMatrix();
+                if ( ! posMassMap.isEmpty()) { // if it is empty, the ptm must be just proton and ignored, so we just use the original ionMatrix to calculate score
+                    tmpPeptide.setVarPTM(posMassMap);
+                    ionMatrix = tmpPeptide.getIonMatrixNow();
+                    updateIonMatrix(ionMatrix, cutMass, ncPart);
+                }
+
+//                tmpPeptide.setVarPTM(posMassMap);
+//                double[][] ionMatrix = tmpPeptide.getIonMatrixNow();
+//                updateIonMatrix(ionMatrix, cutMass, ncPart);
 
                 Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
                 double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, tmpPeptide.matchedBions, tmpPeptide.matchedYions, jRange) ;
@@ -781,10 +781,10 @@ public class InferPTM {
     public ModPepPool settlePtmOnSide(int scanNum, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, double precursorMass, String partSeq, boolean isDecoy,
                                       Map<Double, List<Integer>> allMassAllPosesMap, double cutMass, double deltaMass, int precursorCharge, byte ncPart,
                                       double ms1TolAbs, Map<Integer, Set<Double>> oneTimeMassSets, List<Pair<Integer, Set<Double>>> multiTimeMassGroups,
-                                      Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map) throws GRBException {
+                                      Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map, GRBEnv env) throws GRBException {
 
-        List<Map<Double, Integer>> massTimeMapList = findBestPtmMIP(scanNum, allMassAllPosesMap, deltaMass, partSeq, ms1TolAbs, oneTimeMassSets, multiTimeMassGroups);
-        ModPepPool modPepPool = getFeasibleMassPosMap(massTimeMapList, plMap, partSeq, cutMass, ncPart, expProcessedPL, isDecoy, allMassAllPosesMap, pos_MassVarPtm_Map);
+        List<Map<Double, Integer>> massTimeMapList = findBestPtmMIP(scanNum, env, allMassAllPosesMap, deltaMass, partSeq, ms1TolAbs, oneTimeMassSets, multiTimeMassGroups);
+        ModPepPool modPepPool = getFeasibleMassPosMap(scanNum, massTimeMapList, plMap, partSeq, cutMass, ncPart, expProcessedPL, isDecoy, allMassAllPosesMap, pos_MassVarPtm_Map);
         return modPepPool;
     }
 
@@ -1431,7 +1431,7 @@ public class InferPTM {
         return idxVarModMap;
     }
 
-    public Map<Double, List<Integer>> getMassPosInfoMap(String partSeq, Set<Integer> fixModIdxes, int isNorC_Part, int isProtNorC_Term,
+    public Map<Double, List<Integer>> getMassPosInfoMap(int scanNum, String partSeq, Set<Integer> fixModIdxes, int isNorC_Part, int isProtNorC_Term,
                                                         Map<Integer, Set<Double>> oneTimeMassSetsMap, List<Pair<Integer, Set<Double>>> multiTimeMassGroups,
                                                         Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map) {
 //        partSeq, fixModIdxes, isNorC_Side, isProtNorC_Term
@@ -1528,7 +1528,7 @@ public class InferPTM {
                 }
                 posMassSetMap.put(i, massesOnAa);
             }
-        }
+        } // end for (int i = 0; i < partSeq.length(); ++i) {
 
         Set<Double> massWithMultiTime = new HashSet<>();
         for (double mass : allMassAllPosesMap.keySet()){
@@ -1547,14 +1547,23 @@ public class InferPTM {
             }
         }
 
-        for (double mass : massWithMultiTime) {
-            Set<Double> multiMassSet = new HashSet<>();
-            multiMassSet.add(mass);
-            for (int pos : allMassAllPosesMap.get(mass)) {
-                multiMassSet.addAll(oneTimeMassSetsMap.get(pos));
+        if (lszDebugScanNum.contains(scanNum)){
+            int a = 1;
+        }
+        try {
+            for (double mass : massWithMultiTime) {
+                Set<Double> multiMassSet = new HashSet<>();
+                multiMassSet.add(mass);
+                for (int pos : allMassAllPosesMap.get(mass)) {
+                    if (oneTimeMassSetsMap.containsKey(pos)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
+                        multiMassSet.addAll(oneTimeMassSetsMap.get(pos));
+                    }
+                }
+                Pair<Integer, Set<Double>> maxTime_multiMassSetPair = new Pair<>(allMassAllPosesMap.get(mass).size(), multiMassSet);
+                multiTimeMassGroups.add(maxTime_multiMassSetPair);
             }
-            Pair<Integer, Set<Double>> maxTime_multiMassSetPair = new Pair<>(allMassAllPosesMap.get(mass).size(), multiMassSet);
-            multiTimeMassGroups.add(maxTime_multiMassSetPair);
+        } catch (Exception e) {
+            System.out.println("wrong "+ scanNum + ","+ partSeq);
         }
         return allMassAllPosesMap;
     }

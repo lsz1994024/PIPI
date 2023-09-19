@@ -80,30 +80,30 @@ public class PIPI {
     /////
 
     ///synthetic
-    public static final boolean isPtmSimuTest = false; //normal //todo
-    static final boolean usePfmAndReduceDb = true;  //normal //todo
-    static final int minTagLenToExtract = 7;  //normal //todo
-    static final int maxTagLenToExtract = 7;  //normal //todo
-    static final boolean nTermSpecific = true; //normal //todo
-    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-    static final int  maxNumVarPtmConsidered = 1;
-
-//    / DL simu
 //    public static final boolean isPtmSimuTest = false; //normal //todo
 //    static final boolean usePfmAndReduceDb = true;  //normal //todo
 //    static final int minTagLenToExtract = 3;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
+//    static final int maxTagLenToExtract = 9;  //normal //todo
 //    static final boolean nTermSpecific = true; //normal //todo
 //    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-//    static final int  maxNumVarPtmConsidered = 18;
+//    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+//    static final int  maxNumVarPtmConsidered = 1;
+
+//    / DL simu
+    public static final boolean isPtmSimuTest = false; //normal //todo
+    static final boolean usePfmAndReduceDb = true;  //normal //todo
+    static final int minTagLenToExtract = 3;  //normal //todo
+    static final int maxTagLenToExtract = 99;  //normal //todo
+    static final boolean nTermSpecific = true; //normal //todo
+    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+    static final int  maxNumVarPtmConsidered = 18;
 //    /debuging parameters
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static ArrayList<Integer> lszDebugScanNum = new ArrayList<>(Arrays.asList(0));//35581 16918, 16847,16457,16483,
-    public static int neighborNum = 100;
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(129543,129603));//35581 16918, 16847,16457,16483,
+    public static int neighborNum = 20;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -435,7 +435,7 @@ public class PIPI {
         }
 
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0) {
-            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
+            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for debug
         }
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
@@ -605,7 +605,7 @@ public class PIPI {
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-//                    continue;//22459   comment this continue line, if run all scans
+                    continue;// skip scans not in the debug list
                 }
             }
             int fileId = fileNameIdMap.get( scanNameStr[0] );
@@ -1279,8 +1279,8 @@ public class PIPI {
 
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
-//        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipi7.csv"));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
+//        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipi7.csv"));
 
         writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {

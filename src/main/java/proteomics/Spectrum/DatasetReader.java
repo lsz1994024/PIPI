@@ -217,12 +217,9 @@ public class DatasetReader {
                         if (spectrum.getPeakList().size() < 5) {
                             continue;
                         }
-//                    if (scanNum != 53661) continue;
-                        if (PIPI.debugScanNumArray.length > 0) {
-                            if (Arrays.binarySearch(PIPI.debugScanNumArray, scanNum) < 0) {
-                                continue;
-                            }
-                        }
+//                        if ( ! PIPI.lszDebugScanNum.contains(scanNum)) {
+//                            continue;
+//                        }
 
                         if (spectrum.getPrecursorCharge() == null) {
 //                            logger.warn("Scan {} does not contain charge information.", scanNum);
@@ -234,11 +231,9 @@ public class DatasetReader {
                     } else {
                         scanNum = Integer.valueOf(spectrum.getId());
 
-                        if (PIPI.debugScanNumArray.length > 0) {
-                            if (Arrays.binarySearch(PIPI.debugScanNumArray, scanNum) < 0) {
-                                continue;
-                            }
-                        }
+//                        if ( ! PIPI.lszDebugScanNum.contains(scanNum)) {
+//                            continue;
+//                        }
 
                         TreeMap<Double, Double> parentPeakList = new TreeMap<>(spectraParser.getSpectrumById(parentId).getPeakList());
                         if (spectrum.getPrecursorCharge() == null) {
@@ -268,7 +263,7 @@ public class DatasetReader {
                             precursorMass = (precursorMz - MassTool.PROTON) * precursorCharge + isotopeCorrectionNum * MassTool.C13_DIFF;
                         }
                     }
-
+//                    System.out.println(scanNum);
                     sqlPrepareStatement.setInt(1, scanNum);
                     sqlPrepareStatement.setString(2, fileIdNameMap.get(i)+"."+spectrum.getId()+"."+scanNum); //fileName.scanId.scanNum  scanName
                     sqlPrepareStatement.setInt(3, precursorCharge);
