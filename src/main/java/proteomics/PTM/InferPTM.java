@@ -408,10 +408,6 @@ public class InferPTM {
         try {
             GRBModel model = new GRBModel(env);
             double t = 0.01;
-            //obj function
-            GRBLinExpr objFunction = new GRBLinExpr();
-
-            objFunction.addConstant(t);
 
             //variables
             GRBLinExpr totalNumsOnPepConstr = new GRBLinExpr();
@@ -431,7 +427,7 @@ public class InferPTM {
             model.addConstr(totalMassOnPepConstr, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs , "constrM1");
             model.addConstr(totalMassOnPepConstr, GRB.LESS_EQUAL, totalDeltaMass +ms1TolAbs, "constrM2"); //or put this to constraints as a model.addRange
 
-            model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, Math.min(partSeq.length(),4), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
+            model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, Math.min(partSeq.length(),3), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
             // two extra constraints on the numebr of PTMs.
             for (int pos : oneTimeMassGroups.keySet()) {
@@ -453,7 +449,10 @@ public class InferPTM {
                 model.addConstr(multiTimeMassConstr, GRB.LESS_EQUAL, time, "multiTimeMassConstr_"+time+"_"+dummyI);
                 dummyI++;
             }
-
+            //obj function
+            GRBLinExpr objFunction = new GRBLinExpr();
+            objFunction.addConstant(t);
+            model.setObjective(totalNumsOnPepConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
 
             Set<Double> allMassSet = new HashSet<>(allMassAllPosesMap.keySet());
 //            allMassSet.add(MassTool.PROTON);
@@ -713,7 +712,6 @@ public class InferPTM {
         ModPepPool modPepPool = new ModPepPool(partSeq, 10);
 
         for (Map<Double, Integer> massTimeMap : massTimeMapList) {
-//            Set<Integer> validPoses = new HashSet<>();
             Map<Integer, Double> singlePosMassMap = new HashMap<>();
             List<Double> massMaxMultiTime = new ArrayList<>(); // the mass order in this list is fixed. should be reused to match there poses.
             for (double mass : massTimeMap.keySet()){
@@ -721,9 +719,9 @@ public class InferPTM {
                 if (allTheoPoses.size() == 1) { // max poses num is 1. First use them to occupy some AAs
                     singlePosMassMap.put(allTheoPoses.get(0), mass);
                 } else {
-//                    validPoses.addAll(allTheoPoses);
-                    massMaxMultiTime.add(mass);
-                }
+                    for (int i = 0; i < massTimeMap.get(mass); i++) {  // if in res, one mass has xi = 2, then add it twice for correct cartesianProduct later
+                        massMaxMultiTime.add(mass);
+                    }                }
             } // finish checking all res mass whose MaxPosSize==1
 
             List<Set<Integer>> updatedFeasiblePosesList = new ArrayList<>(massMaxMultiTime.size());
@@ -1550,21 +1548,41 @@ public class InferPTM {
         if (lszDebugScanNum.contains(scanNum)){
             int a = 1;
         }
-        try {
-            for (double mass : massWithMultiTime) {
+        Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map = new HashMap<>();
+        for (double mass : massWithMultiTime) {
+            Set<Integer> posComb = new HashSet<>(allMassAllPosesMap.get(mass));
+            if (posComb_multiMassSet_Map.containsKey(posComb)) {
+                posComb_multiMassSet_Map.get(posComb).add(mass);
+            } else {
                 Set<Double> multiMassSet = new HashSet<>();
                 multiMassSet.add(mass);
-                for (int pos : allMassAllPosesMap.get(mass)) {
-                    if (oneTimeMassSetsMap.containsKey(pos)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
-                        multiMassSet.addAll(oneTimeMassSetsMap.get(pos));
-                    }
-                }
-                Pair<Integer, Set<Double>> maxTime_multiMassSetPair = new Pair<>(allMassAllPosesMap.get(mass).size(), multiMassSet);
-                multiTimeMassGroups.add(maxTime_multiMassSetPair);
+                posComb_multiMassSet_Map.put(posComb, multiMassSet);
             }
-        } catch (Exception e) {
-            System.out.println("wrong "+ scanNum + ","+ partSeq);
         }
+
+        for (Set<Integer> posComb: posComb_multiMassSet_Map.keySet()) {
+            Set<Double> multiMassSet = new HashSet<>();
+            multiMassSet.addAll(posComb_multiMassSet_Map.get(posComb));
+            for (int pos : posComb) {
+                if (oneTimeMassSetsMap.containsKey(pos)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
+                    multiMassSet.addAll(oneTimeMassSetsMap.get(pos));
+                }
+            }
+            Pair<Integer, Set<Double>> maxTime_multiMassSetPair = new Pair<>(posComb.size(), multiMassSet);
+            multiTimeMassGroups.add(maxTime_multiMassSetPair);
+        }
+            //testlsz
+//        for (double mass : massWithMultiTime) {
+//            Set<Double> multiMassSet = new HashSet<>();
+//            multiMassSet.add(mass);
+//            for (int pos : allMassAllPosesMap.get(mass)) {
+//                if (oneTimeMassSetsMap.containsKey(pos)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
+//                    multiMassSet.addAll(oneTimeMassSetsMap.get(pos));
+//                }
+//            }
+//            Pair<Integer, Set<Double>> maxTime_multiMassSetPair = new Pair<>(allMassAllPosesMap.get(mass).size(), multiMassSet);
+//            multiTimeMassGroups.add(maxTime_multiMassSetPair);
+//        }
         return allMassAllPosesMap;
     }
 
