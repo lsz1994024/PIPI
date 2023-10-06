@@ -26,13 +26,13 @@ public class VarPtm implements Comparable<VarPtm>{
     public final int priority; // 1 = high; 0 = low.
     public final boolean onlyProteinTerminalIfnc;
     public  String name = null;
-    public int position = 0;
+    public byte position;
     public  String classification = null;
     private final String toString;
 
     private final int hashCode;
     public double getMass(){return mass;}
-    public VarPtm(double mass, char site, int position, String name, String classification, int priority) {
+    public VarPtm(double mass, char site, byte position, String name, String classification, int priority) {
         this.mass = mass;
         this.site = site;
         this.priority = priority;

@@ -35,9 +35,12 @@ import proteomics.Spectrum.DatasetReader;
 import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static proteomics.PIPI.*;
 import static proteomics.PTM.InferPTM.*;
@@ -112,10 +115,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
 
         double ms1TolAbs = Double.parseDouble(InferPTM.df3.format(precursorMass*ms1Tolerance/1000000));
-        if (lszDebugScanNum.contains(this.scanNum)) {
-            System.out.println(scanNum + ", entered");
-            int a = 1;
-        }
+
         TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
 
         if (plMap.isEmpty()) return null;
@@ -152,9 +152,12 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
         int n_tags = 0;
         GRBEnv env = new GRBEnv(true);
-        env.set(GRB.IntParam.OutputFlag,0);
-        env.set(GRB.IntParam.LogToConsole, 0);
+//        env.set(GRB.IntParam.OutputFlag,0);
+//        env.set(GRB.IntParam.LogToConsole, 0);
         env.start();
+        if (lszDebugScanNum.contains(this.scanNum)) {
+            int a = 1;
+        }
         for (ExpTag tagInfo : allLongTagList.subList(0, Math.min(10, allLongTagList.size()))){
 
             minTagLen = tagInfo.size() > 4 ? 5 : 4;
@@ -325,12 +328,6 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
             }
-            if (pepList.get(j).getPriority() < 0 && isPtmSimuTest ) { // only simu test todo
-                pepIdsToRemove.add(j);
-            }
-        }
-        if (pepList.get(0).getPriority() < 0 && isPtmSimuTest ) {// only simu test  todo
-            pepIdsToRemove.add(0);
         }
         List<Peptide> newPepList = new ArrayList<>();
         for (int id = 0; id < pepList.size(); id++){
@@ -577,6 +574,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }
         return false;
     }
+
     private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, Map<String, List<Peptide>> resPeptideListMap
             , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) throws CloneNotSupportedException, GRBException {
 
@@ -585,313 +583,516 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         String protSeq = buildIndex.protSeqMap.get(protId);
         Map<Integer, Double> cPoscMassMap = new HashMap<>();
         if ( (tagPosInProt+finderTag.size() == protSeq.length() && finderTag.isNorC != C_TAG)  // not C tag but found at prot Cterm, impossible
-                || (tagPosInProt == 0 && finderTag.isNorC != N_TAG) // not N tag but found at prot Cterm, impossible
+                || (tagPosInProt == 0 && finderTag.isNorC != N_TAG) // not N tag but found at prot Nterm, impossible
                 || tagPosInProt < 0
                 || tagPosInProt+finderTag.size() > protSeq.length()
         ) {
             return;
         }
 
-        int missCleav = getNumOfMissCleavSite(finderTag.getFreeAaString());
-        if (finderTag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
-            if (isKR(protSeq.charAt(tagPosInProt+finderTag.size()-1)) && Math.abs(tagCMass - precursorMass) < ms1TolAbs) { //fixme, should use MS1 tolerance not MS2 tolerance
-                cPoscMassMap.put(tagPosInProt+finderTag.size()-1, tagCMass); // amino acid at cPos is also counted
-            }
+        int remainMC = massTool.missedCleavage - getNumOfMissCleavSite(finderTag.getFreeAaString());
+
+        List<Map<Integer, Integer>> cResPosPtmIdList = new ArrayList<>();
+        if (finderTag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs){ // C tag, tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+            cPoscMassMap.put(tagPosInProt+finderTag.size()-1, tagCMass); // amino acid at cPos is also counted
+            System.out.println("lsz No C section");
         } else { // only when oriTag is not C oriTag can it extend to c
+            List<Integer> cPoses = new ArrayList<>();
+            List<Integer> krPoses = new ArrayList<>();
+            int mcInC = 0;
             for (int i = tagPosInProt+finderTag.size(); i < protSeq.length(); i++) {  //
                 //the if-block is in order, dont change the order.
-                if (isX(protSeq.charAt(i))) break;
+                if (isX(protSeq.charAt(i))) {
+                    break;
+                }
                 tagCMass += massTool.getMassTable().get(protSeq.charAt(i)); //even when tag is fuzzy, tagcmass wont be disturbed
                 if (tagCMass > precursorMass+maxPtmMass) break; // the total max minus ptm is -250. although the max minus ptm for single ptm is -156
 
                 if (isKR(protSeq.charAt(i))) {
-                    missCleav++; //current num of missed cleavage
+                    mcInC++; //missed cleavage
                 }
-                if (tagCMass >= precursorMass-maxPtmMass && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+                if (tagCMass >= precursorMass-maxPtmMass) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+                    cPoses.add(i);
                     cPoscMassMap.put(i, tagCMass);
-                }
-                if (missCleav > massTool.missedCleavage  && !isPtmSimuTest) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
-                    break;         // stop extend to C term
-                }
-            }
-        }
-
-        int n_extension = 0;
-        for (int cPos : cPoscMassMap.keySet()) {
-            //check and find valid solution for cDeltaMass
-            double cDeltaMass = precursorMass - cPoscMassMap.get(cPos);
-            List<TreeMap<Integer, VarPtm>> cPosVarPtmResMap_List = new LinkedList<>();
-            char rightFlank;
-            byte isProtNorC_Term = NON_TERM_PROT;
-            if (cPos == protSeq.length()-1) {
-                rightFlank = '-';
-                isProtNorC_Term = C_TERM_PROT;
-            } else {
-                rightFlank = protSeq.charAt(cPos+1);
-            }
-            String cPartSeq = protSeq.substring(tagPosInProt+finderTag.size(), cPos+1);
-            double cCutMass = finderTag.getTailLocation() - MassTool.PROTON;
-            boolean isCTermFree = false;
-            if (Math.abs(cDeltaMass) > 0.1) { // not ptm free in c part
-                Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(cPartSeq);
-
-                Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeq.length());
-                List<Pair<Integer, Set<Double>>> multiTimeMassGroups = new ArrayList<>(cPartSeq.length());
-                Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(cPartSeq.length(), 1);
-                Map<Double, List<Integer>> allMassAllPosesMapC = inferPTM.getMassPosInfoMap(scanNum, cPartSeq, fixModIdxes, C_PART, isProtNorC_Term, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map);
-                ModPepPool cPartPepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, cPartSeq, false,
-                        allMassAllPosesMapC, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map,env);
-
-                if (cPartPepsWithPtm.peptideTreeSet.isEmpty()) {
-                    continue;
-                }
-                double topScore = cPartPepsWithPtm.getTopPepPtn().getScore();
-                boolean shouldSkip = true;
-                for (Peptide peptide : cPartPepsWithPtm.peptideTreeSet){
-                    if (peptide.getScore() >= 0.5 *topScore){
-//                        if (!peptide.posVarPtmResMap.isEmpty()){
-                        cPosVarPtmResMap_List.add(peptide.posVarPtmResMap);
-                        shouldSkip = false;
-//                        }
+                    if (isKR(protSeq.charAt(i))) {
+                        krPoses.add(i);
                     }
                 }
-                if (shouldSkip) {
-                    continue;  // c part should has PTM but unsettled.
+                if (mcInC > remainMC) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+                    cPoses.add(i);
+                    cPoscMassMap.put(i, tagCMass);
+                    break;         // stop extend to C term
+                }
+            }// finish collect all possible cpos
+            if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("VDLDAPDVSL")){
+                int a = 1;
+            }
+            int maxCPos = Collections.max(cPoses);
+            int minCPos = Collections.min(cPoses);
+            byte isProtNorC_Term = NON_TERM_PROT;
+            if (maxCPos == protSeq.length()-1) {
+                isProtNorC_Term = C_TERM_PROT;
+            }
+            Map<Integer, Integer> posYIdMap = new HashMap<>();
+            Map<Integer, Integer> yIdMaxPosMap = new HashMap<>();
+            if (cTermSpecific) {
+//                if ( ! krPoses.isEmpty()) { // if no kr poses but cTermSpecific, all poses will be trimed , no need to continue
+                Set<Integer> posIdToTrim = new HashSet<>();
+                for (int k = cPoses.size() - 1; k >= 0; k--) {
+                    if (!isKR(protSeq.charAt(cPoses.get(k)))) {
+                        posIdToTrim.add(cPoses.get(k));
+                    } else {
+                        break; //break at the first time we see a KR
+                    }
+                }
+                cPoses.removeAll(posIdToTrim); // to ensure c specific
+                if ( ! cPoses.isEmpty() && ! krPoses.isEmpty()) {
+                    System.out.println("lsz cPoses empty");
+                    maxCPos = Collections.max(cPoses);
+                    minCPos = Collections.min(cPoses);
+                    if (krPoses.isEmpty()) {
+                        System.out.println("lsz krPoses empty");
+                    }
+                    minCPos = krPoses.get(0) + 1;
+                    krPoses.remove(0);
+                    int yId = 0;
+                    for (int pos = minCPos; pos < maxCPos + 1; pos++) {
+//                        int relPos = pos-(tagPosInProt+finderTag.size());
+                        posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
+                        int tmpMaxPos = yIdMaxPosMap.getOrDefault(yId, -99);
+                        yIdMaxPosMap.put(yId, pos > tmpMaxPos ? pos : tmpMaxPos);
+                        if (krPoses.contains(pos)) {
+                            yId++;
+                        }
+                    }
                 }
             } else {
-                isCTermFree = true;
+                int yId = 0;
+                for (int pos = minCPos; pos < maxCPos+1; pos++) {
+//                    int relPos = pos-(tagPosInProt+finderTag.size());
+                    posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
+                    int tmpMaxPos = yIdMaxPosMap.getOrDefault(yId, -1);
+                    yIdMaxPosMap.put(yId, pos > tmpMaxPos ? pos : tmpMaxPos);
+                    yId++;
+                }
             }
+            String cPartSeq = protSeq.substring(tagPosInProt+finderTag.size(), maxCPos+1);
+//                double cCutMass = finderTag.getTailLocation() - MassTool.PROTON;
+            double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(tagPosInProt+finderTag.size(), minCPos));
+            cResPosPtmIdList = inferPTM.findBestPtmInC_Spec(scanNum, env, cPartSeq, (tagPosInProt+finderTag.size()), ms1TolAbs, flexiableMass, posYIdMap, yIdMaxPosMap, isProtNorC_Term);
+        } // end settle C section
 
 
-            //extend and settle N part
-            double nDeltaMass = finderTag.getHeadLocation() -MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
-            missCleav = getNumOfMissCleavSite(protSeq.substring(tagPosInProt, cPos)) ; //dont contain the c-term K, it does not count as miss cleav
-
-            int min_nPos = (finderTag.isNorC == N_TAG && Math.abs(finderTag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? tagPosInProt : 0;  //if it is from N tag and (when fuzzy) it is still N tag
-            int max_nPos = (finderTag.isNorC == N_TAG && Math.abs(finderTag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? tagPosInProt : tagPosInProt-1;
-            for (int nPos = max_nPos; nPos >= min_nPos; nPos--) {
-                if (cPos+1-nPos < minPepLen){
-                    continue;
-                }
-                else if ( cPos+1-nPos > maxPepLen) {
-                    break;
-                }
+//        protSeq = "PEPTLDEKLVFSGNLFQHQEDSKKLQDELQNMKEEMARLVSGKDYNVTANSKLGSPSGKTGTCRMSFVKGWGAEYRLLEQKTQESQKGFCFLTYTDEEPVKKTQAYQDQKPGTSGLRLLNEPTAAALAYGLDKKLLDLKTGTVKAANMLQQSGSKNTGAKAGPNASLLSLKSDKGADFLVTEVENGGSLGSKKDASTLQSQKAEGTGDAKGTVPDDAVEALADSLGKKSKHLQEQLNELKLLEEEDSKLKLVEKYGYTHLSAGELLRVNVEAPDVNLEGLGGKLKSEASSEFAKKDTPTSAGPNSFNKGKGTLSAPGKVVTAAAQAKAVVKTDLQLALPSGCYGRLSALQGKLSKSLFFGGKGAPLQRATVASSTQKFQDLGVKASNAAVKLAESKDHLSDKESKAAQASDLEKLHLDEKLGNDFHTNKRDQEALMKSVKVNLGQGSHPQKVKSQNTDMVQKSVSKVGLDTPDLDLHGPEGKLKLLTWDVKDTLLRVDLDVPDVNLEGPDAKLKFLQEFYQDDELGKKDALHFYNKSLAEHRVYLASSSGSTALKKGWLKSNVSDAVAQSTRLFQSDTNAMLGKKDLGKFQVATDALKSGNLTEDDKHNNAKLSSNFSSLLAEKLRAMEAASSLKSQAATKKYEELDNAPEERTLQKQSVVYGGKGETASKLQSELSRTKMSAAQALKSPSDSGYSYETLGKTTKLPQEKCLLQTDVKLTQDLMAKVRLEEVTGKLQVARLQTKAGEATVKLDLPAENSNSETLLLTGKRVNALKNLQVKHELQANCYEEVKDRLTASLCDLKSRSSFAYKDQNENRFSMPGFKGEGPDVDVSLPKLMDQNLKCLSAAEEKAGQKLLDVNHYAKLDHLAEKFRALASLDSKLNQAKVEDCKMESTETEERSSGPGGQNVNKVNSKDSLNFLDHLNGKKYLELYVQKVNPSRTGGTQTDLFTCGKCKSLKLNTAEDAKSPDEAYALAKKSDSGKPYYYNSQTKVDVEVPDVSLEGPEGKLKVFLGNLNTLVVKKKNLSQELNMEQKLTSLNVKYNNDKLLLPGELAKHAVSEGTKSGFGKFERLDEKENLSAKVQGGALEDSQLVAGVAFKKPGGEGPQCEKTTDVKANLEKAQAELVGTADEATRPANEKATDDYHYEKSGNFSAAMKDLSGKAALNQKLLETGERTEVLSPNSKVESKPSVSTKLLSKGSLGAQKLANTCFNELEKGTLTVSAQELKDNRVFSLLSSEKELKFSMPGFKGEGPDVDVNLPKDDSFLGKLGGTLARVGDDLAKATGDWKDNSTMGYMAAKKDLSTVEALQNLKNLKFDDTNPEKEEAKDAEAAEATAEGALKAEKYEELVKEVSTYLKMESEEGKEARALLQAKASGKASDTSSETVFGKRMAQELKYGDLVERDFDTALKHYDKLDEMPEAAVKSTANKVGLQVVAVKAPGFGDNRDKALPLEAEVAPVKASEALLKQLKLQLELDQKKDYSAPVNFLSAGLKKFGTLNLVHPKLGSYTKLQAAYAGDKADDLQKTPGQNAQKWLPARLFVGGLKEDTEEHHLRLQEKVESAQSEQKLEKTLDDLEEKDSSPTTNSKLSALQRSLGEPAAGEGSAKRLLSSLEQKEENKTTEETSKPKLHNAENLQPGEQKYEYKYEQEHAALQDKLFQVAKSEDTLSKMNDFMRLTESVAETAQTLKKVSPASSVDSNLPSSQGYKKTGASWTDNLMAQKCSKDESFLGKLGGTLARDYSSGFGGKYGVQADRTFGKAAGPSLSHTSGGTQSKVETTVTSLKTKTTGFYSGFSEVAEKRLTLSKHQNVQLPRVGTASVLQPVKKVLTANSNPSSPSAAKRANEKTESSSAQQVAVSRLSSAMSAAKALCDHVRLQDVSGQLSSSKKLTGKNQVTATKTQDQLSNLKYHEEFEKDVNAALAALKTKSPPLPEHQKLPCNSAEPKLAEEENKAKSSVACKWNLAEAQQKPSVGSQSNQAGQGKRTEDEVLTSKGDAWAKAQQHWGSGVGVKKKFGVLSDNFKVDLDAPDVSLEGPDAKLKLLFSNTAAQKLRVLDSGAPLKLPVGPETLGRSNEEGSEEKGPEVRSGDWKGYTGKLTMLNTVSKLRFSAYLKNSNPALNDNLEKDEPSVAAMVYPFTGDHKQKMGSKSPGNTSQPPAFFSKVTLEVGKVLQQGRVTAAAMAGNKSTPRDTMGLADKTENTLERGAEKTEVAEPRSMSTEGLMKFVDSKVGEFSGANKEKASALSLKLGSSKGSLEKGSPEDKGEVGAGAGPGAQAGPSAKRHAEMVHTGLKLERSLTHSTVGSKGEKGGNLGAKWTLDLKLGNSYFKEEKSDDESSQKDLKDLVAALQHNYKMSAFKLNNFSADLKDSKLEQVEKELLRVPTTEKPTVTVNFRVGVEVPDVNLEGPEGKLKLLLVSTTPYSEKDTKFELGKLMELHGEGSSSGKSTGLELETPSLVPVKKLQQELQTAKKPSEGPLQSVQVFGRSLEEEGAAHSGKRSKLLFSNTAAQKTPNLYLYSKKDTGEKLTVAENEAETKLLEEELQAPTSSKRLGVATVAKGVCGACKMMSKPQTSGAYVLNKGGPGSTLSFVGKRAANDAGYFNDEMAPLEVKTKHAVSEGTKAVTKTVSKVDDFLANEAKSGKFTQQDLDEAKGFALVGVGSEASSKKMQQLKEQYRGEVQVSDKERTLDELLQEKKLTEKELAEAASKLHVQSSSDSSDEPAEKRSQPATKTEDYGMGPGRLPLANTEKYMADKPASGAGAGAGAGKRKPEPTLDE";
+        List<Map<Integer, Integer>> nResPosPtmIdList = new ArrayList<>();
+        double nDeltaMass = finderTag.getHeadLocation() - MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
+        if (finderTag.isNorC == N_TAG || Math.abs(finderTag.getHeadLocation() - MassTool.PROTON) < ms1TolAbs) { //fixme, should use MS1 tolerance not MS2 tolerance
+            System.out.println("lsz No N section"); //todo
+        } else {
+            List<Integer> nPoses = new ArrayList<>();
+            List<Integer> krPosesInFlex = new ArrayList<>();
+            int mcInN = 0;
+            for (int nPos = tagPosInProt-1; nPos >= 0; nPos--) {
                 if (isX(protSeq.charAt(nPos))) break;
                 if (nPos < tagPosInProt) {
                     nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
                 }
                 if (nDeltaMass < minPtmMass) break;
-                if (nDeltaMass > maxPtmMass)
-                    continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
-
-                if (nTermSpecific) {
-                    if (nPos != 0 && !isKR(protSeq.charAt(nPos - 1))) {// n term must be specific
-                        continue;
+                if (nDeltaMass < maxPtmMass) {
+                    nPoses.add(nPos);
+                    if (isKR(protSeq.charAt(nPos))) {
+                        krPosesInFlex.add(nPos); // only count the kr poses in the flexible zone
                     }
                 }
-
-//                if (isKR(protSeq.charAt(nPos))) {  //this is not working because the continue above
-//                    missCleav++; //current num of missed cleavage
-//                }
-                missCleav = getNumOfMissCleavSite(protSeq.substring(nPos, cPos));
-                if (missCleav > massTool.missedCleavage && !isPtmSimuTest) {
-                    break;         // stop extend to n term
+                if (isKR(protSeq.charAt(nPos))) {
+                    mcInN++; //missed cleavage
                 }
-                if (cPos + 1 - nPos < 6) { // min length of pep
-                    continue;
+                if (mcInN > remainMC) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+                    break;         // diff NC
                 }
-
-                // check N part
-                String nPartSeq = protSeq.substring(nPos, tagPosInProt);// should not plus 1
-                char leftFlank;
-                isProtNorC_Term = NON_TERM_PROT;
-                if (nPos == 0 || (nPos == 1 && protSeq.charAt(0) == 'M')) {
-                    leftFlank = '-';
-                    isProtNorC_Term = N_TERM_PROT;
-                } else {
-                    leftFlank = protSeq.charAt(nPos - 1);
-                }
-                double nCutMass = precursorMass+MassTool.PROTON - finderTag.getHeadLocation() - massTool.H2O; //                double nCutMass = finderTag.getTailLocation() - MassTool.PROTON;
-
-                List<TreeMap<Integer, VarPtm>> nPosVarPtmResMap_List = new LinkedList<>();
-
-                boolean isNTermFree = false;
-                if (Math.abs(nDeltaMass) > 0.1) {
-                    Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(nPartSeq);
-                    Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(nPartSeq.length());
-                    List<Pair<Integer, Set<Double>>> multiTimeMassGroups = new ArrayList<>(nPartSeq.length());
-                    Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeq.length(), 1);
-                    Map<Double, List<Integer>> allMassAllPosesMapN = inferPTM.getMassPosInfoMap(scanNum, nPartSeq, fixModIdxes, N_PART, isProtNorC_Term, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map); //todo no need to generate var mod list for aa again and again, make it stored.
-                    ModPepPool nPartpepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, nPartSeq, false,
-                            allMassAllPosesMapN, nCutMass, nDeltaMass, precursorCharge, N_PART, ms1TolAbs, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map, env);
-
-                    if (nPartpepsWithPtm.peptideTreeSet.isEmpty()) {
-                        continue; // how could it be return!!!
-                    }
-                    double topScore = nPartpepsWithPtm.getTopPepPtn().getScore();
-                    boolean shouldSkip = true;
-                    for (Peptide peptide : nPartpepsWithPtm.peptideTreeSet) {
-                        if (peptide.getScore() >= 0.5 * topScore) {
-//                            if (!peptide.posVarPtmResMap.isEmpty()) {
-                            nPosVarPtmResMap_List.add(peptide.posVarPtmResMap);
-                            shouldSkip = false;
-//                            }
-                        }
-                    }
-                    if (shouldSkip) {
-                        continue;  // n part should has PTM but unsettled.
-                    }
-                } else {
-                    isNTermFree = true;
-                }
-                n_extension++;
-                int tagPosInPep = tagPosInProt - nPos;
-                // store this peptide
-                // to combine the top 10 cPartSeq and top 10 nPartSeq.
-                String freePepSeq = protSeq.substring(nPos, cPos + 1);
-                StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
-                ptmPepSeqSB.replace(tagPosInPep, tagPosInPep + finderTag.size(), finderTag.getPtmAaString());
-                List<PosMassMap> posMassMap_List = new LinkedList<>();
-                List<TreeMap<Integer, VarPtm>> posVarPtmResMap_List = new LinkedList<>();
-                if (!cPosVarPtmResMap_List.isEmpty() && !nPosVarPtmResMap_List.isEmpty()) {
-                    for (TreeMap<Integer, VarPtm> cPosVarPtmResMap : cPosVarPtmResMap_List){
-                        for (TreeMap<Integer, VarPtm> nPosVarPtmResMap : nPosVarPtmResMap_List) {
-                            PosMassMap fullPosMassMap = new PosMassMap(freePepSeq.length());
-                            TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
-                            for (int pos : nPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                                fullPosMassMap.put(pos, nPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
-                                posVarPtmResMap.put(pos, nPosVarPtmResMap.get(pos));
-                            }
-                            for (int pos : cPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                                fullPosMassMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
-                                posVarPtmResMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos));
-                            }
-                            int idOfAa = -1;
-                            for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
-                                if (Character.isUpperCase(aaChar)) {
-                                    idOfAa += 1;
-                                } else {
-                                    fullPosMassMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
-                                    posVarPtmResMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar));
-                                }
-                            }
-                            posVarPtmResMap_List.add(posVarPtmResMap);
-                            posMassMap_List.add(fullPosMassMap);
-                        }
-                    }
-                } else if (cPosVarPtmResMap_List.isEmpty() && !nPosVarPtmResMap_List.isEmpty()) {
-                    for (TreeMap<Integer, VarPtm> nPosVarPtmResMap : nPosVarPtmResMap_List) {
-                        PosMassMap fullPosMassMap = new PosMassMap(freePepSeq.length());
-                        TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
-                        for (int pos : nPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                            fullPosMassMap.put(pos, nPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
-                            posVarPtmResMap.put(pos, nPosVarPtmResMap.get(pos));
-                        }
-                        int idOfAa = -1;
-                        for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
-                            if (Character.isUpperCase(aaChar)) {
-                                idOfAa += 1;
-                            } else {
-                                fullPosMassMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
-                                posVarPtmResMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar));
-                            }
-                        }
-                        posVarPtmResMap_List.add(posVarPtmResMap);
-                        posMassMap_List.add(fullPosMassMap);
-                    }
-                }else if (!cPosVarPtmResMap_List.isEmpty() && nPosVarPtmResMap_List.isEmpty()){
-                    for (TreeMap<Integer, VarPtm> cPosVarPtmResMap : cPosVarPtmResMap_List){
-                        PosMassMap fullPosMassMap = new PosMassMap(freePepSeq.length());
-                        TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
-                        for (int pos : cPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
-                            fullPosMassMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
-                            posVarPtmResMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos));
-                        }
-                        int idOfAa = -1;
-                        for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
-                            if (Character.isUpperCase(aaChar)) {
-                                idOfAa += 1;
-                            } else {
-                                fullPosMassMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
-                                posVarPtmResMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar));
-                            }
-                        }
-                        posVarPtmResMap_List.add(posVarPtmResMap);
-                        posMassMap_List.add(fullPosMassMap);
-                    }
-                }
-
-                if (posVarPtmResMap_List.isEmpty()){
-                    Peptide peptide = new Peptide(freePepSeq, true, massTool);// these paras are dummy answer will be deleted
-                    peptide.tagPosInPep = tagPosInPep;
-                    peptide.ptmSeq = ptmPepSeqSB.toString();
-                    peptide.finderTag = finderTag;
-                    peptide.cDeltaMass = cDeltaMass;
-                    peptide.nDeltaMass = nDeltaMass;
-
-                    peptide.setScore(massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions));//todo decide the penalty
-
-                    List<Peptide> peptideList = resPeptideListMap.get(freePepSeq);
-                    if (peptideList == null) {
-                        peptideList = new ArrayList<>();
-                        peptideList.add(peptide);
-                        resPeptideListMap.put(freePepSeq, peptideList);
-                    } else {
-                        peptideList.add(peptide);
-                    }
-                }else {
-                    for (int i = 0; i < posVarPtmResMap_List.size(); i++) {
-                        Peptide peptide = new Peptide(freePepSeq, true, massTool);// these paras are dummy answer will be deleted
-                        peptide.tagPosInPep = tagPosInPep;
-                        peptide.ptmSeq = ptmPepSeqSB.toString();
-                        peptide.finderTag = finderTag;
-                        peptide.cDeltaMass = cDeltaMass;
-                        peptide.nDeltaMass = nDeltaMass;
-
-                        PosMassMap fullPosMassMap = posMassMap_List.get(i);
-                        TreeMap<Integer, VarPtm> posVarPtmResMap = posVarPtmResMap_List.get(i);
-                        if (!fullPosMassMap.isEmpty()) { // has ptm in n , c or on the tag, it is a ptm-containing peptide
-                            peptide.setVarPTM(fullPosMassMap);
-                            peptide.posVarPtmResMap = posVarPtmResMap;
-                        }
-                        peptide.setScore(massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions));//todo decide the penalty
-
-                        List<Peptide> peptideList = resPeptideListMap.get(freePepSeq);
-                        if (peptideList == null) {
-                            peptideList = new ArrayList<>();
-                            peptideList.add(peptide);
-                            resPeptideListMap.put(freePepSeq, peptideList);
-                        } else {
-                            peptideList.add(peptide);
-                        }
-                    }
-                }
-                //update peptideInfoMapForRef,  just the flanks and proteins, these are standard info should be independent of peptide candidates.
-                if (peptideInfoMap.containsKey(freePepSeq)) {
-                    PeptideInfo peptideInfo = peptideInfoMap.get(freePepSeq);
-                    if (!peptideInfo.protIdSet.contains(protId)) { //if this pep with prot is not recorded, add this prot
-                        if (peptideInfo.leftFlank != '-' && peptideInfo.rightFlank != '-') {
-                            if (rightFlank == '-' || leftFlank == '-') {
-                                peptideInfo.leftFlank = leftFlank;
-                                peptideInfo.rightFlank = rightFlank;
-                            }
-                        }
-                        peptideInfo.protIdSet.add(protId);
-                        if (!protId.startsWith("DECOY_")) {
-                            peptideInfo.isDecoy = false;
-                        }
-                    }
-                } else {
-                    PeptideInfo peptideInfo = new PeptideInfo(freePepSeq, protId.startsWith("DECOY_"), leftFlank, rightFlank);
-                    peptideInfo.protIdSet.add(protId);
-                    peptideInfoMap.put(freePepSeq, peptideInfo);
-                }
-
+                double nCutMass = precursorMass + MassTool.PROTON - finderTag.getHeadLocation() - massTool.H2O; //                double nCutMass = finderTag.getTailLocation() - MassTool.PROTON;
             }
-        }
+            if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("VDLDAPDVSL")){
+                int a = 1;
+            }
+            int maxNPos = Collections.max(nPoses);
+            int minNPos = Collections.min(nPoses);
+            Map<Integer, Integer> posYIdMap = new HashMap<>();
+            byte isProtNorC_Term = NON_TERM_PROT;
+            if (minNPos == 1 && protSeq.charAt(0) == 'M') {
+                isProtNorC_Term = N_TERM_PROT;
+            }
+            Map<Integer, Integer> yIdMinPosMap = new HashMap<>();
+            if (nTermSpecific) {
+                Set<Integer> posIdToTrim = new HashSet<>();
+                if (nPoses.get(nPoses.size()-1) > 1 && ! isKR(protSeq.charAt(nPoses.get(nPoses.size()-1)-1))){  //if min pos is at prot head, dont trim; else if min pos-1 is KR dont trim
+                    for (int k = nPoses.size()-1; k >= 0; k--){
+                        posIdToTrim.add(nPoses.get(k));
+                        if (isKR(protSeq.charAt(nPoses.get(k)))) {
+                            break; //break at the first time we see a KR
+                        }
+                    }
+                }
+                nPoses.removeAll(posIdToTrim); // to ensure c specific
+                if ( ! nPoses.isEmpty()) {
+                    System.out.println("lsz nPoses empty");
+                    maxNPos = Collections.max(nPoses);
+                    minNPos = Collections.min(nPoses);
+                    if (krPosesInFlex.isEmpty()) {
+                        System.out.println(scanNum+"lsz krPoses empty");
+                    }
+//                    maxNPos = krPosesInFlex.get(0);
+                    maxNPos = krPosesInFlex.isEmpty() ? minNPos - 1 : krPosesInFlex.get(0);
+
+
+//                    krPosesInFlex.remove(0);
+                    int yId = 0;
+                    for (int pos = maxNPos; pos > minNPos - 1; pos--) {
+//                        int relPos = pos - minNPos;
+                        posYIdMap.put(pos, yId);
+                        if (krPosesInFlex.contains(pos)) {
+                            int tmpMinPos = yIdMinPosMap.getOrDefault(yId, 999999);
+                            yIdMinPosMap.put(yId, pos < tmpMinPos ? pos : tmpMinPos);
+                            yId++;
+                        }
+                    }
+                }
+            } else {
+                maxNPos = Collections.max(nPoses);
+                minNPos = Collections.min(nPoses);
+                int yId = 0;
+                for (int pos = maxNPos; pos > minNPos-1; pos--) {
+//                    int relPos = pos - minNPos;
+                    posYIdMap.put(pos, yId);
+                    int tmpMinPos = yIdMinPosMap.getOrDefault(yId, 999999);
+                    yIdMinPosMap.put(yId, pos < tmpMinPos ? pos : tmpMinPos);
+                    yId++;
+                }
+            }
+            String nPartSeq = protSeq.substring(minNPos, tagPosInProt);
+//                double nCutMass = precursorMass+MassTool.PROTON - finderTag.getHeadLocation() - massTool.H2O;
+            double flexiableMass = finderTag.getHeadLocation() - MassTool.PROTON - massTool.calResidueMass(protSeq.substring(maxNPos+1, tagPosInProt));
+//            Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(nPartSeq);
+//            Map<Integer, VarPtm[]> posAllVarPtmMap = inferPTM.getIdxVarModMapNew(nPartSeq, fixModIdxes, N_PART, isProtNorC_Term);
+            nResPosPtmIdList = inferPTM.findBestPtmInN_Spec(scanNum, env, nPartSeq, minNPos, ms1TolAbs, flexiableMass, posYIdMap, yIdMinPosMap,isProtNorC_Term);
+        }// end settle N section
         return;
     }
 
+//    private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, Map<String, List<Peptide>> resPeptideListMap
+//            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) throws CloneNotSupportedException, GRBException {
+//true
+//        double tagCMass = finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
+//        //tagCMass is correct even the tag is fuzzy. because FM starts searching from C
+//        String protSeq = buildIndex.protSeqMap.get(protId);
+//        Map<Integer, Double> cPoscMassMap = new HashMap<>();
+//        if ( (tagPosInProt+finderTag.size() == protSeq.length() && finderTag.isNorC != C_TAG)  // not C tag but found at prot Cterm, impossible
+//                || (tagPosInProt == 0 && finderTag.isNorC != N_TAG) // not N tag but found at prot Cterm, impossible
+//                || tagPosInProt < 0
+//                || tagPosInProt+finderTag.size() > protSeq.length()
+//        ) {
+//            return;
+//        }
+//
+//        int missCleav = getNumOfMissCleavSite(finderTag.getFreeAaString());
+//        if (finderTag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs){ // C tag, the end of tag must be KR and the tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+//            if (isKR(protSeq.charAt(tagPosInProt+finderTag.size()-1)) && Math.abs(tagCMass - precursorMass) < ms1TolAbs) { //fixme, should use MS1 tolerance not MS2 tolerance
+//                cPoscMassMap.put(tagPosInProt+finderTag.size()-1, tagCMass); // amino acid at cPos is also counted
+//            }
+//        } else { // only when oriTag is not C oriTag can it extend to c
+//            for (int i = tagPosInProt+finderTag.size(); i < protSeq.length(); i++) {  //
+//                //the if-block is in order, dont change the order.
+//                if (isX(protSeq.charAt(i))) break;
+//                tagCMass += massTool.getMassTable().get(protSeq.charAt(i)); //even when tag is fuzzy, tagcmass wont be disturbed
+//                if (tagCMass > precursorMass+maxPtmMass) break; // the total max minus ptm is -250. although the max minus ptm for single ptm is -156
+//
+//                if (isKR(protSeq.charAt(i))) {
+//                    missCleav++; //current num of missed cleavage
+//                }
+//                if (tagCMass >= precursorMass-maxPtmMass && isKR(protSeq.charAt(i))) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+//                    cPoscMassMap.put(i, tagCMass);
+//                }
+//                if (missCleav > massTool.missedCleavage  && !isPtmSimuTest) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+//                    break;         // stop extend to C term
+//                }
+//            }
+//        }
+//
+//        int n_extension = 0;
+//        for (int cPos : cPoscMassMap.keySet()) {
+//            //check and find valid solution for cDeltaMass
+//            double cDeltaMass = precursorMass - cPoscMassMap.get(cPos);
+//            List<TreeMap<Integer, VarPtm>> cPosVarPtmResMap_List = new LinkedList<>();
+//            char rightFlank;
+//            byte isProtNorC_Term = NON_TERM_PROT;
+//            if (cPos == protSeq.length()-1) {
+//                rightFlank = '-';
+//                isProtNorC_Term = C_TERM_PROT;
+//            } else {
+//                rightFlank = protSeq.charAt(cPos+1);
+//            }
+//            String cPartSeq = protSeq.substring(tagPosInProt+finderTag.size(), cPos+1);
+//            double cCutMass = finderTag.getTailLocation() - MassTool.PROTON;
+//            boolean isCTermFree = false;
+//            if (Math.abs(cDeltaMass) > 0.1) { // not ptm free in c part
+//                Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(cPartSeq);
+//
+//                Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeq.length());
+//                List<Pair<Integer, Set<Double>>> multiTimeMassGroups = new ArrayList<>(cPartSeq.length());
+//                Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(cPartSeq.length(), 1);
+//                Map<Double, List<Integer>> allMassAllPosesMapC = inferPTM.getMassPosInfoMap(scanNum, cPartSeq, fixModIdxes, C_PART, isProtNorC_Term, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map);
+//                ModPepPool cPartPepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, cPartSeq, false,
+//                        allMassAllPosesMapC, cCutMass, cDeltaMass, precursorCharge, C_PART,ms1TolAbs, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map,env);
+//
+//                if (cPartPepsWithPtm.peptideTreeSet.isEmpty()) {
+//                    continue;
+//                }
+//                double topScore = cPartPepsWithPtm.getTopPepPtn().getScore();
+//                boolean shouldSkip = true;
+//                for (Peptide peptide : cPartPepsWithPtm.peptideTreeSet){
+//                    if (peptide.getScore() >= 0.5 *topScore){
+////                        if (!peptide.posVarPtmResMap.isEmpty()){
+//                        cPosVarPtmResMap_List.add(peptide.posVarPtmResMap);
+//                        shouldSkip = false;
+////                        }
+//                    }
+//                }
+//                if (shouldSkip) {
+//                    continue;  // c part should has PTM but unsettled.
+//                }
+//            } else {
+//                isCTermFree = true;
+//            }
+//
+//
+//            //extend and settle N part
+//            double nDeltaMass = finderTag.getHeadLocation() -MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
+//            missCleav = getNumOfMissCleavSite(protSeq.substring(tagPosInProt, cPos)) ; //dont contain the c-term K, it does not count as miss cleav
+//
+//            int min_nPos = (finderTag.isNorC == N_TAG && Math.abs(finderTag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? tagPosInProt : 0;  //if it is from N tag and (when fuzzy) it is still N tag
+//            int max_nPos = (finderTag.isNorC == N_TAG && Math.abs(finderTag.getHeadLocation()-MassTool.PROTON) <= 0.02 ) ? tagPosInProt : tagPosInProt-1;
+//            for (int nPos = max_nPos; nPos >= min_nPos; nPos--) {
+//                if (cPos+1-nPos < minPepLen){
+//                    continue;
+//                }
+//                else if ( cPos+1-nPos > maxPepLen) {
+//                    break;
+//                }
+//                if (isX(protSeq.charAt(nPos))) break;
+//                if (nPos < tagPosInProt) {
+//                    nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
+//                }
+//                if (nDeltaMass < minPtmMass) break;
+//                if (nDeltaMass > maxPtmMass)
+//                    continue;// the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+//
+//                if (nTermSpecific) {
+//                    if (nPos != 0 && !isKR(protSeq.charAt(nPos - 1))) {// n term must be specific
+//                        continue;
+//                    }
+//                }
+//
+////                if (isKR(protSeq.charAt(nPos))) {  //this is not working because the continue above
+////                    missCleav++; //current num of missed cleavage
+////                }
+//                missCleav = getNumOfMissCleavSite(protSeq.substring(nPos, cPos));
+//                if (missCleav > massTool.missedCleavage && !isPtmSimuTest) {
+//                    break;         // stop extend to n term
+//                }
+//                if (cPos + 1 - nPos < 6) { // min length of pep
+//                    continue;
+//                }
+//
+//                // check N part
+//                String nPartSeq = protSeq.substring(nPos, tagPosInProt);// should not plus 1
+//                char leftFlank;
+//                isProtNorC_Term = NON_TERM_PROT;
+//                if (nPos == 0 || (nPos == 1 && protSeq.charAt(0) == 'M')) {
+//                    leftFlank = '-';
+//                    isProtNorC_Term = N_TERM_PROT;
+//                } else {
+//                    leftFlank = protSeq.charAt(nPos - 1);
+//                }
+//                double nCutMass = precursorMass+MassTool.PROTON - finderTag.getHeadLocation() - massTool.H2O; //                double nCutMass = finderTag.getTailLocation() - MassTool.PROTON;
+//
+//                List<TreeMap<Integer, VarPtm>> nPosVarPtmResMap_List = new LinkedList<>();
+//
+//                boolean isNTermFree = false;
+//                if (Math.abs(nDeltaMass) > 0.1) {
+//                    Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(nPartSeq);
+//                    Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(nPartSeq.length());
+//                    List<Pair<Integer, Set<Double>>> multiTimeMassGroups = new ArrayList<>(nPartSeq.length());
+//                    Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeq.length(), 1);
+//                    Map<Double, List<Integer>> allMassAllPosesMapN = inferPTM.getMassPosInfoMap(scanNum, nPartSeq, fixModIdxes, N_PART, isProtNorC_Term, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map); //todo no need to generate var mod list for aa again and again, make it stored.
+//                    ModPepPool nPartpepsWithPtm = inferPTM.settlePtmOnSide(scanNum, expProcessedPL, plMap, precursorMass, nPartSeq, false,
+//                            allMassAllPosesMapN, nCutMass, nDeltaMass, precursorCharge, N_PART, ms1TolAbs, oneTimeMassGroups, multiTimeMassGroups, pos_MassVarPtm_Map, env);
+//
+//                    if (nPartpepsWithPtm.peptideTreeSet.isEmpty()) {
+//                        continue; // how could it be return!!!
+//                    }
+//                    double topScore = nPartpepsWithPtm.getTopPepPtn().getScore();
+//                    boolean shouldSkip = true;
+//                    for (Peptide peptide : nPartpepsWithPtm.peptideTreeSet) {
+//                        if (peptide.getScore() >= 0.5 * topScore) {
+////                            if (!peptide.posVarPtmResMap.isEmpty()) {
+//                            nPosVarPtmResMap_List.add(peptide.posVarPtmResMap);
+//                            shouldSkip = false;
+////                            }
+//                        }
+//                    }
+//                    if (shouldSkip) {
+//                        continue;  // n part should has PTM but unsettled.
+//                    }
+//                } else {
+//                    isNTermFree = true;
+//                }
+//                n_extension++;
+//                int tagPosInPep = tagPosInProt - nPos;
+//                // store this peptide
+//                // to combine the top 10 cPartSeq and top 10 nPartSeq.
+//                String freePepSeq = protSeq.substring(nPos, cPos + 1);
+//                StringBuilder ptmPepSeqSB = new StringBuilder(freePepSeq);
+//                ptmPepSeqSB.replace(tagPosInPep, tagPosInPep + finderTag.size(), finderTag.getPtmAaString());
+//                List<PosMassMap> posMassMap_List = new LinkedList<>();
+//                List<TreeMap<Integer, VarPtm>> posVarPtmResMap_List = new LinkedList<>();
+//                if (!cPosVarPtmResMap_List.isEmpty() && !nPosVarPtmResMap_List.isEmpty()) {
+//                    for (TreeMap<Integer, VarPtm> cPosVarPtmResMap : cPosVarPtmResMap_List){
+//                        for (TreeMap<Integer, VarPtm> nPosVarPtmResMap : nPosVarPtmResMap_List) {
+//                            PosMassMap fullPosMassMap = new PosMassMap(freePepSeq.length());
+//                            TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
+//                            for (int pos : nPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+//                                fullPosMassMap.put(pos, nPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
+//                                posVarPtmResMap.put(pos, nPosVarPtmResMap.get(pos));
+//                            }
+//                            for (int pos : cPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+//                                fullPosMassMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
+//                                posVarPtmResMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos));
+//                            }
+//                            int idOfAa = -1;
+//                            for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
+//                                if (Character.isUpperCase(aaChar)) {
+//                                    idOfAa += 1;
+//                                } else {
+//                                    fullPosMassMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
+//                                    posVarPtmResMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar));
+//                                }
+//                            }
+//                            posVarPtmResMap_List.add(posVarPtmResMap);
+//                            posMassMap_List.add(fullPosMassMap);
+//                        }
+//                    }
+//                } else if (cPosVarPtmResMap_List.isEmpty() && !nPosVarPtmResMap_List.isEmpty()) {
+//                    for (TreeMap<Integer, VarPtm> nPosVarPtmResMap : nPosVarPtmResMap_List) {
+//                        PosMassMap fullPosMassMap = new PosMassMap(freePepSeq.length());
+//                        TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
+//                        for (int pos : nPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+//                            fullPosMassMap.put(pos, nPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
+//                            posVarPtmResMap.put(pos, nPosVarPtmResMap.get(pos));
+//                        }
+//                        int idOfAa = -1;
+//                        for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
+//                            if (Character.isUpperCase(aaChar)) {
+//                                idOfAa += 1;
+//                            } else {
+//                                fullPosMassMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
+//                                posVarPtmResMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar));
+//                            }
+//                        }
+//                        posVarPtmResMap_List.add(posVarPtmResMap);
+//                        posMassMap_List.add(fullPosMassMap);
+//                    }
+//                }else if (!cPosVarPtmResMap_List.isEmpty() && nPosVarPtmResMap_List.isEmpty()){
+//                    for (TreeMap<Integer, VarPtm> cPosVarPtmResMap : cPosVarPtmResMap_List){
+//                        PosMassMap fullPosMassMap = new PosMassMap(freePepSeq.length());
+//                        TreeMap<Integer, VarPtm> posVarPtmResMap = new TreeMap<>();
+//                        for (int pos : cPosVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+//                            fullPosMassMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
+//                            posVarPtmResMap.put(pos + tagPosInPep + finderTag.size(), cPosVarPtmResMap.get(pos));
+//                        }
+//                        int idOfAa = -1;
+//                        for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
+//                            if (Character.isUpperCase(aaChar)) {
+//                                idOfAa += 1;
+//                            } else {
+//                                fullPosMassMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
+//                                posVarPtmResMap.put(tagPosInPep + idOfAa, massTool.labelVarPtmMap.get(aaChar));
+//                            }
+//                        }
+//                        posVarPtmResMap_List.add(posVarPtmResMap);
+//                        posMassMap_List.add(fullPosMassMap);
+//                    }
+//                }
+//
+//                if (posVarPtmResMap_List.isEmpty()){
+//                    Peptide peptide = new Peptide(freePepSeq, true, massTool);// these paras are dummy answer will be deleted
+//                    peptide.tagPosInPep = tagPosInPep;
+//                    peptide.ptmSeq = ptmPepSeqSB.toString();
+//                    peptide.finderTag = finderTag;
+//                    peptide.cDeltaMass = cDeltaMass;
+//                    peptide.nDeltaMass = nDeltaMass;
+//
+//                    peptide.setScore(massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions));//todo decide the penalty
+//
+//                    List<Peptide> peptideList = resPeptideListMap.get(freePepSeq);
+//                    if (peptideList == null) {
+//                        peptideList = new ArrayList<>();
+//                        peptideList.add(peptide);
+//                        resPeptideListMap.put(freePepSeq, peptideList);
+//                    } else {
+//                        peptideList.add(peptide);
+//                    }
+//                }else {
+//                    for (int i = 0; i < posVarPtmResMap_List.size(); i++) {
+//                        Peptide peptide = new Peptide(freePepSeq, true, massTool);// these paras are dummy answer will be deleted
+//                        peptide.tagPosInPep = tagPosInPep;
+//                        peptide.ptmSeq = ptmPepSeqSB.toString();
+//                        peptide.finderTag = finderTag;
+//                        peptide.cDeltaMass = cDeltaMass;
+//                        peptide.nDeltaMass = nDeltaMass;
+//
+//                        PosMassMap fullPosMassMap = posMassMap_List.get(i);
+//                        TreeMap<Integer, VarPtm> posVarPtmResMap = posVarPtmResMap_List.get(i);
+//                        if (!fullPosMassMap.isEmpty()) { // has ptm in n , c or on the tag, it is a ptm-containing peptide
+//                            peptide.setVarPTM(fullPosMassMap);
+//                            peptide.posVarPtmResMap = posVarPtmResMap;
+//                        }
+//                        peptide.setScore(massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions));//todo decide the penalty
+//
+//                        List<Peptide> peptideList = resPeptideListMap.get(freePepSeq);
+//                        if (peptideList == null) {
+//                            peptideList = new ArrayList<>();
+//                            peptideList.add(peptide);
+//                            resPeptideListMap.put(freePepSeq, peptideList);
+//                        } else {
+//                            peptideList.add(peptide);
+//                        }
+//                    }
+//                }
+//                //update peptideInfoMapForRef,  just the flanks and proteins, these are standard info should be independent of peptide candidates.
+//                if (peptideInfoMap.containsKey(freePepSeq)) {
+//                    PeptideInfo peptideInfo = peptideInfoMap.get(freePepSeq);
+//                    if (!peptideInfo.protIdSet.contains(protId)) { //if this pep with prot is not recorded, add this prot
+//                        if (peptideInfo.leftFlank != '-' && peptideInfo.rightFlank != '-') {
+//                            if (rightFlank == '-' || leftFlank == '-') {
+//                                peptideInfo.leftFlank = leftFlank;
+//                                peptideInfo.rightFlank = rightFlank;
+//                            }
+//                        }
+//                        peptideInfo.protIdSet.add(protId);
+//                        if (!protId.startsWith("DECOY_")) {
+//                            peptideInfo.isDecoy = false;
+//                        }
+//                    }
+//                } else {
+//                    PeptideInfo peptideInfo = new PeptideInfo(freePepSeq, protId.startsWith("DECOY_"), leftFlank, rightFlank);
+//                    peptideInfo.protIdSet.add(protId);
+//                    peptideInfoMap.put(freePepSeq, peptideInfo);
+//                }
+//
+//            }
+//        }
+//        return;
+//    }
     private int getNumOfMissCleavSite(String seq) {
         String str1 = seq.substring(0,seq.length());
         String str2 = str1.replaceAll("[KR]","");

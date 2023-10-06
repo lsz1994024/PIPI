@@ -34,7 +34,6 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static proteomics.PIPI.isPtmSimuTest;
 import static proteomics.PIPI.lszDebugScanNum;
 
 public class PtmSearch implements Callable<PtmSearch.Entry> {
@@ -234,12 +233,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
 //                        break
                 }
             }
-            if (pepList.get(j).getPriority() < 0 && isPtmSimuTest ) { // only simu test todo
-                pepIdsToRemove.add(j);
-            }
-        }
-        if (pepList.get(0).getPriority() < 0 && isPtmSimuTest ) {// only simu test  todo
-            pepIdsToRemove.add(0);
         }
         List<Peptide> newPepList = new ArrayList<>();
         for (int id = 0; id < pepList.size(); id++){
@@ -251,11 +244,6 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             return null;
         }
 
-//        for (Peptide pep : newPepList){
-//            if (pep.getPriority() < 0 && isPtmSimuTest) {
-//                System.out.println(scanNum + " wtf ? " + pep.getVarPtmContainingSeqNow());
-//            }
-//        }
 
         Peptide[] peptideArray = newPepList.toArray(new Peptide[0]);
 
