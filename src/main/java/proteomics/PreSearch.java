@@ -20,10 +20,8 @@ import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
 import ProteomicsLibrary.Types.SparseBooleanVector;
 import ProteomicsLibrary.Types.SparseVector;
-import gurobi.GRB;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
-import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import proteomics.FM.FMIndex;
@@ -35,16 +33,12 @@ import proteomics.Spectrum.DatasetReader;
 import proteomics.Types.*;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static proteomics.PIPI.*;
 import static proteomics.PTM.InferPTM.*;
-import static proteomics.PTM.InferPTM.N_PART;
 import static proteomics.Segment.InferSegment.*;
 
 public class PreSearch implements Callable<PreSearch.Entry> {
@@ -600,6 +594,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             List<Integer> cPoses = new ArrayList<>();
             List<Integer> krPoses = new ArrayList<>();
             int mcInC = 0;
+            boolean startRecord = false;
             for (int i = tagPosInProt+finderTag.size(); i < protSeq.length(); i++) {  //
                 //the if-block is in order, dont change the order.
                 if (isX(protSeq.charAt(i))) {
@@ -610,76 +605,76 @@ public class PreSearch implements Callable<PreSearch.Entry> {
 
                 if (isKR(protSeq.charAt(i))) {
                     mcInC++; //missed cleavage
+                    if (mcInC > remainMC) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+                        cPoses.add(i);
+                        break;         // stop extend to C term
+                    }
                 }
                 if (tagCMass >= precursorMass-maxPtmMass) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
-                    cPoses.add(i);
-                    cPoscMassMap.put(i, tagCMass);
-                    if (isKR(protSeq.charAt(i))) {
-                        krPoses.add(i);
-                    }
-                }
-                if (mcInC > remainMC) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
-                    cPoses.add(i);
-                    cPoscMassMap.put(i, tagCMass);
-                    break;         // stop extend to C term
+                    if (startRecord)  cPoses.add(i);
+                    if (isKR(protSeq.charAt(i)))  krPoses.add(i);
+                    startRecord = true;
                 }
             }// finish collect all possible cpos
-            if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("VDLDAPDVSL")){
+            if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("SLEEEGAA")){
                 int a = 1;
             }
-            int maxCPos = Collections.max(cPoses);
-            int minCPos = Collections.min(cPoses);
-            byte isProtNorC_Term = NON_TERM_PROT;
-            if (maxCPos == protSeq.length()-1) {
-                isProtNorC_Term = C_TERM_PROT;
-            }
+//            byte isProtNorC_Term = NON_TERM_PROT;
+//            if (maxCPos == protSeq.length()-1) {
+//                isProtNorC_Term = C_TERM_PROT;
+//            }
             Map<Integer, Integer> posYIdMap = new HashMap<>();
-            Map<Integer, Integer> yIdMaxPosMap = new HashMap<>();
+            int minCPos = 1;
+            int maxCPos = 0;
             if (cTermSpecific) {
-//                if ( ! krPoses.isEmpty()) { // if no kr poses but cTermSpecific, all poses will be trimed , no need to continue
-                Set<Integer> posIdToTrim = new HashSet<>();
-                for (int k = cPoses.size() - 1; k >= 0; k--) {
-                    if (!isKR(protSeq.charAt(cPoses.get(k)))) {
-                        posIdToTrim.add(cPoses.get(k));
-                    } else {
-                        break; //break at the first time we see a KR
-                    }
-                }
-                cPoses.removeAll(posIdToTrim); // to ensure c specific
-                if ( ! cPoses.isEmpty() && ! krPoses.isEmpty()) {
-                    System.out.println("lsz cPoses empty");
-                    maxCPos = Collections.max(cPoses);
-                    minCPos = Collections.min(cPoses);
-                    if (krPoses.isEmpty()) {
-                        System.out.println("lsz krPoses empty");
-                    }
-                    minCPos = krPoses.get(0) + 1;
-                    krPoses.remove(0);
+                if ( ! krPoses.isEmpty()) {
+                    maxCPos = Collections.max(krPoses);
+                    minCPos = Collections.min(krPoses) + 1;  // good trick
                     int yId = 0;
                     for (int pos = minCPos; pos < maxCPos + 1; pos++) {
-//                        int relPos = pos-(tagPosInProt+finderTag.size());
                         posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
-                        int tmpMaxPos = yIdMaxPosMap.getOrDefault(yId, -99);
-                        yIdMaxPosMap.put(yId, pos > tmpMaxPos ? pos : tmpMaxPos);
                         if (krPoses.contains(pos)) {
                             yId++;
                         }
                     }
                 }
             } else {
+                maxCPos = Collections.max(cPoses);
+                minCPos = Collections.min(cPoses);  // good trick
                 int yId = 0;
                 for (int pos = minCPos; pos < maxCPos+1; pos++) {
-//                    int relPos = pos-(tagPosInProt+finderTag.size());
                     posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
-                    int tmpMaxPos = yIdMaxPosMap.getOrDefault(yId, -1);
-                    yIdMaxPosMap.put(yId, pos > tmpMaxPos ? pos : tmpMaxPos);
                     yId++;
                 }
             }
-            String cPartSeq = protSeq.substring(tagPosInProt+finderTag.size(), maxCPos+1);
-//                double cCutMass = finderTag.getTailLocation() - MassTool.PROTON;
-            double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(tagPosInProt+finderTag.size(), minCPos));
-            cResPosPtmIdList = inferPTM.findBestPtmInC_Spec(scanNum, env, cPartSeq, (tagPosInProt+finderTag.size()), ms1TolAbs, flexiableMass, posYIdMap, yIdMaxPosMap, isProtNorC_Term);
+
+//            ModPepPool cPartPepsWithPtm = new ModPepPool()
+            if (minCPos <= maxCPos) {
+                String cPartSeq = protSeq.substring(tagPosInProt+finderTag.size(), maxCPos+1);
+                double cCutMass = finderTag.getTailLocation() - MassTool.PROTON;
+                double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(tagPosInProt+finderTag.size(), minCPos));
+                Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeq.length());
+                Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map = new HashMap<>();
+                Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(cPartSeq.length(), 1);
+                Map<Double, List<Integer>> allMassAllPosesMap = new HashMap<>(cPartSeq.length() * 10, 1); //Set<pos>
+
+                Map<Integer, Integer> yIdMaxAbsPosMap = new HashMap<>();
+                for (int pos : posYIdMap.keySet()) {
+                    int yId = posYIdMap.get(pos);
+                    int oldMaxPos = yIdMaxAbsPosMap.getOrDefault(yId, -99);
+                    yIdMaxAbsPosMap.put(yId, pos > oldMaxPos ? pos : oldMaxPos);
+                }
+
+                inferPTM.prepareInfoCTerm(scanNum, cPartSeq, oneTimeMassGroups, posComb_multiMassSet_Map,
+                        pos_MassVarPtm_Map, allMassAllPosesMap, yIdMaxAbsPosMap, maxCPos == protSeq.length()-1, minCPos, tagPosInProt+finderTag.size());
+
+                List<Map<Double, Integer>> massTimeMapList = inferPTM.findBestPtmMIPExt(scanNum, env, allMassAllPosesMap, flexiableMass, (tagPosInProt+finderTag.size()),
+                        cPartSeq, ms1TolAbs, oneTimeMassGroups, posComb_multiMassSet_Map, posYIdMap, pos_MassVarPtm_Map, yIdMaxAbsPosMap);
+
+                ModPepPool cPartPepsWithPtm = inferPTM.getFeasibleMassPosMap(scanNum, massTimeMapList, plMap, cPartSeq, cCutMass, C_PART,
+                        expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map);
+            }
+             int a = 1;
         } // end settle C section
 
 
@@ -778,6 +773,210 @@ public class PreSearch implements Callable<PreSearch.Entry> {
         }// end settle N section
         return;
     }
+
+//    private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, Map<String, List<Peptide>> resPeptideListMap
+//            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) throws CloneNotSupportedException, GRBException {
+//
+//        double tagCMass = finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
+//        //tagCMass is correct even the tag is fuzzy. because FM starts searching from C
+//        String protSeq = buildIndex.protSeqMap.get(protId);
+//        Map<Integer, Double> cPoscMassMap = new HashMap<>();
+//        if ( (tagPosInProt+finderTag.size() == protSeq.length() && finderTag.isNorC != C_TAG)  // not C tag but found at prot Cterm, impossible
+//                || (tagPosInProt == 0 && finderTag.isNorC != N_TAG) // not N tag but found at prot Nterm, impossible
+//                || tagPosInProt < 0
+//                || tagPosInProt+finderTag.size() > protSeq.length()
+//        ) {
+//            return;
+//        }
+//
+//        int remainMC = massTool.missedCleavage - getNumOfMissCleavSite(finderTag.getFreeAaString());
+//
+//        List<Map<Integer, Integer>> cResPosPtmIdList = new ArrayList<>();
+//        if (finderTag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs){ // C tag, tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+//            cPoscMassMap.put(tagPosInProt+finderTag.size()-1, tagCMass); // amino acid at cPos is also counted
+//            System.out.println("lsz No C section");
+//        } else { // only when oriTag is not C oriTag can it extend to c
+//            List<Integer> cPoses = new ArrayList<>();
+//            List<Integer> krPoses = new ArrayList<>();
+//            int mcInC = 0;
+//            for (int i = tagPosInProt+finderTag.size(); i < protSeq.length(); i++) {  //
+//                //the if-block is in order, dont change the order.
+//                if (isX(protSeq.charAt(i))) {
+//                    break;
+//                }
+//                tagCMass += massTool.getMassTable().get(protSeq.charAt(i)); //even when tag is fuzzy, tagcmass wont be disturbed
+//                if (tagCMass > precursorMass+maxPtmMass) break; // the total max minus ptm is -250. although the max minus ptm for single ptm is -156
+//
+//                if (isKR(protSeq.charAt(i))) {
+//                    mcInC++; //missed cleavage
+//                }
+//                if (tagCMass >= precursorMass-maxPtmMass) { // the total max plus ptm is 600. though the max plus ptm for single ptm is 527
+//                    cPoses.add(i);
+//                    cPoscMassMap.put(i, tagCMass);
+//                    if (isKR(protSeq.charAt(i))) {
+//                        krPoses.add(i);
+//                    }
+//                }
+//                if (mcInC > remainMC) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+//                    cPoses.add(i);
+//                    cPoscMassMap.put(i, tagCMass);
+//                    break;         // stop extend to C term
+//                }
+//            }// finish collect all possible cpos
+//            if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("VDLDAPDVSL")){
+//                int a = 1;
+//            }
+//            int maxCPos = Collections.max(cPoses);
+//            int minCPos = Collections.min(cPoses);
+//            byte isProtNorC_Term = NON_TERM_PROT;
+//            if (maxCPos == protSeq.length()-1) {
+//                isProtNorC_Term = C_TERM_PROT;
+//            }
+//            Map<Integer, Integer> posYIdMap = new HashMap<>();
+//            Map<Integer, Integer> yIdMaxPosMap = new HashMap<>();
+//            if (cTermSpecific) {
+////                if ( ! krPoses.isEmpty()) { // if no kr poses but cTermSpecific, all poses will be trimed , no need to continue
+//                Set<Integer> posIdToTrim = new HashSet<>();
+//                for (int k = cPoses.size() - 1; k >= 0; k--) {
+//                    if (!isKR(protSeq.charAt(cPoses.get(k)))) {
+//                        posIdToTrim.add(cPoses.get(k));
+//                    } else {
+//                        break; //break at the first time we see a KR
+//                    }
+//                }
+//                cPoses.removeAll(posIdToTrim); // to ensure c specific
+//                if ( ! cPoses.isEmpty() && ! krPoses.isEmpty()) {
+//                    System.out.println("lsz cPoses empty");
+//                    maxCPos = Collections.max(cPoses);
+//                    minCPos = Collections.min(cPoses);
+//                    if (krPoses.isEmpty()) {
+//                        System.out.println("lsz krPoses empty");
+//                    }
+//                    minCPos = krPoses.get(0) + 1;
+//                    krPoses.remove(0);
+//                    int yId = 0;
+//                    for (int pos = minCPos; pos < maxCPos + 1; pos++) {
+////                        int relPos = pos-(tagPosInProt+finderTag.size());
+//                        posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
+//                        int tmpMaxPos = yIdMaxPosMap.getOrDefault(yId, -99);
+//                        yIdMaxPosMap.put(yId, pos > tmpMaxPos ? pos : tmpMaxPos);
+//                        if (krPoses.contains(pos)) {
+//                            yId++;
+//                        }
+//                    }
+//                }
+//            } else {
+//                int yId = 0;
+//                for (int pos = minCPos; pos < maxCPos+1; pos++) {
+////                    int relPos = pos-(tagPosInProt+finderTag.size());
+//                    posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
+//                    int tmpMaxPos = yIdMaxPosMap.getOrDefault(yId, -1);
+//                    yIdMaxPosMap.put(yId, pos > tmpMaxPos ? pos : tmpMaxPos);
+//                    yId++;
+//                }
+//            }
+//            String cPartSeq = protSeq.substring(tagPosInProt+finderTag.size(), maxCPos+1);
+////                double cCutMass = finderTag.getTailLocation() - MassTool.PROTON;
+//            double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(tagPosInProt+finderTag.size(), minCPos));
+//            cResPosPtmIdList = inferPTM.findBestPtmInC_Spec(scanNum, env, cPartSeq, (tagPosInProt+finderTag.size()), ms1TolAbs, flexiableMass, posYIdMap, yIdMaxPosMap, isProtNorC_Term);
+//        } // end settle C section
+//
+//
+////        protSeq = "PEPTLDEKLVFSGNLFQHQEDSKKLQDELQNMKEEMARLVSGKDYNVTANSKLGSPSGKTGTCRMSFVKGWGAEYRLLEQKTQESQKGFCFLTYTDEEPVKKTQAYQDQKPGTSGLRLLNEPTAAALAYGLDKKLLDLKTGTVKAANMLQQSGSKNTGAKAGPNASLLSLKSDKGADFLVTEVENGGSLGSKKDASTLQSQKAEGTGDAKGTVPDDAVEALADSLGKKSKHLQEQLNELKLLEEEDSKLKLVEKYGYTHLSAGELLRVNVEAPDVNLEGLGGKLKSEASSEFAKKDTPTSAGPNSFNKGKGTLSAPGKVVTAAAQAKAVVKTDLQLALPSGCYGRLSALQGKLSKSLFFGGKGAPLQRATVASSTQKFQDLGVKASNAAVKLAESKDHLSDKESKAAQASDLEKLHLDEKLGNDFHTNKRDQEALMKSVKVNLGQGSHPQKVKSQNTDMVQKSVSKVGLDTPDLDLHGPEGKLKLLTWDVKDTLLRVDLDVPDVNLEGPDAKLKFLQEFYQDDELGKKDALHFYNKSLAEHRVYLASSSGSTALKKGWLKSNVSDAVAQSTRLFQSDTNAMLGKKDLGKFQVATDALKSGNLTEDDKHNNAKLSSNFSSLLAEKLRAMEAASSLKSQAATKKYEELDNAPEERTLQKQSVVYGGKGETASKLQSELSRTKMSAAQALKSPSDSGYSYETLGKTTKLPQEKCLLQTDVKLTQDLMAKVRLEEVTGKLQVARLQTKAGEATVKLDLPAENSNSETLLLTGKRVNALKNLQVKHELQANCYEEVKDRLTASLCDLKSRSSFAYKDQNENRFSMPGFKGEGPDVDVSLPKLMDQNLKCLSAAEEKAGQKLLDVNHYAKLDHLAEKFRALASLDSKLNQAKVEDCKMESTETEERSSGPGGQNVNKVNSKDSLNFLDHLNGKKYLELYVQKVNPSRTGGTQTDLFTCGKCKSLKLNTAEDAKSPDEAYALAKKSDSGKPYYYNSQTKVDVEVPDVSLEGPEGKLKVFLGNLNTLVVKKKNLSQELNMEQKLTSLNVKYNNDKLLLPGELAKHAVSEGTKSGFGKFERLDEKENLSAKVQGGALEDSQLVAGVAFKKPGGEGPQCEKTTDVKANLEKAQAELVGTADEATRPANEKATDDYHYEKSGNFSAAMKDLSGKAALNQKLLETGERTEVLSPNSKVESKPSVSTKLLSKGSLGAQKLANTCFNELEKGTLTVSAQELKDNRVFSLLSSEKELKFSMPGFKGEGPDVDVNLPKDDSFLGKLGGTLARVGDDLAKATGDWKDNSTMGYMAAKKDLSTVEALQNLKNLKFDDTNPEKEEAKDAEAAEATAEGALKAEKYEELVKEVSTYLKMESEEGKEARALLQAKASGKASDTSSETVFGKRMAQELKYGDLVERDFDTALKHYDKLDEMPEAAVKSTANKVGLQVVAVKAPGFGDNRDKALPLEAEVAPVKASEALLKQLKLQLELDQKKDYSAPVNFLSAGLKKFGTLNLVHPKLGSYTKLQAAYAGDKADDLQKTPGQNAQKWLPARLFVGGLKEDTEEHHLRLQEKVESAQSEQKLEKTLDDLEEKDSSPTTNSKLSALQRSLGEPAAGEGSAKRLLSSLEQKEENKTTEETSKPKLHNAENLQPGEQKYEYKYEQEHAALQDKLFQVAKSEDTLSKMNDFMRLTESVAETAQTLKKVSPASSVDSNLPSSQGYKKTGASWTDNLMAQKCSKDESFLGKLGGTLARDYSSGFGGKYGVQADRTFGKAAGPSLSHTSGGTQSKVETTVTSLKTKTTGFYSGFSEVAEKRLTLSKHQNVQLPRVGTASVLQPVKKVLTANSNPSSPSAAKRANEKTESSSAQQVAVSRLSSAMSAAKALCDHVRLQDVSGQLSSSKKLTGKNQVTATKTQDQLSNLKYHEEFEKDVNAALAALKTKSPPLPEHQKLPCNSAEPKLAEEENKAKSSVACKWNLAEAQQKPSVGSQSNQAGQGKRTEDEVLTSKGDAWAKAQQHWGSGVGVKKKFGVLSDNFKVDLDAPDVSLEGPDAKLKLLFSNTAAQKLRVLDSGAPLKLPVGPETLGRSNEEGSEEKGPEVRSGDWKGYTGKLTMLNTVSKLRFSAYLKNSNPALNDNLEKDEPSVAAMVYPFTGDHKQKMGSKSPGNTSQPPAFFSKVTLEVGKVLQQGRVTAAAMAGNKSTPRDTMGLADKTENTLERGAEKTEVAEPRSMSTEGLMKFVDSKVGEFSGANKEKASALSLKLGSSKGSLEKGSPEDKGEVGAGAGPGAQAGPSAKRHAEMVHTGLKLERSLTHSTVGSKGEKGGNLGAKWTLDLKLGNSYFKEEKSDDESSQKDLKDLVAALQHNYKMSAFKLNNFSADLKDSKLEQVEKELLRVPTTEKPTVTVNFRVGVEVPDVNLEGPEGKLKLLLVSTTPYSEKDTKFELGKLMELHGEGSSSGKSTGLELETPSLVPVKKLQQELQTAKKPSEGPLQSVQVFGRSLEEEGAAHSGKRSKLLFSNTAAQKTPNLYLYSKKDTGEKLTVAENEAETKLLEEELQAPTSSKRLGVATVAKGVCGACKMMSKPQTSGAYVLNKGGPGSTLSFVGKRAANDAGYFNDEMAPLEVKTKHAVSEGTKAVTKTVSKVDDFLANEAKSGKFTQQDLDEAKGFALVGVGSEASSKKMQQLKEQYRGEVQVSDKERTLDELLQEKKLTEKELAEAASKLHVQSSSDSSDEPAEKRSQPATKTEDYGMGPGRLPLANTEKYMADKPASGAGAGAGAGKRKPEPTLDE";
+//        List<Map<Integer, Integer>> nResPosPtmIdList = new ArrayList<>();
+//        double nDeltaMass = finderTag.getHeadLocation() - MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
+//        if (finderTag.isNorC == N_TAG || Math.abs(finderTag.getHeadLocation() - MassTool.PROTON) < ms1TolAbs) { //fixme, should use MS1 tolerance not MS2 tolerance
+//            System.out.println("lsz No N section"); //todo
+//        } else {
+//            List<Integer> nPoses = new ArrayList<>();
+//            List<Integer> krPosesInFlex = new ArrayList<>();
+//            int mcInN = 0;
+//            for (int nPos = tagPosInProt-1; nPos >= 0; nPos--) {
+//                if (isX(protSeq.charAt(nPos))) break;
+//                if (nPos < tagPosInProt) {
+//                    nDeltaMass -= massTool.getMassTable().get(protSeq.charAt(nPos));
+//                }
+//                if (nDeltaMass < minPtmMass) break;
+//                if (nDeltaMass < maxPtmMass) {
+//                    nPoses.add(nPos);
+//                    if (isKR(protSeq.charAt(nPos))) {
+//                        krPosesInFlex.add(nPos); // only count the kr poses in the flexible zone
+//                    }
+//                }
+//                if (isKR(protSeq.charAt(nPos))) {
+//                    mcInN++; //missed cleavage
+//                }
+//                if (mcInN > remainMC) { // if current num of KR is max, dont need to extend to c because it is impossible to take one more KR
+//                    break;         // diff NC
+//                }
+//                double nCutMass = precursorMass + MassTool.PROTON - finderTag.getHeadLocation() - massTool.H2O; //                double nCutMass = finderTag.getTailLocation() - MassTool.PROTON;
+//            }
+//            if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("VDLDAPDVSL")){
+//                int a = 1;
+//            }
+//            int maxNPos = Collections.max(nPoses);
+//            int minNPos = Collections.min(nPoses);
+//            Map<Integer, Integer> posYIdMap = new HashMap<>();
+//            byte isProtNorC_Term = NON_TERM_PROT;
+//            if (minNPos == 1 && protSeq.charAt(0) == 'M') {
+//                isProtNorC_Term = N_TERM_PROT;
+//            }
+//            Map<Integer, Integer> yIdMinPosMap = new HashMap<>();
+//            if (nTermSpecific) {
+//                Set<Integer> posIdToTrim = new HashSet<>();
+//                if (nPoses.get(nPoses.size()-1) > 1 && ! isKR(protSeq.charAt(nPoses.get(nPoses.size()-1)-1))){  //if min pos is at prot head, dont trim; else if min pos-1 is KR dont trim
+//                    for (int k = nPoses.size()-1; k >= 0; k--){
+//                        posIdToTrim.add(nPoses.get(k));
+//                        if (isKR(protSeq.charAt(nPoses.get(k)))) {
+//                            break; //break at the first time we see a KR
+//                        }
+//                    }
+//                }
+//                nPoses.removeAll(posIdToTrim); // to ensure c specific
+//                if ( ! nPoses.isEmpty()) {
+//                    System.out.println("lsz nPoses empty");
+//                    maxNPos = Collections.max(nPoses);
+//                    minNPos = Collections.min(nPoses);
+//                    if (krPosesInFlex.isEmpty()) {
+//                        System.out.println(scanNum+"lsz krPoses empty");
+//                    }
+////                    maxNPos = krPosesInFlex.get(0);
+//                    maxNPos = krPosesInFlex.isEmpty() ? minNPos - 1 : krPosesInFlex.get(0);
+//
+//
+////                    krPosesInFlex.remove(0);
+//                    int yId = 0;
+//                    for (int pos = maxNPos; pos > minNPos - 1; pos--) {
+////                        int relPos = pos - minNPos;
+//                        posYIdMap.put(pos, yId);
+//                        if (krPosesInFlex.contains(pos)) {
+//                            int tmpMinPos = yIdMinPosMap.getOrDefault(yId, 999999);
+//                            yIdMinPosMap.put(yId, pos < tmpMinPos ? pos : tmpMinPos);
+//                            yId++;
+//                        }
+//                    }
+//                }
+//            } else {
+//                maxNPos = Collections.max(nPoses);
+//                minNPos = Collections.min(nPoses);
+//                int yId = 0;
+//                for (int pos = maxNPos; pos > minNPos-1; pos--) {
+////                    int relPos = pos - minNPos;
+//                    posYIdMap.put(pos, yId);
+//                    int tmpMinPos = yIdMinPosMap.getOrDefault(yId, 999999);
+//                    yIdMinPosMap.put(yId, pos < tmpMinPos ? pos : tmpMinPos);
+//                    yId++;
+//                }
+//            }
+//            String nPartSeq = protSeq.substring(minNPos, tagPosInProt);
+////                double nCutMass = precursorMass+MassTool.PROTON - finderTag.getHeadLocation() - massTool.H2O;
+//            double flexiableMass = finderTag.getHeadLocation() - MassTool.PROTON - massTool.calResidueMass(protSeq.substring(maxNPos+1, tagPosInProt));
+////            Set<Integer> fixModIdxes = inferPTM.getFixModIdxes(nPartSeq);
+////            Map<Integer, VarPtm[]> posAllVarPtmMap = inferPTM.getIdxVarModMapNew(nPartSeq, fixModIdxes, N_PART, isProtNorC_Term);
+//            nResPosPtmIdList = inferPTM.findBestPtmInN_Spec(scanNum, env, nPartSeq, minNPos, ms1TolAbs, flexiableMass, posYIdMap, yIdMinPosMap,isProtNorC_Term);
+//        }// end settle N section
+//        return;
+//    }
 
 //    private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, Map<String, List<Peptide>> resPeptideListMap
 //            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) throws CloneNotSupportedException, GRBException {
