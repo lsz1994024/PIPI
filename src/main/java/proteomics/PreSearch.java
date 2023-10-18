@@ -800,7 +800,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
             int a = 1;
         }
 
-        double tagScore = finderTag.getTotalIntensity();
+//        double tagScore = finderTag.getTotalIntensity();
 //        resPeptideListMap
         if ( ! shouldSolveC ) {
             //only n
@@ -829,7 +829,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                         fullPeptide.posVarPtmResMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar));
                     }
                 }
-                fullPeptide.setVarPTM(fullPosMassMap);
+                if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
                 double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
                 fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.05));
                 updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt-nPartpeptide.length(), tagPosInProt+finderTag.size()-1);
@@ -860,7 +860,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     fullPeptide.posVarPtmResMap.put(pos + finderTag.size(), cPartpeptide.posVarPtmResMap.get(pos));
                 }
 
-                fullPeptide.setVarPTM(fullPosMassMap);
+                if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
                 double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
                 fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.05));
 
@@ -916,7 +916,7 @@ public class PreSearch implements Callable<PreSearch.Entry> {
                     fullPeptide.posVarPtmResMap.put(pos + finderTag.size() + nPartpeptide.length(), cPartpeptide.posVarPtmResMap.get(pos));
                 }
 
-                fullPeptide.setVarPTM(fullPosMassMap);
+                if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
                 double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
                 fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.05));
                 updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt-nPartpeptide.length(), tagPosInProt+finderTag.size()+cPartpeptide.length()-1);

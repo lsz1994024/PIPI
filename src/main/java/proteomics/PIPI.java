@@ -105,7 +105,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(111967));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(52393));//129543, 111179, 109395
     public static int neighborNum = 20;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
