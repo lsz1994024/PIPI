@@ -24,11 +24,8 @@ import java.util.TreeMap;
 
 public class PosMassMap extends TreeMap<Integer, Double> {
 
-    public final int peptideLength;
-
-    public PosMassMap(int peptideLength) {
+    public PosMassMap() {
         super();
-        this.peptideLength = peptideLength;
     }
 
     public String toString() {
@@ -36,20 +33,7 @@ public class PosMassMap extends TreeMap<Integer, Double> {
         for (Integer co : this.keySet()) {
             sb.append(String.format(Locale.US, "%.3f", this.get(co))); // mass with 3 decimal
             sb.append("@");
-//            if ((co.x == 0) || (co.x == 1)) {
-//                sb.append("([01]-");
-//                sb.append(co.y);
-//                sb.append(")");
-//            } else if ((co.y == peptideLength) || (co.y == peptideLength - 1)){
-//                sb.append("(");
-//                sb.append(co.x);
-//                sb.append("-[");
-//                sb.append(peptideLength - 1);
-//                sb.append(peptideLength);
-//                sb.append("])");
-//            } else {
-                sb.append(co.toString());
-//            }
+            sb.append(co.toString());
             sb.append(";");
         }
         return sb.toString();
@@ -70,7 +54,7 @@ public class PosMassMap extends TreeMap<Integer, Double> {
 
     public PosMassMap clone() {
         super.clone();
-        PosMassMap other = new PosMassMap(peptideLength);
+        PosMassMap other = new PosMassMap();
         other.clear();
         for (Integer co : this.keySet()) {
             other.put(co, this.get(co));

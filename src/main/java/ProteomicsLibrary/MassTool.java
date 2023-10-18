@@ -765,7 +765,7 @@ public class MassTool {
                 aaI++;
             }
         }
-        PosMassMap fullPosMassMap = new PosMassMap(aaI);
+        PosMassMap fullPosMassMap = new PosMassMap();
         for (int pos : rawPosMassMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
             fullPosMassMap.put(pos, rawPosMassMap.get(pos)); // copy the ptms from partModPepsUnsettled
         }

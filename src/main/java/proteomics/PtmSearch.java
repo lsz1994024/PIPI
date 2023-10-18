@@ -178,7 +178,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             PeptideInfo peptideInfo = peptideInfoMap.get(pepFreeSeq);
             TreeMap<Integer, VarPtm> refVarPtmMap = ptmSeq_posVarPtmMap_Map.get(pepPtmSeq);
 
-            PosMassMap fullPosMassMap = new PosMassMap(pepFreeSeq.length());
+            PosMassMap fullPosMassMap = new PosMassMap();
             for (int pos : refVarPtmMap.keySet()){
                 fullPosMassMap.put(pos, refVarPtmMap.get(pos).mass);
             }

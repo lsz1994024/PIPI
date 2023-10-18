@@ -467,30 +467,14 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
                     } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
                         return -1;
                     } else {
-//                        if (finderTag != null && peptide.finderTag != null) {
-//                            if (finderTag.getTotalIntensity() > peptide.finderTag.getTotalIntensity()) {
-//                                return 1;
-//                            } else if (finderTag.getTotalIntensity() < peptide.finderTag.getTotalIntensity()) {
-//                                return -1;
-//                            } else {
-//                                if (finderTag.size() < peptide.finderTag.size()){
-//                                    return 1;
-//                                } else if (finderTag.size() > peptide.finderTag.size()){
-//                                    return -1;
-//                                } else {
-//                                    return 0;
-//                                }
-//                            }
-//                        } else {
-                            if (this.hashCode < peptide.hashCode){
-                                return -1;
-                            } else if (this.hashCode > peptide.hashCode) {
-                                return 1;
-                            } else {
-                                return 0;
-                            }
+                        if (this.hashCode < peptide.hashCode){
+                            return -1;
+                        } else if (this.hashCode > peptide.hashCode) {
+                            return 1;
+                        } else {
+                            return 0;
                         }
-//                    }
+                    }
                 }
             }
         }
