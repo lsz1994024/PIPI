@@ -96,8 +96,8 @@ public class PIPI {
     static final int maxTagLenToExtract = 99;  //normal //todo
 //    static final boolean nTermSpecific = true; //normal //todo
 //    static final boolean cTermSpecific = true; //normal //todo
-    public static final boolean nTermSpecific = false; //normal //todo
-    public static final boolean cTermSpecific = false; //normal //todo
+    public static final boolean nTermSpecific = true; //normal //todo
+    public static final boolean cTermSpecific = true; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
     static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
     static final int  maxNumVarPtmConsidered = 18;
@@ -105,7 +105,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(52393));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(45179));//129543, 111179, 109395
     public static int neighborNum = 20;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -169,15 +169,6 @@ public class PIPI {
         String percolatorPath = parameterMap.get("percolator_path");
         boolean outputPercolatorInput = (Integer.valueOf(parameterMap.get("output_percolator_input")) == 1);
 //        String outputDir = parameterMap.get("output_dir");
-
-        // Check if Percolator can be executed.
-//        if (!(new File(percolatorPath)).exists()) {
-//            throw new NullPointerException(String.format(Locale.US, "Cannot find Percolator from %s.", percolatorPath));
-//        }
-//
-//        if (!(new File(percolatorPath)).canExecute()) {
-//            throw new Exception(String.format(Locale.US, "Percolator (%s) exits but cannot be executed.", percolatorPath));
-//        }
 
         String[] tempArray = parameterMap.get("ms_level").split(",");
         Set<Integer> msLevelSet = new HashSet<>(tempArray.length + 1, 1);
@@ -612,9 +603,8 @@ public class PIPI {
                 }
             }
             int fileId = fileNameIdMap.get( scanNameStr[0] );
-            taskListBone.add(threadPoolBone.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, leftInverseMs1Tolerance, rightInverseMs1Tolerance
-                    , ms1ToleranceUnit, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor , "dasdsads", Integer.valueOf(parameterMap.get("min_peptide_length")), Integer.valueOf(parameterMap.get("max_peptide_length")))));
+            taskListBone.add(threadPoolBone.submit(new PreSearch(scanNum, buildIndex, massTool, ms2Tolerance, ms1Tolerance, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass()
+                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor )));
         }
         System.out.println("totalSubmit in Bone, "+ submitNumBone);
 

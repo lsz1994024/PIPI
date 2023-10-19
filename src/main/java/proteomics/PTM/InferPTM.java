@@ -641,7 +641,7 @@ public class InferPTM {
                                    double ms1TolAbs, Map<Integer, Set<Double>> oneTimeMassGroups, final Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map,
                                    Map<Integer, Integer> posYIdMap, Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, List<Pair<Integer, Map<Double, Integer>>> resList) {
 
-        Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
+        Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>(posYIdMap.values().size());
         for (int pos : posYIdMap.keySet()) {
             int yId = posYIdMap.get(pos);
             List<Integer> allPoses = yIdAllPosesMap.get(yId);
@@ -1063,7 +1063,7 @@ public class InferPTM {
         return IntStream.rangeClosed(lb, rb).boxed().collect(Collectors.toSet());
     }
 
-    private void updateIonMatrix(double [][] ionMatrix, double cutMass, byte ncPart){
+    public void updateIonMatrix(double[][] ionMatrix, double cutMass, byte ncPart){
         if (ncPart == N_PART) { // is n part seq
             for (int i = 0; i < ionMatrix[1].length; i++) {
                 ionMatrix[1][i] += cutMass;
@@ -1203,6 +1203,8 @@ public class InferPTM {
                                             Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, TreeSet<Peptide> cModPepsSet, int startRefPos, Map<Integer, Integer> yIdMaxAbsPosMap,
                                       int optStartPos) {
 
+        Map<Integer, Double> singleAbsPosMassMap;
+        Map<Double, Integer> massTimeMap;
         for (Pair<Integer, Map<Double, Integer>> y_x_Res : massTimeResList) {
             int maxYId = y_x_Res.getFirst();
             int seqEndPos;
@@ -1215,8 +1217,8 @@ public class InferPTM {
 
             String partSeq = fullPartSeq.substring(0, seqEndPos-startRefPos);
 
-            Map<Double, Integer> massTimeMap = y_x_Res.getSecond();
-            Map<Integer, Double> singleAbsPosMassMap = new HashMap<>();
+            massTimeMap = y_x_Res.getSecond();
+            singleAbsPosMassMap = new HashMap<>();
             List<Double> massMaxMultiTime = new ArrayList<>(); // the mass order in this list is fixed. should be reused to match there poses.
             for (double mass : massTimeMap.keySet()){
                 Set<Integer> allTheoAbsPoses = allMassAllPosesMap.get(mass);
@@ -1289,23 +1291,29 @@ public class InferPTM {
                                       Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, TreeSet<Peptide> nModPepsSet, int startRefPos, Map<Integer, Integer> yIdMinAbsPosMap,
                                       int maxNPos) {
 
+        int maxYId;
+        int seqStartPos;
+        String partSeq;
+        Map<Double, Integer> massTimeMap;
+        Map<Integer, Double> singleAbsPosMassMap;
+        List<Double> massMaxMultiTime;
+        List<Set<Integer>> updatedFeasiblePosesList;
         for (Pair<Integer, Map<Double, Integer>> y_x_Res : massTimeResList) {
-            int maxYId = y_x_Res.getFirst();
-            int seqStartPos;
-
+            maxYId = y_x_Res.getFirst();
             if (maxYId == -99) {
                 seqStartPos = maxNPos;
             } else {
                 seqStartPos = yIdMinAbsPosMap.get(maxYId);
             }
 
-            String partSeq = fullPartSeq.substring(seqStartPos-startRefPos + fullPartSeq.length());
+            partSeq = fullPartSeq.substring(seqStartPos-startRefPos + fullPartSeq.length());
 
-            Map<Double, Integer> massTimeMap = y_x_Res.getSecond();
-            Map<Integer, Double> singleAbsPosMassMap = new HashMap<>();
-            List<Double> massMaxMultiTime = new ArrayList<>(); // the mass order in this list is fixed. should be reused to match there poses.
+            massTimeMap = y_x_Res.getSecond();
+            singleAbsPosMassMap = new HashMap<>();
+            massMaxMultiTime = new ArrayList<>(); // the mass order in this list is fixed. should be reused to match there poses.
+            Set<Integer> allTheoAbsPoses;
             for (double mass : massTimeMap.keySet()){
-                Set<Integer> allTheoAbsPoses = allMassAllPosesMap.get(mass);
+                allTheoAbsPoses = allMassAllPosesMap.get(mass);
                 if (allTheoAbsPoses.size() == 1) { // max poses num is 1. First use them to occupy some AAs
                     singleAbsPosMassMap.put(Collections.min(allTheoAbsPoses), mass);
                 } else {
@@ -1314,7 +1322,7 @@ public class InferPTM {
                     }                }
             } // finish checking all res mass whose MaxPosSize==1
 
-            List<Set<Integer>> updatedFeasiblePosesList = new ArrayList<>(massMaxMultiTime.size());
+            updatedFeasiblePosesList = new ArrayList<>(massMaxMultiTime.size());
             for (double mass : massMaxMultiTime) { // for mass whose MaxPosSize > 1
                 Set<Integer> feasibleAbsPoses = new HashSet<>();
                 for (int absPos : allMassAllPosesMap.get(mass)) {
@@ -2109,9 +2117,12 @@ public class InferPTM {
                                  final int optStartPos,
                                  final int startRefPos) {
 
-        for (int relPos = 0; relPos < partSeq.length(); ++relPos) {
-            char aa = partSeq.charAt(relPos);
-            int absPos = relPos + startRefPos;
+        int partSeqLen = partSeq.length();
+        char aa;
+        int absPos;
+        for (int relPos = 0; relPos < partSeqLen; ++relPos) {
+            aa = partSeq.charAt(relPos);
+            absPos = relPos + startRefPos;
             if (aaWithFixModSet.contains(aa)) continue;
 
             List<Byte> positionsToTry = new ArrayList<>(3);
@@ -2124,13 +2135,13 @@ public class InferPTM {
                     positionsToTry.add(PEPC);
                 }
             }
-            if (couldBeProtC && relPos == partSeq.length()-1) {
+            if (couldBeProtC && relPos == partSeqLen-1) {
                 positionsToTry.add(PROTC);
             }
 
             if (aaAllVarPtmMap.containsKey(aa)) {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
-                Map<String, VarPtm> dstMap = new HashMap<>();
+                Map<String, VarPtm> dstMap = new HashMap<>(128);
                 for (Byte position : positionsToTry) {
                     for (VarPtm varPtm : allVarPtmMap.get(position)) {
                         double mass = varPtm.mass;
@@ -2158,7 +2169,7 @@ public class InferPTM {
                 }
 
                 if (!dstMap.isEmpty()) {
-                    Map<Double, VarPtm> massVarPtmMap = new HashMap<>();
+                    Map<Double, VarPtm> massVarPtmMap = new HashMap<>(dstMap.size());
                     for (VarPtm varPtm : dstMap.values()){
                         massVarPtmMap.put(varPtm.mass, varPtm);
                     }
@@ -2170,7 +2181,7 @@ public class InferPTM {
         for (double mass : allMassAllPosesMap.keySet()){
             int times = allMassAllPosesMap.get(mass).size();
             if (times == 1) {
-                int absPos = Collections.min(allMassAllPosesMap.get(mass));
+                absPos = Collections.min(allMassAllPosesMap.get(mass));
 
                 Set<Double> massSet = oneTimeMassSetsMap.get(absPos);
                 if (massSet != null) {
@@ -2188,18 +2199,18 @@ public class InferPTM {
                 } else {
                     multiMassSet = new HashSet<>();
                     multiMassSet.add(mass);
-                    for (int absPos : posComb) {
-                        if (oneTimeMassSetsMap.containsKey(absPos)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
-                            multiMassSet.addAll(oneTimeMassSetsMap.get(absPos));
+                    for (int absPosTmp : posComb) {
+                        if (oneTimeMassSetsMap.containsKey(absPosTmp)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
+                            multiMassSet.addAll(oneTimeMassSetsMap.get(absPosTmp));
                         }
                     }
                     posComb_multiMassSet_Map.put(posComb, multiMassSet);
                 }
             }
         }
-        if (lszDebugScanNum.contains(scanNum)){
-            int a = 1;
-        }
+//        if (lszDebugScanNum.contains(scanNum)){
+//            int a = 1;
+//        }
     }
 
     public void prepareInfoNTerm(int scanNum, String partSeq,
@@ -2207,15 +2218,18 @@ public class InferPTM {
                                  Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map,
                                  Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map,
                                  Map<Double, Set<Integer>> allMassAllPosesMap,
-                                 final Map<Integer, Integer> yIdMinAbsPosMap,
-                                 final boolean couldBeProtN,
-                                 final int maxAbsNPos,
-                                 final int endRefPos,
+                                 Map<Integer, Integer> yIdMinAbsPosMap,
+                                 boolean couldBeProtN,
+                                 int maxAbsNPos,
+                                 int endRefPos,
                                  String protSeq) {
 
-        for (int relPos = 0; relPos < partSeq.length(); ++relPos) {
-            char aa = partSeq.charAt(relPos);
-            int absPos = relPos + endRefPos - partSeq.length();
+        int partSeqLen = partSeq.length();
+        char aa;
+        int absPos;
+        for (int relPos = 0; relPos < partSeqLen; ++relPos) {
+            aa = partSeq.charAt(relPos);
+            absPos = relPos + endRefPos - partSeqLen;
             if (aaWithFixModSet.contains(aa) && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
 
             List<Byte> positionsToTry = new ArrayList<>(3);
@@ -2274,7 +2288,7 @@ public class InferPTM {
         for (double mass : allMassAllPosesMap.keySet()){
             int times = allMassAllPosesMap.get(mass).size();
             if (times == 1) {
-                int absPos = Collections.min(allMassAllPosesMap.get(mass));
+                absPos = Collections.min(allMassAllPosesMap.get(mass));
 
                 Set<Double> massSet = oneTimeMassSetsMap.get(absPos);
                 if (massSet != null) {
@@ -2292,18 +2306,18 @@ public class InferPTM {
                 } else {
                     multiMassSet = new HashSet<>();
                     multiMassSet.add(mass);
-                    for (int absPos : posComb) {
-                        if (oneTimeMassSetsMap.containsKey(absPos)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
-                            multiMassSet.addAll(oneTimeMassSetsMap.get(absPos));
+                    for (int absPosTmp : posComb) {
+                        if (oneTimeMassSetsMap.containsKey(absPosTmp)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
+                            multiMassSet.addAll(oneTimeMassSetsMap.get(absPosTmp));
                         }
                     }
                     posComb_multiMassSet_Map.put(posComb, multiMassSet);
                 }
             }
         }
-        if (lszDebugScanNum.contains(scanNum)){
-            int a = 1;
-        }
+//        if (lszDebugScanNum.contains(scanNum)){
+//            int a = 1;
+//        }
     }
 
     public Map<Double, List<Integer>> getMassPosInfoMap(int scanNum, String partSeq, Set<Integer> fixModIdxes, int isNorC_Part, int isProtNorC_Term,
