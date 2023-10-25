@@ -350,7 +350,7 @@ public class InferPTM {
         return posPtmIdResList;
     }
     public List<Map<Integer, Integer>> findBestPtmInC_Spec(int scanNum, GRBEnv env, String partSeq, int refPos,
-                                                     double ms1TolAbs, double flexiableMass, Map<Integer, Integer> posYIdMap,
+                                                           double ms1TolAbs, double flexiableMass, Map<Integer, Integer> posYIdMap,
                                                            Map<Integer, Integer> yIdMaxPosMap, byte isProtNorC_Term) {
         Map<Integer, List<VarPtm>> posAllVarPtmMapaa = new HashMap<>();
         List<Map<Integer, Integer>> posPtmIdResList = new LinkedList<>();
@@ -541,7 +541,7 @@ public class InferPTM {
     }
 
     public List<Map<Double, Integer>> findBestPtmMIP(int scanNum, GRBEnv env, Map<Double, List<Integer>> allMassAllPosesMap, double totalDeltaMass, String partSeq,
-             double ms1TolAbs, Map<Integer, Set<Double>> oneTimeMassGroups, List<Pair<Integer, Set<Double>>> multiTimeMassGroups) throws GRBException {
+                                                     double ms1TolAbs, Map<Integer, Set<Double>> oneTimeMassGroups, List<Pair<Integer, Set<Double>>> multiTimeMassGroups) throws GRBException {
 
         List<Map<Double, Integer>> massTimeMapList = new LinkedList<>();
 
@@ -772,6 +772,8 @@ public class InferPTM {
             model.set(GRB.IntParam.PoolSearchMode, 2 );  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
             model.set(GRB.IntParam.PoolSolutions, PoolSolutions);
             model.set(GRB.DoubleParam.TimeLimit, 1); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 32); // second
+            model.set(GRB.IntParam.Threads, 32); // second
 //            model.set(GRB.DoubleParam.Heuristics, 0.05); //
 //            model.set(GRB.DoubleParam.PoolGap, 1); // if the best obj is 1, then all sol with 1*(1+poolGap) with be discarded and save time
 
@@ -950,6 +952,8 @@ public class InferPTM {
             model.set(GRB.IntParam.PoolSearchMode, 2 );  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
             model.set(GRB.IntParam.PoolSolutions, PoolSolutions);
             model.set(GRB.DoubleParam.TimeLimit, 1); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 32); // second
+            model.set(GRB.IntParam.Threads, 32); // second
 //            model.set(GRB.DoubleParam.Heuristics, 0.05); //
 //            model.set(GRB.DoubleParam.PoolGap, 1); // if the best obj is 1, then all sol with 1*(1+poolGap) with be discarded and save time
 
@@ -1006,9 +1010,9 @@ public class InferPTM {
     }
 
     public void getFeasibleMassPosMapC(int scanNum, List<Pair<Integer, Map<Double, Integer>>> massTimeResList, TreeMap<Double, Double> plMap, String fullPartSeq,
-                                            double cutMass, byte ncPart, SparseVector expProcessedPL, boolean isDecoy, Map<Double, Set<Integer>> allMassAllPosesMap,
-                                            Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, TreeSet<Peptide> cModPepsSet, int startRefPos, Map<Integer, Integer> yIdMaxAbsPosMap,
-                                      int optStartPos) {
+                                       double cutMass, byte ncPart, SparseVector expProcessedPL, boolean isDecoy, Map<Double, Set<Integer>> allMassAllPosesMap,
+                                       Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, TreeSet<Peptide> cModPepsSet, int startRefPos, Map<Integer, Integer> yIdMaxAbsPosMap,
+                                       int optStartPos) {
 
         Map<Integer, Double> singleAbsPosMassMap;
         Map<Double, Integer> massTimeMap;
@@ -1094,9 +1098,9 @@ public class InferPTM {
     }
 
     public void getFeasibleMassPosMapN(int scanNum, List<Pair<Integer, Map<Double, Integer>>> massTimeResList, TreeMap<Double, Double> plMap, String fullPartSeq,
-                                      double cutMass, byte ncPart, SparseVector expProcessedPL, boolean isDecoy, Map<Double, Set<Integer>> allMassAllPosesMap,
-                                      Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, TreeSet<Peptide> nModPepsSet, int startRefPos, Map<Integer, Integer> yIdMinAbsPosMap,
-                                      int maxNPos) {
+                                       double cutMass, byte ncPart, SparseVector expProcessedPL, boolean isDecoy, Map<Double, Set<Integer>> allMassAllPosesMap,
+                                       Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, TreeSet<Peptide> nModPepsSet, int startRefPos, Map<Integer, Integer> yIdMinAbsPosMap,
+                                       int maxNPos) {
 
         int maxYId;
         int seqStartPos;
@@ -1318,7 +1322,7 @@ public class InferPTM {
     }
 
     private DividedZone dividePepNewComple(int scanNum, Set<Integer> modifiedZone, ModPepPool modPepPoolGood, ModPepPool modPepPoolBad, Peptide lastPeptide, Map<Integer, VarPtm[]> posVarPtmArraySrcMap,
-                                     double totalDeltaMass, String ptmFreePeptide, SparseVector expProcessedPL, TreeMap<Double, Double> plMap,Map<Integer, VarPtm> refVarPtmMap) throws CloneNotSupportedException {
+                                           double totalDeltaMass, String ptmFreePeptide, SparseVector expProcessedPL, TreeMap<Double, Double> plMap,Map<Integer, VarPtm> refVarPtmMap) throws CloneNotSupportedException {
         // Sometimes, the precursor mass error may affects the digitized spectrum.
         double ptmMass = 0;
 
@@ -2269,7 +2273,7 @@ public class InferPTM {
             Pair<Integer, Set<Double>> maxTime_multiMassSetPair = new Pair<>(posComb.size(), multiMassSet);
             multiTimeMassGroups.add(maxTime_multiMassSetPair);
         }
-            //testlsz
+        //testlsz
 //        for (double mass : massWithMultiTime) {
 //            Set<Double> multiMassSet = new HashSet<>();
 //            multiMassSet.add(mass);
