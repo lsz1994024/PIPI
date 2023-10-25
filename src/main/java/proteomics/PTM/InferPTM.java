@@ -658,7 +658,10 @@ public class InferPTM {
             //// Constraints
             GRBLinExpr totalNumsOnPepConstr = new GRBLinExpr();
             GRBLinExpr totalFlexiableMass = new GRBLinExpr();
-
+            GRBLinExpr totalFlexiableMass1 = new GRBLinExpr();
+            GRBVar t = model.addVar(0, ms1TolAbs/10, 0, GRB.CONTINUOUS, "t");
+            totalFlexiableMass.addTerm(-1,t);
+            totalFlexiableMass1.addTerm(1,t);
             // x y variables
             Map<Integer, GRBVar> yVarMap = new HashMap<>( posYIdMap.values().size() ); // <yId, var>
             for (int yId : posYIdMap.values()) {
@@ -671,6 +674,8 @@ public class InferPTM {
                     aaMass += massTool.getMassTable().get(partSeq.charAt(absPos-refPos));
                 }
                 totalFlexiableMass.addTerm(aaMass, yVarMap.get(yId));
+                totalFlexiableMass1.addTerm(aaMass, yVarMap.get(yId));
+
             }
             List<Integer> yIdList = new ArrayList<>(yVarMap.keySet());
             yIdList.sort(Comparator.naturalOrder());
@@ -682,6 +687,8 @@ public class InferPTM {
 
                 //constraints
                 totalFlexiableMass.addTerm(mass, xVar); // += m_i * x_i
+                totalFlexiableMass1.addTerm(mass, xVar); // += m_i * x_i
+
                 totalNumsOnPepConstr.addTerm(1,xVar); // + 1 * x_i
 
                 //constraints
@@ -713,8 +720,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs , "totalFlexiableMassGe");
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs, "totalFlexiableMassLe");
+            model.addConstr(totalFlexiableMass1, GRB.GREATER_EQUAL, totalDeltaMass , "totalFlexiableMassGe");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass, "totalFlexiableMassLe");
             model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
             // constraints, Sum(oneMass on certain aa) < 1 or y
@@ -763,7 +770,10 @@ public class InferPTM {
             }
 
             //obj function
-            model.setObjective(totalNumsOnPepConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
+//            model.setObjective(totalNumsOnPepConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
+            GRBLinExpr tConstr = new GRBLinExpr();
+            tConstr.addTerm(1, t);
+            model.setObjective(tConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
 
             if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")){
                 int a = 1;
@@ -839,7 +849,10 @@ public class InferPTM {
             //// Constraints
             GRBLinExpr totalNumsOnPepConstr = new GRBLinExpr();
             GRBLinExpr totalFlexiableMass = new GRBLinExpr();
-
+            GRBLinExpr totalFlexiableMass1 = new GRBLinExpr();
+            GRBVar t = model.addVar(0, ms1TolAbs, 0, GRB.CONTINUOUS, "t");
+            totalFlexiableMass.addTerm(-1,t);
+            totalFlexiableMass1.addTerm(1,t);
             // x y variables
             Map<Integer, GRBVar> yVarMap = new HashMap<>( posYIdMap.values().size() ); // <yId, var>
             for (int yId : posYIdMap.values()) {
@@ -852,6 +865,8 @@ public class InferPTM {
                     aaMass += massTool.getMassTable().get(partSeq.charAt(absPos + partSeq.length()-refPos));
                 }
                 totalFlexiableMass.addTerm(aaMass, yVarMap.get(yId));
+                totalFlexiableMass1.addTerm(aaMass, yVarMap.get(yId));
+
             }
             List<Integer> yIdList = new ArrayList<>(yVarMap.keySet());
             yIdList.sort(Comparator.naturalOrder());
@@ -863,6 +878,8 @@ public class InferPTM {
 
                 //constraints
                 totalFlexiableMass.addTerm(mass, xVar); // += m_i * x_i
+                totalFlexiableMass1.addTerm(mass, xVar); // += m_i * x_i
+
                 totalNumsOnPepConstr.addTerm(1,xVar); // + 1 * x_i
 
                 //constraints
@@ -894,8 +911,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs , "totalFlexiableMassGe");
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs, "totalFlexiableMassLe");
+            model.addConstr(totalFlexiableMass1, GRB.GREATER_EQUAL, totalDeltaMass , "totalFlexiableMassGe");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass, "totalFlexiableMassLe");
             model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
             // constraints, Sum(oneMass on certain aa) < 1 or y
@@ -943,7 +960,9 @@ public class InferPTM {
             }
 
             //obj function
-            model.setObjective(totalNumsOnPepConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
+            GRBLinExpr tConstr = new GRBLinExpr();
+            tConstr.addTerm(1, t);
+            model.setObjective(tConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
 
             if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")){
                 int a = 1;
