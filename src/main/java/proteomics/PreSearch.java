@@ -704,7 +704,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     inferPTM.prepareInfoCTerm(scanNum, cPartSeq, oneTimeMassGroups, posComb_multiMassSet_Map,
                             pos_MassVarPtm_Map, allMassAllPosesMap, yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
 
-                    List<Pair<Integer, Map<Double, Integer>>> resList = new ArrayList<>(100);
+                    Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     inferPTM.findBestPtmMIPExtC(scanNum, env, allMassAllPosesMap, flexiableMass, (cPartStartPos),
                             cPartSeq, ms1TolAbs, oneTimeMassGroups, posComb_multiMassSet_Map, posYIdMap, pos_MassVarPtm_Map, resList);
 
@@ -832,7 +832,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     inferPTM.prepareInfoNTerm(scanNum, nPartSeq, oneTimeMassGroups, posComb_multiMassSet_Map,
                             pos_MassVarPtm_Map, allMassAllPosesMap, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
 
-                    List<Pair<Integer, Map<Double, Integer>>> resList = new ArrayList<>(100);
+                    Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     inferPTM.findBestPtmMIPExtN(scanNum, env, allMassAllPosesMap, flexiableMass, tagPosInProt,
                             nPartSeq, ms1TolAbs, oneTimeMassGroups, posComb_multiMassSet_Map, posYIdMap, pos_MassVarPtm_Map, resList);
                     try {
