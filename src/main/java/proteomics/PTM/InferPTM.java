@@ -1060,6 +1060,7 @@ public class InferPTM {
                     }                }
             } // finish checking all res mass whose MaxPosSize==1
 
+
             List<Set<Integer>> updatedFeasiblePosesList = new ArrayList<>(massMaxMultiTime.size());
             for (double mass : massMaxMultiTime) { // for mass whose MaxPosSize > 1
                 Set<Integer> feasibleAbsPoses = new HashSet<>();
@@ -1071,6 +1072,7 @@ public class InferPTM {
                 updatedFeasiblePosesList.add(feasibleAbsPoses);
             }
 
+            Set<PosMassMap> triedPtmPattern = new HashSet<>(200);
             // then the updatedFeasiblePosesList is empty, suprisingly it still works to find the only-single-time PTM pattern.
             for (List<Integer> cartesianList : Sets.cartesianProduct(updatedFeasiblePosesList)){
                 Set<Integer> cartesianSet = new HashSet<>(cartesianList);
@@ -1092,6 +1094,11 @@ public class InferPTM {
                     tmpPeptide.posVarPtmResMap.put(relPos, absPos_MassVarPtm_Map.get(absPos).get(mass));
                 }
 
+                if (triedPtmPattern.contains(posMassMap)) {
+                    continue;
+                }else {
+                    triedPtmPattern.add(posMassMap);
+                }
                 double[][] ionMatrix = tmpPeptide.getIonMatrix();
                 if ( ! posMassMap.isEmpty()) { // if it is empty, the ptm must be just proton and ignored, so we just use the original ionMatrix to calculate score
                     tmpPeptide.setVarPTM(posMassMap);
@@ -1163,6 +1170,7 @@ public class InferPTM {
                 updatedFeasiblePosesList.add(feasibleAbsPoses);
             }
 
+            Set<PosMassMap> triedPtmPattern = new HashSet<>(200);
             // then the updatedFeasiblePosesList is empty, suprisingly it still works to find the only-single-time PTM pattern.
             for (List<Integer> cartesianList : Sets.cartesianProduct(updatedFeasiblePosesList)){
                 Set<Integer> cartesianSet = new HashSet<>(cartesianList);
@@ -1184,6 +1192,11 @@ public class InferPTM {
                     tmpPeptide.posVarPtmResMap.put(relPos, absPos_MassVarPtm_Map.get(absPos).get(mass));
                 }
 
+                if (triedPtmPattern.contains(posMassMap)) {
+                    continue;
+                }else {
+                    triedPtmPattern.add(posMassMap);
+                }
                 double[][] ionMatrix = tmpPeptide.getIonMatrix();
                 if ( ! posMassMap.isEmpty()) { // if it is empty, the ptm must be just proton and ignored, so we just use the original ionMatrix to calculate score
                     tmpPeptide.setVarPTM(posMassMap);
