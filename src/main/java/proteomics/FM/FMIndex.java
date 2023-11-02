@@ -50,7 +50,7 @@ public class FMIndex implements Serializable {
 
     }
 
-    public SearchInterval fmSearchFuzzy(char[] P){
+    public FMRes fmSearchFuzzy(char[] P){
         int i = P.length - 1;
         int sp = 0;
         int ep = m - 1;
@@ -69,16 +69,49 @@ public class FMIndex implements Serializable {
         }
 
         if (ep < sp) {
-            SearchInterval unSettledSI = new SearchInterval(lastSp,lastEp);
+            FMRes unSettledSI = new FMRes(lastSp,lastEp);
             unSettledSI.settled = false;
             unSettledSI.matchedPos = i + 2;
             return unSettledSI;
         } else {
-            return new SearchInterval(sp, ep);
+            return new FMRes(sp, ep);
         }
     }
 
-    public SearchInterval fmSearch(char[] P){
+    public FMRes fmSearchTest(char[] P){
+        int i = P.length - 1;
+        int sp = 0;
+        int ep = m - 1;
+//        int absTagPos = fmIndex.SA[ii];
+        int lastSp = sp;
+        int lastEp = ep;
+        int skipTime = 0;
+        while (i >= 0 && skipTime <= 1) {
+            if (!C.containsKey(P[i])) {
+                return null;
+            }
+            lastSp = sp;
+            lastEp = ep;
+            sp = C.get(P[i]) + Occ(sp - 1, P[i]);
+            ep = C.get(P[i]) + Occ(ep, P[i]) - 1;
+            i --;
+
+            if (ep < sp) {
+                i--;
+                skipTime++;
+            }
+        }
+
+        if (ep < sp) {
+            FMRes unSettledSI = new FMRes(lastSp,lastEp);
+            unSettledSI.settled = false;
+            unSettledSI.matchedPos = i + 2;
+            return unSettledSI;
+        } else {
+            return new FMRes(sp, ep);
+        }
+    }
+    public FMRes fmSearch(char[] P){
         int i = P.length - 1;
         int sp = 0;
         int ep = m - 1;
@@ -95,7 +128,7 @@ public class FMIndex implements Serializable {
         if (ep < sp) {
             return null;
         } else {
-            return new SearchInterval(sp, ep);
+            return new FMRes(sp, ep);
         }
     }
 

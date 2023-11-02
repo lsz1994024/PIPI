@@ -18,9 +18,8 @@ package proteomics;
 
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.SpecProcessor;
-import org.apache.commons.math3.util.Pair;
 import proteomics.FM.FMIndex;
-import proteomics.FM.SearchInterval;
+import proteomics.FM.FMRes;
 import proteomics.Index.BuildIndex;
 import proteomics.Segment.InferSegment;
 import proteomics.Spectrum.DatasetReader;
@@ -124,8 +123,8 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
             while (!tagQueue.isEmpty()) {
                 int ptnForwardCount = 0;
                 int ptnBackwardCount = 0;
-                SearchInterval searchForward = null;
-                SearchInterval searchBackward = null;
+                FMRes searchForward = null;
+                FMRes searchBackward = null;
 
                 ExpTag expTag = tagQueue.poll();
                 String tagStr = expTag.getFreeAaString();

@@ -105,7 +105,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(98565));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(130836,130837,130838,130839,130840,130841));//129543, 111179, 109395
     public static int neighborNum = 20;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -406,16 +406,8 @@ public class PIPI {
         }
         Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
 
-//        if (protScoreLongList.size() < 10000) {
-//            minTagLenToExtract = 3;
-//        }
         Set<String> reducedProtIdSet = new HashSet<>();
-        int aa = 0;
 
-        for (Pair<String, Double> pair : protScoreLongList){
-            aa++;
-//            System.out.println(aa + "," + pair.getFirst() + "," + pair.getSecond());
-        }
         int ii = 0;
         for (Pair<String, Double> pair : protScoreLongList){
             ii++;
@@ -431,6 +423,8 @@ public class PIPI {
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0) {
             reducedProtIdSet = protLengthMap.keySet();  //dont reduce for debug
         }
+//        reducedProtIdSet = protLengthMap.keySet();  //dont reduce for debug
+
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
@@ -475,7 +469,7 @@ public class PIPI {
         double minPeptideMass = 9999;
         double maxPeptideMass = 0;
 
-        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = new HashMap<>();
+//        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = new HashMap<>();
         while (countBuildDecoyProts < totalCountBuildDecoyProts) {
             // record search results and delete finished ones.
             List<Future<BuildDecoyProts.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBuildDecoyProts - countBuildDecoyProts);
@@ -523,34 +517,30 @@ public class PIPI {
         // build reduced protein fm index
 //        long t1=System.currentTimeMillis();
         logger.info("Generating reduced FM index...");
-
-        BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProtReduced.txt"));
-        int dotPos = 0;
-        int dotNum = 0;
-        buildIndex.dotPosArrReduced = new int[buildIndex.protSeqMap.keySet().size()];
-
-        for (String protId : buildIndex.protSeqMap.keySet()) {
-            buildIndex.dotPosArrReduced[dotNum] = dotPos;
-            buildIndex.posProtMapReduced.put(dotNum, protId);
-            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
-            buildIndex.protSeqMap.put(protId, protSeq);
-            writerProt.write("." + protSeq.replace('I', 'L'));
-            dotNum++;
-            dotPos += protSeq.length()+1;
-            int numOfTags = buildIndex.inferSegment.getLongTagNumForProt(protSeq);
-            protLengthMap.put(protId, numOfTags);
-        }
-        writerProt.close();
-//        long t2=System.currentTimeMillis();
-        char[] text = buildIndex.loadFile("catProtReduced.txt", true);
-//        long t3=System.currentTimeMillis();
-        buildIndex.fmIndexReduced = new FMIndex(text);
-//        long t4=System.currentTimeMillis();
+        buildBiDirectionFMIndex(buildIndex);
+//        BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProtReduced.txt"));
+//        int dotPos = 0;
+//        int dotNum = 0;
+//        buildIndex.dotPosArrReduced = new int[buildIndex.protSeqMap.keySet().size()];
+//        for (String protId : buildIndex.protSeqMap.keySet()) {
+//            buildIndex.dotPosArrReduced[dotNum] = dotPos;
+//            buildIndex.posProtMapReduced.put(dotNum, protId);
+//            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
+//            buildIndex.protSeqMap.put(protId, protSeq);
+//            writerProt.write("." + protSeq.replace('I', 'L'));
+//            dotNum++;
+//            dotPos += protSeq.length()+1;
+//            int numOfTags = buildIndex.inferSegment.getLongTagNumForProt(protSeq);
+//            protLengthMap.put(protId, numOfTags);
+//        }
+//        writerProt.close();
+//        char[] text = buildIndex.loadFile("catProtReduced.txt", true);
+//        buildIndex.fmIndexReduced = new FMIndex(text);
 //
 //        System.out.println("time," + (t4-t3) + "," + (t3-t2)+ "," + (t2-t1));
         buildIndex.minPeptideMass = minPeptideMass;
         buildIndex.maxPeptideMass = maxPeptideMass;
-        buildIndex.tagProtPosMap = tagProtPosMap;
+//        buildIndex.tagProtPosMap = tagProtPosMap;
         // writer concatenated fasta
         Map<String, String> proteinAnnotationMap;
         String dbPath = parameterMap.get("db");
@@ -579,6 +569,8 @@ public class PIPI {
             // change thread PreSearch
             threadNum = 1;
         }
+//        threadNum = 44;
+
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
         ArrayList<Future<PreSearch.Entry>> taskListBone = new ArrayList<>(validScanSet.size() + 10);
@@ -918,6 +910,50 @@ public class PIPI {
         logger.info("Saving results...");
     }
 
+    private void buildBiDirectionFMIndex(BuildIndex buildIndex) throws IOException {
+        BufferedWriter writerProtNormal  = new BufferedWriter(new FileWriter("catProtNormal.txt"));
+        BufferedWriter writerProtReverse = new BufferedWriter(new FileWriter("catProtReverse.txt"));
+        StringBuilder normalSb = new StringBuilder();
+        int dotPos = 0;
+        int dotNum = 0;
+        buildIndex.dotPosArrNormal = new int[buildIndex.protSeqMap.keySet().size()];
+        for (String protId : buildIndex.protSeqMap.keySet()) {
+            buildIndex.dotPosArrNormal[dotNum] = dotPos;
+            buildIndex.posProtMapNormal.put(dotNum, protId);
+            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
+            buildIndex.protSeqMap.put(protId, protSeq);
+            normalSb.append(".");
+            normalSb.append(protSeq.replace('I', 'L'));
+            dotNum++;
+            dotPos += protSeq.length()+1;
+        }
+        writerProtNormal.write(normalSb.toString());
+        writerProtReverse.write(normalSb.reverse().toString());
+//        System.out.println(normalSb.toString());
+//        System.out.println(normalSb.reverse().toString());
+        writerProtNormal.close();
+        writerProtReverse.close();
+        char[] textNormal = buildIndex.loadFile("catProtNormal.txt", true);
+        char[] textReverse = buildIndex.loadFile("catProtReverse.txt", true);
+        buildIndex.fmIndexNormal = new FMIndex(textNormal);
+        buildIndex.fmIndexReverse = new FMIndex(textReverse);
+        buildIndex.textNormalLen = textNormal.length-1; //remove the \r\n
+//        int dotPos = 0;
+//        int dotNum = 0;
+//        buildIndex.dotPosArrReverse = new int[buildIndex.protSeqMap.keySet().size()];
+//        for (String protId : buildIndex.protSeqMap.keySet()) {
+//            buildIndex.dotPosArrReverse[dotNum] = dotPos;
+//            buildIndex.posProtMapReverse.put(dotNum, protId);
+//            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
+//            buildIndex.protSeqMap.put(protId, protSeq);
+//            writerProtReverse.write("." + protSeq.replace('I', 'L'));
+//            dotNum++;
+//            dotPos += protSeq.length()+1;
+//        }
+//        writerProtReverse.close();
+//        char[] textReverse = buildIndex.loadFile("catProtReduced.txt", true);
+//        buildIndex.fmIndexReverse = new FMIndex(textReverse);
+    }
     private boolean isTarget(Collection<String> proteinIds) {
         for (String protein : proteinIds) {
             if (!protein.startsWith("DECOY_")) {
@@ -1052,10 +1088,11 @@ public class PIPI {
                 int scanNum = sqlResultSet.getInt("scanNum");
                 String scanName = sqlResultSet.getString("scanName");
 
-                if (lszDebugScanNum.contains(scanNum)) {
-                    int a = 1;
-                }
                 String[] candiSetStr = peptideSet.split(",");
+//                if (lszDebugScanNum.contains(scanNum)) {
+//                    int a = 1;
+//                    System.out.println(scanNum +"," + peptideSet);
+//                }
                 int numPep = candiSetStr.length/3;
 
                 PeptideInfo pepInfo = allPeptideInfoMap.get(topPeptide.replaceAll("[^A-Z]+", ""));

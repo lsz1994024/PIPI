@@ -19,7 +19,6 @@ package proteomics.Index;
 import java.io.*;
 import java.util.*;
 
-import org.apache.commons.math3.util.Pair;
 import proteomics.FM.FMIndex;
 import proteomics.FM.UnicodeReader;
 import proteomics.PTM.InferPTM;
@@ -44,11 +43,15 @@ public class BuildIndex {
     public FMIndex fmIndexFull;
     public int[] dotPosArrFull;
     public Map<Integer, String> posProtMapFull = new HashMap<>();
-    public FMIndex fmIndexReduced;
-    public int[] dotPosArrReduced;
-    public Map<Integer, String> posProtMapReduced = new HashMap<>();
+    public FMIndex fmIndexNormal;
+    public int[] dotPosArrNormal;
+    public Map<Integer, String> posProtMapNormal = new HashMap<>();
+    public FMIndex fmIndexReverse;
+    public int textNormalLen;
+//    public int[] dotPosArrReverse;
+//    public Map<Integer, String> posProtMapReverse = new HashMap<>();
     public Map<String, String> protSeqMap;
-    public Map<String, Set<Pair<String,Integer>>> tagProtPosMap = new HashMap<>();
+//    public Map<String, Set<Pair<String,Integer>>> tagProtPosMap = new HashMap<>();
     public BuildIndex(Map<String, String> parameterMap) throws Exception {
         boolean addContaminant = parameterMap.get("add_contaminant").contentEquals("1");
         String dbPath = parameterMap.get("db");
@@ -133,7 +136,7 @@ public class BuildIndex {
         CharArrayWriter writer = null;
         UnicodeReader r = new UnicodeReader(new FileInputStream(file), null);
 
-        char[] buffer = new char[16 * 1024];   // 16k buffer
+        char[] buffer = new char[20 * 1024];   // 16k buffer
         int read;
         try {
             reader = new BufferedReader(r);
