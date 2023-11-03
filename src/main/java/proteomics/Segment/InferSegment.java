@@ -103,7 +103,7 @@ public class InferSegment {
             char modSite = modStr[1].charAt(0);
             char label;
             byte modPosition = Byte.valueOf(modStr[2]);
-            VarPtm varPtmByUser = new VarPtm(modMass, modSite, modPosition, modStr[3], "ByUser", 1);
+            VarPtm varPtmByUser = new VarPtm(modMass, modSite, modPosition, modStr[3], "ByUser", 0);
             if (modPosition == 4) {//  position anywhere, highest prority
                 //must happen in one aa, X (any aa) not allowed
                 boolean added = false;

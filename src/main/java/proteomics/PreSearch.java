@@ -235,7 +235,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         }
         List<OccGroup> occGroupList = new ArrayList<>(100);
 //        Map<Pair<Integer, Integer>, Integer> posRangeOccIdMap = new HashMap<>();
-        int numResSub = searchAndSaveFuzzy1(scanNum , tagsToTest, distinctTagIds, ms1TolAbs, peptideTreeSet, peptideInfoMap, occGroupList, minTagLen, expProcessedPL, finalPlMap, totalMass);
+        int numResSub = searchAndSaveFuzzy1(scanNum , tagsToTest, distinctTagIds, occGroupList, minTagLen, totalMass);
         occGroupList.sort(Comparator.comparing(o->o.totalScore, Comparator.reverseOrder()));
 
         int count = 0;
@@ -243,7 +243,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         outLoop:
         for (OccGroup occG : occGroupList) {
             List<Pair<ExpTag, Integer>> tagRelPosList = occG.tagRelPosList;
-            tagRelPosList.sort(Comparator.comparing(o->o.getFirst().getTotalIntensity()));
+            tagRelPosList.sort(Comparator.comparing(o->o.getFirst().getTotalIntensity(),Comparator.reverseOrder()));
 
             String protId = occG.protId;
 
@@ -372,6 +372,16 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             this.totalScore = initialTag.getTotalIntensity();
         }
         public void addTag(ExpTag newTag, int tagPosInProt) {
+            boolean shouldAdd = true;
+            for (Pair<ExpTag, Integer> tagRelPosPair : this.tagRelPosList) {
+                if (tagRelPosPair.getFirst().getFreeAaString().contentEquals(newTag.getFreeAaString())
+                        && tagRelPosPair.getSecond() == tagPosInProt
+                        && tagRelPosPair.getFirst().getHeadLocation() == newTag.getHeadLocation()) {
+                    shouldAdd = false;
+                    break;
+                }
+            }
+            if (! shouldAdd) return;
             int tagLen = newTag.size();
             for (int i = 0; i < tagLen; i++) {   // for exptag out of the current range, add there intens into totalScore
                 if ( i+tagPosInProt < this.lPos) {
@@ -393,8 +403,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             this.spanLen = Math.min(this.rPos - this.lPos, this.spanLen+ tagLen);
         }
     }
-    private int searchAndSaveFuzzy1(int scanNum, List<ExpTag> tagsToTest, Set<Integer> distinctTagIds, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet, Map<String, PeptideInfo> peptideInfoMap
-            , List<OccGroup> occGroupList, int minTagLen, SparseVector expProcessedPL,TreeMap<Double, Double> plMap, double totalMass) throws CloneNotSupportedException {
+    private int searchAndSaveFuzzy1(int scanNum, List<ExpTag> tagsToTest, Set<Integer> distinctTagIds
+            , List<OccGroup> occGroupList, int minTagLen, double totalMass) {
 
         char[] tagChar;
         int numRes;
@@ -409,8 +419,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         int tagsNum = tagsToTest.size();
         Set<Pair<String, Integer>> matchedProtIdRelPosSet = new HashSet<>();
         int occId = -1;
-        boolean shouldTryForwardSearch = false;
         for (int i = 0; i < tagsNum; i++) {
+            boolean shouldTryForwardSearch = false;
             tagInfo = tagsToTest.get(i);
             if (distinctTagIds.contains(i)) matchedProtIdRelPosSet.clear();
             tagChar = tagInfo.getFreeAaString().toCharArray();
