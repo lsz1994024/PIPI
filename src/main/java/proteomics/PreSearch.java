@@ -158,79 +158,23 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         int t = 0;
         for (int i = 0; i < tagNumsToTest; i++) {
             tagInfo = allLongTagList.get(i);
-            int tagLen = tagInfo.size();
             if (tagInfo.isNorC == N_TAG) { //n tag //todo can I relax this. can I check all N and C tags as non NC (both direction)
                 tagsToTest.add(tagInfo);
                 distinctTagIds.add(t);
                 t++;
-//                if (tagInfo.size() >= 6)  {
-//                    tagsToTest.add(tagInfo.subTag(0, tagLen-1));
-//                    t++;
-//                }
-//                if (tagInfo.size() >= 7)  {
-//                    tagsToTest.add(tagInfo.subTag(0, tagLen-2));
-//                    t++;
-//                }
-//                if (tagInfo.size() >= 8)  {
-//                    tagsToTest.add(tagInfo.subTag(0, tagLen-3));
-//                    t++;
-//                }
             } else if (tagInfo.isNorC == C_TAG) { // c tag
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
                 tagsToTest.add(revTagInfo);
                 distinctTagIds.add(t);
                 t++;
-//                if (revTagInfo.size() >= 6) {
-//                    ExpTag subTag = revTagInfo.subTag(0, tagLen-1);
-//                    subTag.isNorC = NON_NC_TAG; // if c Tag is cut, it should wont be cTag
-//                    tagsToTest.add(subTag);
-//                    t++;
-//                }
-//                if (revTagInfo.size() >= 7){
-//                    ExpTag subTag = revTagInfo.subTag(0, tagLen-2);
-//                    subTag.isNorC = NON_NC_TAG; // if c Tag is cut, it should wont be cTag
-//                    tagsToTest.add(subTag);
-//                    t++;
-//                }
-//                if (revTagInfo.size() >= 8){
-//                    ExpTag subTag = revTagInfo.subTag(0, tagLen-3);
-//                    subTag.isNorC = NON_NC_TAG; // if c Tag is cut, it should wont be cTag
-//                    tagsToTest.add(subTag);
-//                    t++;
-//                }
             } else { // non-nc tag
                 tagsToTest.add(tagInfo);
                 distinctTagIds.add(t);
                 t++;
-//                if (tagInfo.size() >= 6) {
-//                    tagsToTest.add(tagInfo.subTag(0, tagLen-1));
-//                    t++;
-//                }
-//                if (tagInfo.size() >= 7) {
-//                    tagsToTest.add(tagInfo.subTag(0, tagLen-2));
-//                    t++;
-//                }
-//                if (tagInfo.size() >= 8) {
-//                    tagsToTest.add(tagInfo.subTag(0, tagLen-3));
-//                    t++;
-//                }
-
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
                 tagsToTest.add(revTagInfo);
                 distinctTagIds.add(t);
                 t++;
-//                if (revTagInfo.size() >= 6) {
-//                    tagsToTest.add(revTagInfo.subTag(0, tagLen-1));
-//                    t++;
-//                }
-//                if (revTagInfo.size() >= 7) {
-//                    tagsToTest.add(revTagInfo.subTag(0, tagLen-2));
-//                    t++;
-//                }
-//                if (revTagInfo.size() >= 8) {
-//                    tagsToTest.add(revTagInfo.subTag(0, tagLen-3));
-//                    t++;
-//                }
             }
         }
         List<OccGroup> occGroupList = new ArrayList<>(100);
@@ -960,7 +904,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                             cPartSeq, ms1TolAbs, oneTimeMassGroups, posComb_multiMassSet_Map, posYIdMap, pos_MassVarPtm_Map, resList);
 
                     inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
-                            unUsedExpProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
+                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
 
 
 
@@ -1087,14 +1031,14 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     inferPTM.findBestPtmMIPExtN(scanNum, env, allMassAllPosesMap, flexiableMass, tagPosInProt,
                             nPartSeq, ms1TolAbs, oneTimeMassGroups, posComb_multiMassSet_Map, posYIdMap, pos_MassVarPtm_Map, resList);
                     try {
-                        inferPTM.getFeasibleMassPosMapN(scanNum, resList, unUsedPlMap, nPartSeq, nCutMass, N_PART,
-                                unUsedExpProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
+                        inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
+                                expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
                     } catch (Exception e) {
                         System.out.println(scanNum + " ," + finderTag.getFreeAaString() + "," + protId);
                     }
                 }
             }
-        }// end settle N section
+        }// end settle N sectionl
         if (shouldSolveN && nModPepsSet.isEmpty()) {
             return;
         }

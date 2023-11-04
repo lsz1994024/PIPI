@@ -186,8 +186,10 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
             if (!fullPosMassMap.isEmpty()) {
                 peptide.setVarPTM(fullPosMassMap);
             }
+
             double score = massTool.buildVectorAndCalXCorr(peptide.getIonMatrixNow(), 1, expProcessedPL, peptide.matchedBions, peptide.matchedYions);
-            peptide.setScore(score);
+//            peptide.setScore(score);
+            peptide.setScore(score*(1-fullPosMassMap.size()*0.05));
             peptide.posVarPtmResMap = refVarPtmMap;
 
             if (score > 0) {
