@@ -778,7 +778,7 @@ public class InferPTM {
             if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")){
                 int a = 1;
             }
-            model.set(GRB.IntParam.MIPFocus, 2); // 2 seems better than 1 but dont know why
+            model.set(GRB.IntParam.MIPFocus, 1); // 2 seems better than 1 but dont know why
             model.set(GRB.IntParam.PoolSearchMode, 2 );  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
             model.set(GRB.IntParam.PoolSolutions, PoolSolutions);
             model.set(GRB.DoubleParam.TimeLimit, 1); // second
@@ -967,7 +967,7 @@ public class InferPTM {
             if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")){
                 int a = 1;
             }
-            model.set(GRB.IntParam.MIPFocus, 2); // 2 seems better than 1 but dont know why
+            model.set(GRB.IntParam.MIPFocus, 1); // 2 seems better than 1 but dont know why
             model.set(GRB.IntParam.PoolSearchMode, 2 );  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
             model.set(GRB.IntParam.PoolSolutions, PoolSolutions);
             model.set(GRB.DoubleParam.TimeLimit, 1); // second
@@ -1986,6 +1986,7 @@ public class InferPTM {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
                 Map<String, VarPtm> dstMap = new HashMap<>(128);
                 for (Byte position : positionsToTry) {
+                    if ( ! allVarPtmMap.containsKey(position)) continue;
                     for (VarPtm varPtm : allVarPtmMap.get(position)) {
                         double mass = varPtm.mass;
                         if (massTable.get(partSeq.charAt(relPos)) + mass < ms2Tolerance) continue;
@@ -2093,6 +2094,7 @@ public class InferPTM {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
                 Map<String, VarPtm> dstMap = new HashMap<>();
                 for (Byte position : positionsToTry) {
+                    if ( ! allVarPtmMap.containsKey(position)) continue;
                     for (VarPtm varPtm : allVarPtmMap.get(position)) {
                         double mass = varPtm.mass;
                         if (massTable.get(partSeq.charAt(relPos)) + mass < ms2Tolerance) continue;

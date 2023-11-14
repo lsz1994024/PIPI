@@ -29,4 +29,6 @@ target
 src/main/resources/log.txt
 catProt.txt
 catProtReduced.txt
+catProtNormal.txt
+catProtReverse.txt
 *.TD.fasta

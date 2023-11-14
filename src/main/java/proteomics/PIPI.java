@@ -565,11 +565,11 @@ public class PIPI {
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
+        threadNum = 44;
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             // change thread PreSearch
             threadNum = 1;
         }
-//        threadNum = 44;
 
         System.out.println("thread NUM "+ threadNum);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(threadNum);
