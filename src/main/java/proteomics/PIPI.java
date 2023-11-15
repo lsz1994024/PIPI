@@ -105,7 +105,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(4679,4678));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(18515,18487));//129543, 111179, 109395
     public static int neighborNum = 20;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -134,7 +134,7 @@ public class PIPI {
         try {
             logger.info("Spectra: {}, parameter: {}.", spectraPath, parameterPath);
 
-            dbName = String.format(Locale.US, "PIPI.%s.%s.temp.db", hostName, new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(Calendar.getInstance().getTime()));
+            dbName = String.format(Locale.US, "PIPI.%s.temp.db", hostName);
             new PIPI(parameterPath, spectraPath, dbName, hostName, outputDir);
 
 
@@ -896,9 +896,9 @@ public class PIPI {
             lockPtm.unlock();
         }
 
-        if (resultCountPtm == 0) {
-            throw new Exception("There is no useful results.");
-        }
+//        if (resultCountPtm == 0) {
+//            throw new Exception("There is no useful results.");
+//        }
 
         String percolatorInputFileName = spectraPath + "." + labelling + ".input.temp";
         pfm(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName, varPtmCountMap);

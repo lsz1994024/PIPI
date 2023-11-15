@@ -195,7 +195,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 double thisScore = tagRelPos.getFirst().getTotalIntensity();
                 if (count == 0) topScore = thisScore;
                 count++;
-                if (count > 10 && thisScore < topScore) break outLoop;
+                if ((count > 10 && thisScore < topScore) || count > 20) break outLoop;
                 updateCandiList(scanNum, protId, tagRelPos.getSecond(), tagRelPos.getFirst(), ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
             }
         }
@@ -886,7 +886,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     int cPartStartPos = tagPosInProt+finderTagSize;
                     String cPartSeq = protSeq.substring(cPartStartPos, optEndPosP1);
                     int cPartSeqLen = cPartSeq.length();
-                    if (lszDebugScanNum.contains(scanNum) ){ // SLEEEGAA
+                    if (lszDebugScanNum.contains(scanNum) && finderTag.getFreeAaString().contentEquals("TDDY")){ // SLEEEGAA
                         int a = 1;
                     }
                     double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(cPartStartPos, optStartPos));
