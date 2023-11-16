@@ -105,7 +105,7 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(4679,4678));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(18487));//129543, 111179, 109395
     public static int neighborNum = 20;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
@@ -1089,10 +1089,6 @@ public class PIPI {
                 String scanName = sqlResultSet.getString("scanName");
 
                 String[] candiSetStr = peptideSet.split(",");
-//                if (lszDebugScanNum.contains(scanNum)) {
-//                    int a = 1;
-//                    System.out.println(scanNum +"," + peptideSet);
-//                }
                 int numPep = candiSetStr.length/3;
 
                 PeptideInfo pepInfo = allPeptideInfoMap.get(topPeptide.replaceAll("[^A-Z]+", ""));
