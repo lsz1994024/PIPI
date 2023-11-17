@@ -794,25 +794,41 @@ public class InferPTM {
                 } else { // it does not has a y id , it is in fixed zone
                     absPosOfNextStart = optStartPos;
                 }
+
+                //for minYmz
                 double maxPtmMassOnN = 0;
-                for (int tmpPos = refPos; tmpPos < absPos; tmpPos++) {
-                    maxPtmMassOnN += absPos_MassVarPtm_Map.get(tmpPos).lastKey();// the max PTM mass
+                for (int tmpPos = refPos; tmpPos < absPos; tmpPos++) {  //only one PTM is supposed to be here to estimate maxPtmMassOnN
+                    if (absPos_MassVarPtm_Map.get(tmpPos).lastKey() > maxPtmMassOnN) maxPtmMassOnN = absPos_MassVarPtm_Map.get(tmpPos).lastKey();
                 }
-                double minPtmMassHere = 0;
+
+                List<Double> smallPtmMassesHere = new ArrayList<>(absPosOfNextStart-refPos - tpId);
                 for (int tmpPos = absPos; tmpPos < absPosOfNextStart; tmpPos++) {
-                    minPtmMassHere += absPos_MassVarPtm_Map.get(tmpPos).firstKey();// the max PTM mass
+                    smallPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).firstKey());
+                }
+                smallPtmMassesHere.sort(Comparator.naturalOrder());
+                double minPtmMassHere = 0;
+                for (int i = 0; i < Math.min(MaxPtmNumInPart-1, absPosOfNextStart-refPos-tpId); i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
+                    minPtmMassHere += smallPtmMassesHere.get(i);
                 }
                 double seqMass_TpId_nextStart = massTool.calResidueMass(partSeq.substring(tpId, absPosOfNextStart-refPos));
                 minYmz = Math.max(0, seqMass_TpId_nextStart + Math.max( totalDeltaMass - maxPtmMassOnN, minPtmMassHere ) );
 
+                //for maxYmz
                 double minPtmMassOnN = 0;
                 for (int tmpPos = refPos; tmpPos < absPos; tmpPos++) {
-                    minPtmMassOnN += absPos_MassVarPtm_Map.get(tmpPos).firstKey();// the min PTM mass
+//                    minPtmMassOnN += absPos_MassVarPtm_Map.get(tmpPos).firstKey();// the min PTM mass
+                    if (absPos_MassVarPtm_Map.get(tmpPos).firstKey() < minPtmMassOnN) minPtmMassOnN = absPos_MassVarPtm_Map.get(tmpPos).firstKey();
                 }
+                List<Double> bigPtmMassesHere = new ArrayList<>(partSeqLen - tpId);
+                for (int tmpPos = absPos; tmpPos < partSeqLen+refPos; tmpPos++) {
+                    bigPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).lastKey());
+                }
+                bigPtmMassesHere.sort(Comparator.reverseOrder());
                 double maxPtmMassHere = 0;
-                for (int tmpPos = absPos; tmpPos < absPosOfNextStart; tmpPos++) {
-                    maxPtmMassHere += absPos_MassVarPtm_Map.get(tmpPos).lastKey();// the max PTM mass
+                for (int i = 0; i < Math.min(MaxPtmNumInPart-1, partSeqLen - tpId); i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
+                    maxPtmMassHere += bigPtmMassesHere.get(i);
                 }
+
                 maxYmz = Math.min(1100, massTool.calResidueMass(partSeq.substring(tpId)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(absPosOfNextStart-refPos))-minPtmMassOnN, maxPtmMassHere) );
                 // this 1000 is the max mz that I expect it should consider. No need to consider large values because the normally are not fragmented.
 
@@ -834,10 +850,12 @@ public class InferPTM {
                         tp_eMass_match_Base.addTerm(massTable.get(partSeq.charAt(tmpPos-refPos)), yVarMap.get(absPosYIdMap.get(tmpPos)));
                     }
                 }
+
+                GRBLinExpr one_tp_for_one_ep = new GRBLinExpr();// is this a redundant constraint?
                 for (double eMass : feasiblePeaks.keySet()) {
                     GRBVar zVar = model.addVar(0, 1, feasiblePeaks.get(eMass), GRB.BINARY, "z" + tpId + "_" + eMass); // obj coeff, directly build the obj func
                     eMassVarMap.put(eMass, zVar);
-
+                    one_tp_for_one_ep.addTerm(1, zVar);
                     GRBLinExpr tp_eMass_match_Actual_1 = new GRBLinExpr(tp_eMass_match_Base);
                     tp_eMass_match_Actual_1.addTerm(D, zVar);
                     model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
@@ -847,6 +865,7 @@ public class InferPTM {
                     model.addConstr(tp_eMass_match_Actual_2, GRB.GREATER_EQUAL, -D-ms2Tol+eMass, "tp_eMass_match_Actual_2"+tpId+"_"+eMass);
                 }
                 z_yIonVarMap.put(tpId, new HashMap<>(50));
+                model.addConstr(one_tp_for_one_ep, GRB.LESS_EQUAL, 1, "one_tp_for_one_ep"+tpId);
             }
 
 
@@ -859,7 +878,7 @@ public class InferPTM {
             model.set(GRB.IntParam.MIPFocus, 1); // 2 is much slower
 //            model.set(GRB.IntParam.PoolSearchMode, 1);  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
 //            model.set(GRB.IntParam.PoolSolutions, 10);
-            model.set(GRB.DoubleParam.TimeLimit, 60); // second
+            model.set(GRB.DoubleParam.TimeLimit, 10); // second
             model.set(GRB.IntParam.ConcurrentMIP, 32); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
