@@ -77,9 +77,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
-//        this.leftInverseMs1Tolerance = leftInverseMs1Tolerance;
-//        this.rightInverseMs1Tolerance = rightInverseMs1Tolerance;
-//        this.ms1ToleranceUnit = ms1ToleranceUnit;
         this.minPtmMass = minPtmMass;
         this.maxPtmMass = maxPtmMass;
 //        this.localMaxMs2Charge = localMaxMs2Charge;
@@ -92,11 +89,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         this.precursorMass = precursorMass;
         this.specProcessor = specProcessor;
         this.scanNum = scanNum;
-//        this.truth = truth;
         this.ms2Tolerance = ms2Tolerance;
         this.inferPTM = buildIndex.getInferPTM();
-//        this.minPepLen = minPepLen;
-//        this.maxPepLen = maxPepLen;
     }
 
     @Override
@@ -145,8 +139,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         int minTagLen = 3;
 
         GRBEnv env = new GRBEnv(true);
-        env.set(GRB.IntParam.OutputFlag,0);
-        env.set(GRB.IntParam.LogToConsole, 0);
+//        env.set(GRB.IntParam.OutputFlag,0);
+//        env.set(GRB.IntParam.LogToConsole, 0);
         env.start();
 
 
@@ -811,28 +805,29 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                         if (cPartSeq.contentEquals("SSAQQVAVSR")) { // SLEEEGAA
                             int a = 1;
                         }
-                }
+                    }
                     double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(cPartStartPos, optStartPos));
                     Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeqLen);
                     Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map = new HashMap<>(200);
-                    Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(cPartSeqLen, 1);
+                    Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(cPartSeqLen, 1);
                     Map<Double, Set<Integer>> allMassAllPosesMap = new HashMap<>(cPartSeqLen * 30, 1); //Set<pos>
 
 
-                    inferPTM.prepareInfoCTerm(scanNum, cPartSeq, pos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
+                    inferPTM.prepareInfoCTerm(scanNum, cPartSeq, absPos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
 
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
 
                     inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
-                            cPartSeq, ms1TolAbs, posYIdMap, pos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
+                            cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
                             , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap);
 
                     if (lszDebugScanNum.contains(scanNum) && cPartSeq.contentEquals("SSAQQVAVSR")){ // SLEEEGAA
                         int a = 1;
                     }
-                    inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
-                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
+
+//                    inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
+//                            expProcessedPL, false, allMassAllPosesMap, absPos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
 
 
 
