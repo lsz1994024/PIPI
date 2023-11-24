@@ -41,7 +41,8 @@ import static proteomics.PIPI.*;
 
 
 public class InferPTM {
-    private static final int PoolSolutions = 100;
+//    private static final int PoolSolutions = 100;
+    private static final int timeLimit = 2;
     private static final int MaxPtmNumInPart = 3;
     private static final Pattern pattern = Pattern.compile("([0-9A-Za-z]+)(\\(([0-9\\-]+)\\))?");
     private static final double ptmMassTolerance = 0.1;
@@ -640,7 +641,8 @@ public class InferPTM {
     public void findBestPtmMIPExtC(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
                                    double ms1TolAbs, Map<Integer, Integer> absPosYIdMap, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
                                    Set<Pair<Integer, Map<Double, Integer>>> resList, byte isProtNorC_Term, int optStartPos,
-                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,Set<Map<Integer, Double>> posPtmIdResSet,TreeMap<Double, Double> plMap) {
+                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,Set<Map<Integer, Double>> posPtmIdResSet,TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet) {
+
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>(absPosYIdMap.values().size());
         for (int pos : absPosYIdMap.keySet()) {
@@ -704,15 +706,14 @@ public class InferPTM {
                 for (Byte position : positionsToTry) { // in the order of anywhere-pepC-protC
                     List<VarPtm> varPtmList = allVarPtmMap.get(position);
                     if (varPtmList == null) continue;
-//                    int ptmId = 0;
-
                     double ptmMass;
                     for (VarPtm varPtm : varPtmList) {
                         ptmMass = varPtm.mass;
+                        if (massTable.get(partSeq.charAt(relPos)) + ptmMass < ms2Tolerance) continue;
 
                         if (usedMassForThisAa.contains(ptmMass)) continue;
 
-                        GRBVar xVar = model.addVar(0, 1, 0, GRB.BINARY, "x" + absPos + "_" + ptmMass);
+                        GRBVar xVar = model.addVar(0, 1, -0.5, GRB.BINARY, "x" + absPos + "_" + ptmMass);
                         massXVarMap.put(ptmMass, xVar);
                         sumX_leq_1orY.addTerm(1, xVar);
                         totalFlexiableMass.addTerm(ptmMass, xVar); // + m_i * x_i
@@ -777,10 +778,7 @@ public class InferPTM {
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
             // peaks
-
-            double fullAaSeqMass = MassTool.PROTON + massTool.calResidueMass(partSeq.substring(1));
-            double optAaSeqMass = MassTool.PROTON + massTool.calResidueMass(partSeq.substring(1, optStartPos-refPos));
-            Map<Integer, Map<Double, GRBVar>> z_yIonVarMap = new HashMap<>(512);// <tpId, <eMass, zVar>>
+            Map<Integer, TreeMap<Double, GRBVar>> z_yIonVarMap = new HashMap<>(partSeqLen);// <tpId, <eMass, zVar>>
             for (int tpId = 1; tpId < partSeqLen; tpId++) { // tpId = theoretical peak Id, one less than aa num
                  char aa = partSeq.charAt(tpId);
                 int absPos = refPos + tpId;
@@ -796,64 +794,97 @@ public class InferPTM {
                 }
 
                 //for minYmz
+
+                int aaNumC = Math.min(MaxPtmNumInPart-1, absPosOfNextStart-absPos);
+                List<Double> bigPtmMassesOnN = new ArrayList<>(absPos - refPos);
+                for (int tmpPos = refPos; tmpPos < absPos; tmpPos++) {  //only one PTM is supposed to be here to estimate maxPtmMassOnC
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).lastKey() > 0) {
+                        bigPtmMassesOnN.add(absPos_MassVarPtm_Map.get(tmpPos).lastKey());
+                    } else {
+                        bigPtmMassesOnN.add(0d);
+                    }
+                }
+                bigPtmMassesOnN.sort(Comparator.reverseOrder());
                 double maxPtmMassOnN = 0;
-                for (int tmpPos = refPos; tmpPos < absPos; tmpPos++) {  //only one PTM is supposed to be here to estimate maxPtmMassOnN
-                    if (absPos_MassVarPtm_Map.get(tmpPos).lastKey() > maxPtmMassOnN) maxPtmMassOnN = absPos_MassVarPtm_Map.get(tmpPos).lastKey();
+                for (int tmpPos = 0; tmpPos < Math.min(MaxPtmNumInPart-aaNumC, bigPtmMassesOnN.size()); ++tmpPos) {
+                    maxPtmMassOnN += bigPtmMassesOnN.get(tmpPos);
                 }
 
-                List<Double> smallPtmMassesHere = new ArrayList<>(absPosOfNextStart-refPos - tpId);
+                List<Double> smallPtmMassesHere = new ArrayList<>(absPosOfNextStart-absPos);
                 for (int tmpPos = absPos; tmpPos < absPosOfNextStart; tmpPos++) {
-                    smallPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).firstKey());
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).firstKey() < 0) {
+                        smallPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).firstKey());
+                    }else {
+                        smallPtmMassesHere.add(0d);
+                    }
                 }
                 smallPtmMassesHere.sort(Comparator.naturalOrder());
                 double minPtmMassHere = 0;
-                for (int i = 0; i < Math.min(MaxPtmNumInPart-1, absPosOfNextStart-refPos-tpId); i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
+                for (int i = 0; i < aaNumC; i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
                     minPtmMassHere += smallPtmMassesHere.get(i);
                 }
                 double seqMass_TpId_nextStart = massTool.calResidueMass(partSeq.substring(tpId, absPosOfNextStart-refPos));
                 minYmz = Math.max(0, seqMass_TpId_nextStart + Math.max( totalDeltaMass - maxPtmMassOnN, minPtmMassHere ) );
 
                 //for maxYmz
+                aaNumC = Math.min(MaxPtmNumInPart-1, partSeqLen - tpId);
+                List<Double> smallPtmMassesC = new ArrayList<>();
                 double minPtmMassOnN = 0;
                 for (int tmpPos = refPos; tmpPos < absPos; tmpPos++) {
-//                    minPtmMassOnN += absPos_MassVarPtm_Map.get(tmpPos).firstKey();// the min PTM mass
-                    if (absPos_MassVarPtm_Map.get(tmpPos).firstKey() < minPtmMassOnN) minPtmMassOnN = absPos_MassVarPtm_Map.get(tmpPos).firstKey();
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).firstKey() < 0) {
+                        smallPtmMassesC.add(absPos_MassVarPtm_Map.get(tmpPos).firstKey());
+                    }else {
+                        smallPtmMassesC.add(0d);
+                    }
                 }
+                smallPtmMassesC.sort(Comparator.naturalOrder());
+                for (int tmpPos = 0; tmpPos < Math.min(MaxPtmNumInPart-aaNumC, smallPtmMassesC.size()); tmpPos++) {
+                    minPtmMassOnN += smallPtmMassesC.get(tmpPos);
+                }
+
                 List<Double> bigPtmMassesHere = new ArrayList<>(partSeqLen - tpId);
                 for (int tmpPos = absPos; tmpPos < partSeqLen+refPos; tmpPos++) {
-                    bigPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).lastKey());
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).lastKey() > 0) {
+                        bigPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).lastKey());
+                    }else {
+                        bigPtmMassesHere.add(0d);
+                    }
                 }
                 bigPtmMassesHere.sort(Comparator.reverseOrder());
                 double maxPtmMassHere = 0;
-                for (int i = 0; i < Math.min(MaxPtmNumInPart-1, partSeqLen - tpId); i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
+                for (int i = 0; i < aaNumC; i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
                     maxPtmMassHere += bigPtmMassesHere.get(i);
                 }
 
-                maxYmz = Math.min(1100, massTool.calResidueMass(partSeq.substring(tpId)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(absPosOfNextStart-refPos))-minPtmMassOnN, maxPtmMassHere) );
+                maxYmz = Math.min(3000, massTool.calResidueMass(partSeq.substring(tpId)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(absPosOfNextStart-refPos))-minPtmMassOnN, maxPtmMassHere) );
                 // this 1000 is the max mz that I expect it should consider. No need to consider large values because the normally are not fragmented.
 
+                if(minYmz >= maxYmz) {
+                    int a = 1;
+                }
                 NavigableMap<Double, Double> feasiblePeaks = plMap.subMap(minYmz, true, maxYmz,true);
                 int a = 1;
 
-                Map<Double, GRBVar> eMassVarMap = new HashMap<>(50);
+                TreeMap<Double, GRBVar> eMassVarMap = new TreeMap<>();
 
                 double D = maxYmz - minYmz + 1; // plus one for security to ensure that all |eMass-tMass| < D
                 double ms2Tol = 0.02; //Dalton
                 GRBLinExpr tp_eMass_match_Base = new GRBLinExpr();
                 tp_eMass_match_Base.addConstant(seqMass_TpId_nextStart + MassTool.PROTON + massTool.H2O);
                 for (int tmpPos = absPos; tmpPos < partSeqLen+refPos; tmpPos++) {
-                    Map<Double, GRBVar> ptmMassVarMap = xVarMap.get(tmpPos);
-                    for (double ptmMass : ptmMassVarMap.keySet()) {   // Sum (xi * mi) , all needed ptm masses
-                        tp_eMass_match_Base.addTerm(ptmMass, ptmMassVarMap.get(ptmMass));
-                    }
                     if (tmpPos >= absPosOfNextStart) {  // Sum (ya * ma) , all needed aa masses
                         tp_eMass_match_Base.addTerm(massTable.get(partSeq.charAt(tmpPos-refPos)), yVarMap.get(absPosYIdMap.get(tmpPos)));
                     }
+                    Map<Double, GRBVar> ptmMassVarMap = xVarMap.get(tmpPos);
+                    if (ptmMassVarMap == null) continue;
+                    for (double ptmMass : ptmMassVarMap.keySet()) {   // Sum (xi * mi) , all needed ptm masses
+                        tp_eMass_match_Base.addTerm(ptmMass, ptmMassVarMap.get(ptmMass));
+                    }
                 }
-
                 GRBLinExpr one_tp_for_one_ep = new GRBLinExpr();// is this a redundant constraint?
                 for (double eMass : feasiblePeaks.keySet()) {
                     GRBVar zVar = model.addVar(0, 1, feasiblePeaks.get(eMass), GRB.BINARY, "z" + tpId + "_" + eMass); // obj coeff, directly build the obj func
+//
                     eMassVarMap.put(eMass, zVar);
                     one_tp_for_one_ep.addTerm(1, zVar);
                     GRBLinExpr tp_eMass_match_Actual_1 = new GRBLinExpr(tp_eMass_match_Base);
@@ -863,26 +894,55 @@ public class InferPTM {
                     GRBLinExpr tp_eMass_match_Actual_2 = new GRBLinExpr(tp_eMass_match_Base);
                     tp_eMass_match_Actual_2.addTerm(-D, zVar);
                     model.addConstr(tp_eMass_match_Actual_2, GRB.GREATER_EQUAL, -D-ms2Tol+eMass, "tp_eMass_match_Actual_2"+tpId+"_"+eMass);
+
                 }
-                z_yIonVarMap.put(tpId, new HashMap<>(50));
+                if (!eMassVarMap.isEmpty()) {
+                    z_yIonVarMap.put(tpId, eMassVarMap);
+                }
                 model.addConstr(one_tp_for_one_ep, GRB.LESS_EQUAL, 1, "one_tp_for_one_ep"+tpId);
+            }
+
+            for (int thisTpId = 1; thisTpId < partSeqLen - 1; thisTpId++) {
+                if (!z_yIonVarMap.containsKey(thisTpId)) continue;
+                double thisMinYmz = z_yIonVarMap.get(thisTpId).firstKey();
+                int nextTpId;
+                for (nextTpId = thisTpId+1; nextTpId < partSeqLen; nextTpId++) {
+                    if (!z_yIonVarMap.containsKey(nextTpId)) continue;
+                    double nextMaxYmz = z_yIonVarMap.get(nextTpId).lastKey();
+                    if (nextMaxYmz < thisMinYmz) break;
+                    for (double thisYmz : z_yIonVarMap.get(thisTpId).keySet()){
+                        if (thisYmz > nextMaxYmz) break;
+                        for (double nextYmz : z_yIonVarMap.get(nextTpId).subMap(thisYmz, true, nextMaxYmz, true).keySet()) {
+                            GRBLinExpr zThisNextNoCross = new GRBLinExpr();
+                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(thisTpId).get(thisYmz));
+                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(nextTpId).get(nextYmz));
+                            model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
+                        }
+                    }
+                }
             }
 
 
             model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
             //obj function
 
-            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")) {
-                int a = 1;
-            }
-            model.set(GRB.IntParam.MIPFocus, 1); // 2 is much slower
-//            model.set(GRB.IntParam.PoolSearchMode, 1);  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
-//            model.set(GRB.IntParam.PoolSolutions, 10);
-            model.set(GRB.DoubleParam.TimeLimit, 10); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 32); // second
-            model.set(GRB.IntParam.Threads, 32); // second
+            model.set(GRB.DoubleParam.TimeLimit, timeLimit); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
+            model.set(GRB.IntParam.Threads, 44); // second
+
+            model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
+            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
+            model.set(GRB.IntParam.PrePasses, 2); // second
+            model.set(GRB.IntParam.PreSparsify, 1); // second
+            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
+
+
+//            model.set(GRB.DoubleParam.TuneTimeLimit, 43200);
+//            model.set(GRB.IntParam.TuneTrials, 5);
+//            model.tune();
 
             model.optimize();
+
             switch (model.get(GRB.IntAttr.Status)) {
                 case GRB.OPTIMAL:
                     break;
@@ -893,9 +953,10 @@ public class InferPTM {
                     return; // if it is disposed here (i.e. infeasible, unbounded...), dont collect solutions, just return
             }
             int solCount = model.get(GRB.IntAttr.SolCount);
-            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("SSAQQVAVSR") ){ // SLEEEGAA
+            if (lszDebugScanNum.contains(scanNum) ){ // SLEEEGAA
                 int a = 1;
             }
+            double objValThres = model.get(GRB.DoubleAttr.ObjVal)*0.9;
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
                 Map<Integer, Double> thisSol = new HashMap<>();
@@ -930,29 +991,25 @@ public class InferPTM {
                         }
                     }
                 }
+                int trueSeqEndAbsPos = Collections.max(thisSol.keySet());
                 posPtmIdResSet.add(thisSol);
-
-                double objVal = model.get(GRB.DoubleAttr.ObjVal);
-                Peptide tmpPeptide = new Peptide(partSeq, false, massTool);
+                if (model.get(GRB.DoubleAttr.PoolObjVal) < objValThres){
+                    break;
+                }
+                Peptide tmpPeptide = new Peptide(partSeq.substring(0, trueSeqEndAbsPos+1-refPos), false, massTool);
                 PosMassMap posMassMap = new PosMassMap();
                 for (int absPos : thisSol.keySet()) {
                     if (thisSol.get(absPos) == -1) continue;
                     posMassMap.put(absPos-refPos, thisSol.get(absPos));
                     tmpPeptide.posVarPtmResMap.put(absPos-refPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
                 }
-                double[][] ionMatrix = tmpPeptide.getIonMatrix();
-                if ( ! posMassMap.isEmpty()) { // if it is empty, the ptm must be just proton and ignored, so we just use the original ionMatrix to calculate score
-                    tmpPeptide.setVarPTM(posMassMap);
-                    ionMatrix = tmpPeptide.getIonMatrixNow();
-                    updateIonMatrix(ionMatrix, -999, C_PART); //-999 makes sure that I are only checking y ions
-                }
-
-                Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
-                SparseVector expProcessedPL = TmpdigitizePL(plMap);
-                double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, tmpPeptide.matchedBions, tmpPeptide.matchedYions, jRange) ;
-                if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("SSAQQVAVSR") ){ // SLEEEGAA
+                tmpPeptide.setVarPTM(posMassMap);
+                try {
+                    cModPepsSet.add(tmpPeptide);
+                }catch (Exception e) {
                     int a = 1;
                 }
+                cModPepsSet.add(tmpPeptide);
             }
             model.dispose();
         } catch (GRBException e) {
@@ -970,13 +1027,15 @@ public class InferPTM {
         }
         return digitizedPL;
     }
-    public void findBestPtmMIPExtN(int scanNum, GRBEnv env, Map<Double, Set<Integer>> allMassAllPosesMap, double totalDeltaMass, int refPos, String partSeq,
-                                   double ms1TolAbs, Map<Integer, Set<Double>> oneTimeMassGroups, final Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map,
-                                   Map<Integer, Integer> posYIdMap, Map<Integer, Map<Double, VarPtm>> absPos_MassVarPtm_Map, Set<Pair<Integer, Map<Double, Integer>>> resList) {
+    public void findBestPtmMIPExtN(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
+                                   double ms1TolAbs, Map<Integer, Integer> absPosYIdMap,
+                                   Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, int optEndPosP1,
+                                   boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap, Set<Map<Integer, Double>> posPtmIdResSet, String protSeq, TreeMap<Double, Double> plMap,
+                                   TreeSet<Peptide> nModPepsSet, SparseVector unUsedExpProcessedPL, double cutMass) {
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
-        for (int pos : posYIdMap.keySet()) {
-            int yId = posYIdMap.get(pos);
+        for (int pos : absPosYIdMap.keySet()) {
+            int yId = absPosYIdMap.get(pos);
             List<Integer> allPoses = yIdAllPosesMap.get(yId);
             if ( allPoses != null) {
                 allPoses.add(pos);
@@ -990,134 +1049,289 @@ public class InferPTM {
         try {
             GRBModel model = new GRBModel(env);
             //// Constraints
-            GRBLinExpr totalNumsOnPepConstr = new GRBLinExpr();
+            GRBLinExpr totalNumsOnPep = new GRBLinExpr();
             GRBLinExpr totalFlexiableMass = new GRBLinExpr();
-            GRBLinExpr totalFlexiableMass1 = new GRBLinExpr();
-            GRBVar t = model.addVar(0, ms1TolAbs, 0, GRB.CONTINUOUS, "t");
-            totalFlexiableMass.addTerm(-1,t);
-            totalFlexiableMass1.addTerm(1,t);
+            int partSeqLen = partSeq.length();
             // x y variables
-            Map<Integer, GRBVar> yVarMap = new HashMap<>( posYIdMap.values().size() ); // <yId, var>
-            for (int yId : posYIdMap.values()) {
+            Map<Integer, GRBVar> yVarMap = new HashMap<>( yIdAllPosesMap.size() ); // <yId, var>
+            for (int yId : absPosYIdMap.values()) {
                 GRBVar yVar = model.addVar(0, 1, 0, GRB.BINARY, "y"+yId);
                 yVarMap.put(yId, yVar);
-
                 //constraints
                 double aaMass = 0;
                 for (int absPos : yIdAllPosesMap.get(yId)) {
-                    aaMass += massTool.getMassTable().get(partSeq.charAt(absPos + partSeq.length()-refPos));
+                    aaMass += massTool.getMassTable().get(partSeq.charAt(absPos+partSeqLen - refPos));
                 }
                 totalFlexiableMass.addTerm(aaMass, yVarMap.get(yId));
-                totalFlexiableMass1.addTerm(aaMass, yVarMap.get(yId));
-
-            }
-            List<Integer> yIdList = new ArrayList<>(yVarMap.keySet());
-            yIdList.sort(Comparator.naturalOrder());
-            Map<Double, GRBVar> xVarMap = new HashMap<>(allMassAllPosesMap.size());
-            for (double mass : allMassAllPosesMap.keySet()) {
-                Set<Integer> allAbsPoses = allMassAllPosesMap.get(mass);
-                GRBVar xVar = model.addVar(0, allAbsPoses.size(), 0, GRB.INTEGER, "x_"+mass);
-                xVarMap.put(mass, xVar);
-
-                //constraints
-                totalFlexiableMass.addTerm(mass, xVar); // += m_i * x_i
-                totalFlexiableMass1.addTerm(mass, xVar); // += m_i * x_i
-
-                totalNumsOnPepConstr.addTerm(1,xVar); // + 1 * x_i
-
-                //constraints
-                GRBLinExpr massOccurence = new GRBLinExpr();
-                massOccurence.addTerm(1, xVar);
-                int fixPosNum = 0;
-
-                for (int absPos : allAbsPoses) {
-                    if ( ! posYIdMap.containsKey(absPos)) {
-                        fixPosNum++;
-                        continue;
-                    }
-
-                    int yId = posYIdMap.get(absPos);
-                    int position = absPos_MassVarPtm_Map.get(absPos).get(mass).position;
-
-                    if (position == PEPN
-                            && absPos+partSeq.length() != refPos
-                            && yId != yIdList.get(yIdList.size()-1)) { // NC the same
-                        massOccurence.addTerm(-1, yVarMap.get(yId)); // thisYId
-                        massOccurence.addTerm(1, yVarMap.get(yId+1));// nextYId // NC the same
-                    } else {
-                        massOccurence.addTerm(-1, yVarMap.get(yId));
-                    }
-                }
-                if (massOccurence.size() > 1) { //if it is just x <= 1, no any y, then no need to add this constraint
-                    model.addConstr(massOccurence, GRB.LESS_EQUAL, fixPosNum, "massOccurence_"+mass); // xi <= fixPosNum + y1+y2+...
-                }
             }
 
-            //// add constraints
-            model.addConstr(totalFlexiableMass1, GRB.GREATER_EQUAL, totalDeltaMass , "totalFlexiableMassGe");
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass, "totalFlexiableMassLe");
-            model.addConstr(totalNumsOnPepConstr, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
+            // x variables
+            Map<Integer, Map<Double, GRBVar>> xVarMap = new HashMap<>(); // <pos, <mass, GRBVar>>
+            Map<Integer, List<Double>> xPosPEPN_MassMap = new HashMap<>();
+            for (int relPos = 0; relPos < partSeqLen; relPos++) {
+                char aa = partSeq.charAt(relPos);
+                int absPos = refPos + relPos - partSeqLen;
+                boolean hasFixMod = aaWithFixModSet.contains(aa);
+                if (hasFixMod && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
+                List<Byte> positionsToTry = new ArrayList<>(3);
+                positionsToTry.add(ANYWHERE);
+                if (yIdMinAbsPosMap.containsValue(absPos)) {
+                    positionsToTry.add(PEPN);
+                    xPosPEPN_MassMap.put(absPos, new ArrayList<>());
+                }
+                if (absPos == optEndPosP1) {
+                    if (! nTermSpecific || absPos == 0 || protSeq.charAt(absPos-1) == 'K' || protSeq.charAt(absPos-1) == 'R') {
+                        positionsToTry.add(PEPN);
+                        xPosPEPN_MassMap.put(absPos, new ArrayList<>());
+                    }
+                }
+                if (couldBeProtN && relPos == 0) {
+                    positionsToTry.add(PROTN);
+                    xPosPEPN_MassMap.put(absPos, new ArrayList<>());
+                }
 
-            // constraints, Sum(oneMass on certain aa) < 1 or y
-            for (int absPos : oneTimeMassGroups.keySet()) {
                 GRBLinExpr sumX_leq_1orY = new GRBLinExpr();
-                for (double mass : oneTimeMassGroups.get(absPos)) {
-                    sumX_leq_1orY.addTerm(1, xVarMap.get(mass));
+                Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
+                Map<Double, GRBVar> massXVarMap = new HashMap<>();
+                Set<Double> usedMassForThisAa = new HashSet<>();
+                for (Byte position : positionsToTry) { // in the order of anywhere-pepC-protC
+                    List<VarPtm> varPtmList = allVarPtmMap.get(position);
+                    if (varPtmList == null) continue;
+
+                    double ptmMass;
+                    for (VarPtm varPtm : varPtmList) {
+                        ptmMass = varPtm.mass;
+                        if (massTable.get(partSeq.charAt(relPos)) + ptmMass < ms2Tolerance) continue;
+                        if (usedMassForThisAa.contains(ptmMass)) continue;
+
+                        GRBVar xVar = model.addVar(0, 1, -0.5, GRB.BINARY, "x" + absPos + "_" + ptmMass);
+                        massXVarMap.put(ptmMass, xVar);
+                        sumX_leq_1orY.addTerm(1, xVar);
+                        totalFlexiableMass.addTerm(ptmMass, xVar); // + m_i * x_i
+                        totalNumsOnPep.addTerm(1, xVar); // + 1 * x_i
+
+                        usedMassForThisAa.add(ptmMass);
+                        if (position == PEPN) {
+                            xPosPEPN_MassMap.get(absPos).add(ptmMass); // for later PEPC ptm and yi yj constraint
+                        }
+                    }
                 }
-                if (posYIdMap.containsKey(absPos)){
-                    sumX_leq_1orY.addTerm(-1, yVarMap.get(posYIdMap.get(absPos)));
+                xVarMap.put(absPos, massXVarMap);
+
+                if (absPosYIdMap.containsKey(absPos)) {
+                    int yId = absPosYIdMap.get(absPos);
+                    sumX_leq_1orY.addTerm(-1, yVarMap.get(yId));
                     model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 0, "sumX_leq_Y" + absPos);
                 } else {
                     model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
                 }
             }
+            // all poses x Var finished
 
-            int dummyI = 0;
-            for (Set<Integer> posComb : posComb_multiMassSet_Map.keySet()) {
-                GRBLinExpr multiTimeMassConstr = new GRBLinExpr();
-                int fixPosNum = 0;
-                for (int absPos : posComb) {
-                    if (posYIdMap.containsKey(absPos)) {
-                        multiTimeMassConstr.addTerm(-1, yVarMap.get(posYIdMap.get(absPos)));
-                    } else {
-                        fixPosNum++;
-                    }
-                }
-                Set<Double> massSet = posComb_multiMassSet_Map.get(posComb);
-                for (double mass : massSet) {
-                    multiTimeMassConstr.addTerm(1, xVarMap.get(mass));
-                }
-                model.addConstr(multiTimeMassConstr, GRB.LESS_EQUAL, fixPosNum, "multiTimeMassConstr_"+fixPosNum+"_"+dummyI);
-                dummyI++;
-            }
-
-            if (yVarMap.size() >= 2) {
-                for (int i = 0; i < yIdList.size()-1; i++) {
+            List<Integer> yIdList = new ArrayList<>(yVarMap.keySet());
+            yIdList.sort(Comparator.naturalOrder());
+            int yIdNum = yIdList.size();
+            if (yIdNum >= 2) {
+                for (int i = 0; i < yIdNum - 1; i++) {
                     int thisYId = yIdList.get(i);
-                    int nextYId = yIdList.get(i+1);
+                    int nextYId = yIdList.get(i + 1);
                     GRBLinExpr yiyj = new GRBLinExpr();
                     yiyj.addTerm(1, yVarMap.get(thisYId));
                     yiyj.addTerm(-1, yVarMap.get(nextYId));
-                    model.addConstr(yiyj, GRB.GREATER_EQUAL, 0 , "yiyj_"+i);
+                    model.addConstr(yiyj, GRB.GREATER_EQUAL, 0, "yiyj_" + i);
+
+                    int thisMinPos = yIdMinAbsPosMap.get(thisYId);
+                    if (!hasFixMod(partSeq.charAt(thisMinPos+partSeqLen - refPos))) {
+                        for (double ptmMass : xPosPEPN_MassMap.get(thisMinPos)) {
+                            GRBLinExpr yiyjxi = new GRBLinExpr();
+                            yiyjxi.addTerm(1, yVarMap.get(thisYId));
+                            yiyjxi.addTerm(-1, yVarMap.get(nextYId));
+                            yiyjxi.addTerm(-1, xVarMap.get(thisMinPos).get(ptmMass));
+                            model.addConstr(yiyjxi, GRB.GREATER_EQUAL, 0, "yiyjxi" + i);
+                        }
+                    }
+                }
+            } else if (yIdNum == 1) { // the PEPC ptm on the optStartPos-1 relies on the value of this yId
+                int onlyOneYId = yIdList.get(0);
+                if (!hasFixMod(partSeq.charAt(optEndPosP1+partSeqLen - refPos))) {
+                    for (double ptmMass : xPosPEPN_MassMap.get(optEndPosP1)) {
+                        GRBLinExpr yixi_1 = new GRBLinExpr();
+                        yixi_1.addTerm(1, yVarMap.get(onlyOneYId));
+                        yixi_1.addTerm(1, xVarMap.get(optEndPosP1).get(ptmMass));
+                        model.addConstr(yixi_1, GRB.LESS_EQUAL, 1, "yixi_1" + (optEndPosP1));
+                    }
+                }
+            }
+
+            //// add constraints
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs, "constrTotalMassLE");
+            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPep"); // this value should not exceed the number of aa in the partSeq
+
+            // peaks
+            Map<Integer, TreeMap<Double, GRBVar>> z_bIonVarMap = new HashMap<>(partSeqLen);// <tpId, <eMass, zVar>>
+            for (int tpId = 0; tpId < partSeqLen-1; tpId++) { // tpId = theoretical peak Id, one less than aa num
+                char aa = partSeq.charAt(tpId);
+                int absPos = refPos + tpId - partSeqLen;
+                //b ions
+                double minBmz;
+                double maxBmz;
+                int absPosOfNextEnd;
+                if (absPosYIdMap.containsKey(absPos)) { // this pos is in opt zone , it has a y id
+                    int thisYId = absPosYIdMap.get(absPos);
+                    absPosOfNextEnd = yIdMinAbsPosMap.get(thisYId)-1;
+                } else { // it does not has a y id , it is in fixed zone
+                    absPosOfNextEnd = optEndPosP1-1;
+                }
+
+                //for minBmz
+                int aaNumN = Math.min(MaxPtmNumInPart-1, absPos-absPosOfNextEnd);
+                List<Double> bigPtmMassesOnC = new ArrayList<>(refPos - absPos -1);
+                for (int tmpPos = absPos+1; tmpPos < refPos; tmpPos++) {  //only one PTM is supposed to be here to estimate maxPtmMassOnC
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).lastKey() > 0) {
+                        bigPtmMassesOnC.add(absPos_MassVarPtm_Map.get(tmpPos).lastKey());
+                    }else {
+                        bigPtmMassesOnC.add(0d);
+                    }
+                }
+                bigPtmMassesOnC.sort(Comparator.reverseOrder());
+                double maxPtmMassOnC = 0;
+                for (int tmpPos = 0; tmpPos < Math.min(MaxPtmNumInPart-aaNumN, bigPtmMassesOnC.size()); ++tmpPos) {
+                    maxPtmMassOnC += bigPtmMassesOnC.get(tmpPos);
+                }
+
+                List<Double> smallPtmMassesHere = new ArrayList<>(absPos - absPosOfNextEnd);
+                for (int tmpPos = absPosOfNextEnd+1; tmpPos < absPos + 1; tmpPos++) {
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).firstKey() < 0) {
+                        smallPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).firstKey());
+                    }else {
+                        smallPtmMassesHere.add(0d);
+                    }
+                }
+                smallPtmMassesHere.sort(Comparator.naturalOrder());
+                double minPtmMassHere = 0;
+                for (int i = 0; i < aaNumN; i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
+                    minPtmMassHere += smallPtmMassesHere.get(i);
+                }
+                double seqMass_nextEnd_TpId = massTool.calResidueMass(partSeq.substring(absPosOfNextEnd+1-refPos+partSeqLen, tpId+1));
+                minBmz = Math.max(0, seqMass_nextEnd_TpId + Math.max( totalDeltaMass - maxPtmMassOnC, minPtmMassHere ) );
+
+                //for maxBmz
+                aaNumN = Math.min(MaxPtmNumInPart-1, tpId+1);
+                List<Double> smallPtmMassesC = new ArrayList<>();
+                double minPtmMassOnC = 0;
+                for (int tmpPos = absPos+1; tmpPos < refPos; tmpPos++) {
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).firstKey() < 0) {
+                        smallPtmMassesC.add(absPos_MassVarPtm_Map.get(tmpPos).firstKey());
+                    }else {
+                        smallPtmMassesC.add(0d);
+                    }
+                }
+                smallPtmMassesC.sort(Comparator.naturalOrder());
+                for (int tmpPos = 0; tmpPos < Math.min(MaxPtmNumInPart-aaNumN, smallPtmMassesC.size()); tmpPos++) {
+                    minPtmMassOnC += smallPtmMassesC.get(tmpPos);
+                }
+
+                List<Double> bigPtmMassesHere = new ArrayList<>(tpId+1);
+                for (int tmpPos = refPos-partSeqLen; tmpPos < absPos+1; tmpPos++) {
+                    if (absPos_MassVarPtm_Map.containsKey(tmpPos) && absPos_MassVarPtm_Map.get(tmpPos).lastKey() > 0) {
+                        bigPtmMassesHere.add(absPos_MassVarPtm_Map.get(tmpPos).lastKey());
+                    }else {
+                        bigPtmMassesHere.add(0d);
+                    }
+                }
+                bigPtmMassesHere.sort(Comparator.reverseOrder());
+                double maxPtmMassHere = 0;
+                for (int i = 0; i < aaNumN; i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
+                    maxPtmMassHere += bigPtmMassesHere.get(i);
+                }
+
+                maxBmz = Math.min(3000, massTool.calResidueMass(partSeq.substring(0, tpId+1)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(0, absPosOfNextEnd+1-refPos+partSeqLen))-minPtmMassOnC, maxPtmMassHere) );
+                // this 1000 is the max mz that I expect it should consider. No need to consider large values because the normally are not fragmented.
+
+                if (minBmz > maxBmz) {
+                    int a = 1;
+                }
+                NavigableMap<Double, Double> feasiblePeaks = plMap.subMap(minBmz, true, maxBmz,true);
+                int a = 1;
+
+                TreeMap<Double, GRBVar> eMassVarMap = new TreeMap<>();
+
+                double D = maxBmz - minBmz + 1; // plus one for security to ensure that all |eMass-tMass| < D
+                double ms2Tol = 0.02; //Dalton
+                GRBLinExpr tp_eMass_match_Base = new GRBLinExpr();
+                tp_eMass_match_Base.addConstant(seqMass_nextEnd_TpId + MassTool.PROTON);
+                for (int tmpPos = refPos-partSeqLen; tmpPos < absPos+1; tmpPos++) {
+                    if (tmpPos <= absPosOfNextEnd) {  // Sum (ya * ma) , all needed aa masses
+                        tp_eMass_match_Base.addTerm(massTable.get(partSeq.charAt(tmpPos-refPos+partSeqLen)), yVarMap.get(absPosYIdMap.get(tmpPos)));
+                    }
+                    Map<Double, GRBVar> ptmMassVarMap = xVarMap.get(tmpPos);
+                    if (ptmMassVarMap == null) continue;
+                    for (double ptmMass : ptmMassVarMap.keySet()) {   // Sum (xi * mi) , all needed ptm masses
+                        tp_eMass_match_Base.addTerm(ptmMass, ptmMassVarMap.get(ptmMass));
+                    }
+                }
+                GRBLinExpr one_tp_for_one_ep = new GRBLinExpr();// is this a redundant constraint?
+                for (double eMass : feasiblePeaks.keySet()) {
+                    GRBVar zVar = model.addVar(0, 1, feasiblePeaks.get(eMass), GRB.BINARY, "z" + tpId + "_" + eMass); // obj coeff, directly build the obj func
+                    eMassVarMap.put(eMass, zVar);
+                    one_tp_for_one_ep.addTerm(1, zVar);
+                    GRBLinExpr tp_eMass_match_Actual_1 = new GRBLinExpr(tp_eMass_match_Base);
+                    tp_eMass_match_Actual_1.addTerm(D, zVar);
+                    model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
+
+                    GRBLinExpr tp_eMass_match_Actual_2 = new GRBLinExpr(tp_eMass_match_Base);
+                    tp_eMass_match_Actual_2.addTerm(-D, zVar);
+                    model.addConstr(tp_eMass_match_Actual_2, GRB.GREATER_EQUAL, -D-ms2Tol+eMass, "tp_eMass_match_Actual_2"+tpId+"_"+eMass);
+                }
+                if (!eMassVarMap.isEmpty()) {
+                    z_bIonVarMap.put(tpId, eMassVarMap);
+                }
+                model.addConstr(one_tp_for_one_ep, GRB.LESS_EQUAL, 1, "one_tp_for_one_ep"+tpId);
+            }
+
+            for (int thisTpId = partSeqLen-2; thisTpId >= 1; thisTpId--) {
+                if (!z_bIonVarMap.containsKey(thisTpId)) continue;
+                double thisMinYmz = z_bIonVarMap.get(thisTpId).firstKey();
+                int nextTpId;
+                for (nextTpId = thisTpId-1; nextTpId >= 0; nextTpId--) {
+                    if (!z_bIonVarMap.containsKey(nextTpId)) continue;
+                    double nextMaxYmz = z_bIonVarMap.get(nextTpId).lastKey();
+                    if (nextMaxYmz < thisMinYmz) break;
+                    for (double thisYmz : z_bIonVarMap.get(thisTpId).keySet()){
+                        if (thisYmz > nextMaxYmz) break;
+                        for (double nextYmz : z_bIonVarMap.get(nextTpId).subMap(thisYmz, true, nextMaxYmz, true).keySet()) {
+                            GRBLinExpr zThisNextNoCross = new GRBLinExpr();
+                            zThisNextNoCross.addTerm(1, z_bIonVarMap.get(thisTpId).get(thisYmz));
+                            zThisNextNoCross.addTerm(1, z_bIonVarMap.get(nextTpId).get(nextYmz));
+                            model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
+                        }
+                    }
                 }
             }
 
             //obj function
-            GRBLinExpr tConstr = new GRBLinExpr();
-            tConstr.addTerm(1, t);
-            model.setObjective(tConstr, GRB.MINIMIZE); // with this, the solver will find those with smaller number of PTM first then more numbers
-
-            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")){
+            model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
+            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")) {
                 int a = 1;
             }
-            model.set(GRB.IntParam.MIPFocus, 1); // 2 seems better than 1 but dont know why
-            model.set(GRB.IntParam.PoolSearchMode, 2 );  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
-            model.set(GRB.IntParam.PoolSolutions, PoolSolutions);
-            model.set(GRB.DoubleParam.TimeLimit, 1); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 32); // second
-            model.set(GRB.IntParam.Threads, 32); // second
-//            model.set(GRB.DoubleParam.Heuristics, 0.05); //
-//            model.set(GRB.DoubleParam.PoolGap, 1); // if the best obj is 1, then all sol with 1*(1+poolGap) with be discarded and save time
+//            model.set(GRB.IntParam.PoolSearchMode, 1);  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
+//            model.set(GRB.IntParam.PoolSolutions, 10);
+            model.set(GRB.DoubleParam.TimeLimit, timeLimit); // timeLimit
+            model.set(GRB.IntParam.ConcurrentMIP, 11); // second
+            model.set(GRB.IntParam.Threads, 44); // second
+
+            model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
+            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
+            model.set(GRB.IntParam.PrePasses, 2); // second
+            model.set(GRB.IntParam.PreSparsify, 1); // second
+            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
+
+
+//            model.set(GRB.DoubleParam.TuneTimeLimit, 100);//43200
+//            model.set(GRB.IntParam.TuneTrials, 5);
+//            model.set(GRB.IntParam.TuneCriterion, 3);
+//            model.tune();
 
             model.optimize();
             switch (model.get(GRB.IntAttr.Status)) {
@@ -1130,28 +1344,67 @@ public class InferPTM {
                     return;
             }
             int solCount = model.get(GRB.IntAttr.SolCount);
+            double objValThres = 0.9*model.get(GRB.DoubleAttr.ObjVal);
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
-
-                int maxYId = -99;
-                for (int yId : yVarMap.keySet()) {
-                    GRBVar yVar = yVarMap.get(yId);
-                    int time = (int) Math.round(yVar.get(GRB.DoubleAttr.Xn));
-                    if (time > 0) {
-                        if (yId > maxYId) {
-                            maxYId = yId;
+                Map<Integer, Double> thisSol = new HashMap<>();
+                for (int absPos = refPos-partSeqLen; absPos < refPos; absPos++) {
+                    if (absPosYIdMap.containsKey(absPos)) { //just for verification
+                        int yId = absPosYIdMap.get(absPos);
+                        GRBVar yVar = yVarMap.get(yId);
+                        if ((int) Math.round(yVar.get(GRB.DoubleAttr.Xn)) == 1) {
+                            thisSol.put(absPos, -1.0); //-1 means no ptm yet
+                            if (xVarMap.containsKey(absPos)) {
+                                Map<Double, GRBVar> ptmIdXVarMap = xVarMap.get(absPos);
+                                for (double ptmMass : ptmIdXVarMap.keySet()) {
+                                    GRBVar xVar = ptmIdXVarMap.get(ptmMass);
+                                    if ((int) Math.round(xVar.get(GRB.DoubleAttr.Xn)) == 1) {
+                                        thisSol.put(absPos, ptmMass);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        thisSol.put(absPos, -1.0); //-1 means no ptm yet
+                        if (xVarMap.containsKey(absPos)) {  // when there is a C, the pos wont be in xVarMap but we still record it in thisSol
+                            Map<Double, GRBVar> ptmIdXVarMap = xVarMap.get(absPos);
+                            for (double ptmMass : ptmIdXVarMap.keySet()) {
+                                GRBVar xVar = ptmIdXVarMap.get(ptmMass);
+                                if ((int) Math.round(xVar.get(GRB.DoubleAttr.Xn)) == 1) {
+                                    thisSol.put(absPos, ptmMass);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
-                Map<Double, Integer> massTimeMap = new HashMap<>();
-                for (double mass : xVarMap.keySet()){
-                    GRBVar xVar = xVarMap.get(mass);
-                    int time = (int) Math.round(xVar.get(GRB.DoubleAttr.Xn));
-                    if (time > 0) {
-                        massTimeMap.put(mass, time);
-                    }
+//                nModPepsSet
+                posPtmIdResSet.add(thisSol);
+                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
+//                if (model.get(GRB.DoubleAttr.PoolObjVal) < objValThres){
+//                    break;
+//                }
+                int trueSeqStartAbsPos = Collections.min(thisSol.keySet());
+                Peptide tmpPeptide = new Peptide(partSeq.substring(trueSeqStartAbsPos-refPos+partSeqLen), false, massTool);
+                PosMassMap posMassMap = new PosMassMap();
+                for (int absPos : thisSol.keySet()) {
+                    if (thisSol.get(absPos) == -1) continue;
+                    posMassMap.put(absPos-trueSeqStartAbsPos, thisSol.get(absPos));
+                    tmpPeptide.posVarPtmResMap.put(absPos-trueSeqStartAbsPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
                 }
-                resList.add(new Pair<>(maxYId, massTimeMap));
+                tmpPeptide.setVarPTM(posMassMap);
+
+//                double[][] ionMatrix = tmpPeptide.getIonMatrixNow();
+//                updateIonMatrix(ionMatrix, cutMass, N_PART);
+//
+//                Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
+//                double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, unUsedExpProcessedPL, tmpPeptide.matchedBions, tmpPeptide.matchedYions, jRange) ;
+////                if (score > 0) {
+                tmpPeptide.setScore(poolObjVal);
+//                tmpPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, tmpPeptide.getIonMatrix(), ms2Tolerance));
+
+                nModPepsSet.add(tmpPeptide);
             }
             model.dispose();
         } catch (GRBException e) {
@@ -2154,13 +2407,10 @@ public class InferPTM {
     }
 
     public void prepareInfoNTerm(int scanNum, String partSeq,
-                                 Map<Integer, Set<Double>> oneTimeMassSetsMap,
-                                 Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map,
-                                 Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map,
-                                 Map<Double, Set<Integer>> allMassAllPosesMap,
+                                 Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
                                  Map<Integer, Integer> yIdMinAbsPosMap,
                                  boolean couldBeProtN,
-                                 int maxAbsNPos,
+                                 int optEndPosP1,
                                  int endRefPos,
                                  String protSeq) {
 
@@ -2177,7 +2427,7 @@ public class InferPTM {
             if (yIdMinAbsPosMap.containsValue(absPos)) {
                 positionsToTry.add(PEPN);
             }
-            if (absPos == maxAbsNPos) {
+            if (absPos == optEndPosP1) {
                 if (! nTermSpecific || absPos == 0 || protSeq.charAt(absPos-1) == 'K' || protSeq.charAt(absPos-1) == 'R') {
                     positionsToTry.add(PEPN);
                 }
@@ -2205,57 +2455,19 @@ public class InferPTM {
                             dstMap.put(varPtmStr, varPtm);
                         }
 
-                        Set<Integer> allPoses = allMassAllPosesMap.get(mass);
-                        if (allPoses != null) {
-                            allPoses.add(absPos);
-                        } else {
-                            allPoses = new HashSet<>();
-                            allPoses.add(absPos);
-                            allMassAllPosesMap.put(varPtm.mass, allPoses);
-                        }
                     }
                 }
 
                 if (!dstMap.isEmpty()) {
-                    Map<Double, VarPtm> massVarPtmMap = new HashMap<>();
+                    TreeMap<Double, VarPtm> massVarPtmMap = new TreeMap<>();
                     for (VarPtm varPtm : dstMap.values()){
                         massVarPtmMap.put(varPtm.mass, varPtm);
                     }
-                    pos_MassVarPtm_Map.put(absPos, massVarPtmMap);
+                    absPos_MassVarPtm_Map.put(absPos, massVarPtmMap);
                 }
             }
         } // end for (int i = 0; i < partSeq.length(); ++i) {
 
-        for (double mass : allMassAllPosesMap.keySet()){
-            int times = allMassAllPosesMap.get(mass).size();
-            if (times == 1) {
-                absPos = Collections.min(allMassAllPosesMap.get(mass));
-
-                Set<Double> massSet = oneTimeMassSetsMap.get(absPos);
-                if (massSet != null) {
-                    massSet.add(mass);
-                } else {
-                    massSet = new HashSet<>();
-                    massSet.add(mass);
-                    oneTimeMassSetsMap.put(absPos, massSet);
-                }
-            } else {
-                Set<Integer> posComb = new HashSet<>(allMassAllPosesMap.get(mass));
-                Set<Double> multiMassSet = posComb_multiMassSet_Map.get(posComb);
-                if (multiMassSet != null) {
-                    multiMassSet.add(mass);
-                } else {
-                    multiMassSet = new HashSet<>();
-                    multiMassSet.add(mass);
-                    for (int absPosTmp : posComb) {
-                        if (oneTimeMassSetsMap.containsKey(absPosTmp)) {  // just think about PEPWD, pos 0 2 wont be in oneTimeMassSetsMap.keyset(), but P is in massWithMultiTime, so oneTimeMassSetsMap.get(pos) will fail.
-                            multiMassSet.addAll(oneTimeMassSetsMap.get(absPosTmp));
-                        }
-                    }
-                    posComb_multiMassSet_Map.put(posComb, multiMassSet);
-                }
-            }
-        }
     }
 
     public Map<Double, List<Integer>> getMassPosInfoMap(int scanNum, String partSeq, Set<Integer> fixModIdxes, int isNorC_Part, int isProtNorC_Term,
@@ -2303,7 +2515,6 @@ public class InferPTM {
                         if (massTable.get(partSeq.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
 
                         if (varPtm.position == 4 || (varPtm.position == 3 && isNorC_Part == C_PART) || (varPtm.position == 1 && hasProt_C_TermPtm)) { // anywhere or pepC or (protC and pepPos at protC)
-//                            massesOnAa.add(Double.parseDouble(df2.format(varPtm.mass)));
                             String varPtmStr = varPtm.getStr();
                             if (dstMap.containsKey(varPtmStr)) {
                                 VarPtm oldVarPtm = dstMap.get(varPtmStr);
@@ -2321,7 +2532,6 @@ public class InferPTM {
                         if (massTable.get(partSeq.charAt(i)) + varPtm.mass < ms2Tolerance) continue;//the mass of a modified amino acid cannot be 0 or negative
 
                         if (varPtm.position == 4) { // anywhere
-//                            massesOnAa.add(Double.parseDouble(df2.format(varPtm.mass)));
                             String varPtmStr = varPtm.getStr();
                             if (dstMap.containsKey(varPtmStr)) {
                                 VarPtm oldVarPtm = dstMap.get(varPtmStr);

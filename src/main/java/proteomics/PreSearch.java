@@ -196,6 +196,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         if (lszDebugScanNum.contains(scanNum)){
             int a = 1;
         }
+//        StringBuilder a = new StringBuilder("sadsa");
+//        a.in
         if (peptideTreeSet.isEmpty()) {
             env.dispose();
             return null;
@@ -681,7 +683,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     private void updateCandiListMaxP(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet
             , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) {
 
-        if (lszDebugScanNum.contains(scanNum) && protId.contentEquals("Packet: PTM_Trainingskit_Kmod")) {
+        if (lszDebugScanNum.contains(scanNum) ) {
             int a = 1;
         }
         TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
@@ -807,30 +809,31 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                         }
                     }
                     double flexiableMass = precursorMass - (finderTag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(cPartStartPos, optStartPos));
-                    Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeqLen);
-                    Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map = new HashMap<>(200);
+//                    Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(cPartSeqLen);
+//                    Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map = new HashMap<>(200);
                     Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(cPartSeqLen, 1);
-                    Map<Double, Set<Integer>> allMassAllPosesMap = new HashMap<>(cPartSeqLen * 30, 1); //Set<pos>
+//                    Map<Double, Set<Integer>> allMassAllPosesMap = new HashMap<>(cPartSeqLen * 30, 1); //Set<pos>
 
-
+                    if (cPartSeq.contentEquals("KLYTGAGYDEVK")) {
+                        int a =1;
+                    }
                     inferPTM.prepareInfoCTerm(scanNum, cPartSeq, absPos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
 
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
 
+                    if (!yIdMaxAbsPosMap.isEmpty()) {
+                        int a= 1;
+                    }
                     inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
                             cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
-                            , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap);
+                            , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet);
 
                     if (lszDebugScanNum.contains(scanNum) && cPartSeq.contentEquals("SSAQQVAVSR")){ // SLEEEGAA
                         int a = 1;
                     }
-
 //                    inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
 //                            expProcessedPL, false, allMassAllPosesMap, absPos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
-
-
-
                 }
             }
         } // end settle C section
@@ -939,23 +942,23 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     int nPartSeqLen = tagPosInProt - optStartPos;
                     double flexiableMass = finderTag.getHeadLocation() - MassTool.PROTON - massTool.calResidueMass(protSeq.substring(optEndPosP1, tagPosInProt));
 
-                    Map<Integer, Set<Double>> oneTimeMassGroups = new HashMap<>(nPartSeqLen);
-                    Map<Set<Integer>, Set<Double>> posComb_multiMassSet_Map = new HashMap<>(200);
-                    Map<Integer, Map<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeqLen, 1);
-                    Map<Double, Set<Integer>> allMassAllPosesMap = new HashMap<>(nPartSeqLen * 20, 1); //Set<pos>
+                    Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeqLen, 1);
 
-                    inferPTM.prepareInfoNTerm(scanNum, nPartSeq, oneTimeMassGroups, posComb_multiMassSet_Map,
-                            pos_MassVarPtm_Map, allMassAllPosesMap, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
+                    inferPTM.prepareInfoNTerm(scanNum, nPartSeq,
+                            pos_MassVarPtm_Map, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
 
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
-                    inferPTM.findBestPtmMIPExtN(scanNum, env, allMassAllPosesMap, flexiableMass, tagPosInProt,
-                            nPartSeq, ms1TolAbs, oneTimeMassGroups, posComb_multiMassSet_Map, posYIdMap, pos_MassVarPtm_Map, resList);
-                    try {
-                        inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
-                                expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
-                    } catch (Exception e) {
-                        System.out.println(scanNum + " ," + finderTag.getFreeAaString() + "," + protId);
+                    Set<Map<Integer, Double>> posPtmIdResSet = new HashSet<>();
+//                    if (nPartSeq.contentEquals("LTE")) {
+//                        int a = 1;
+//                    }
+                    if (!yIdMinAbsPosMap.isEmpty()) {
+                        int a= 1;
                     }
+                    inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt,
+                            nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map, optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
+//                    inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
+//                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
                 }
             }
         }// end settle N sectionl
@@ -1046,17 +1049,17 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             }
             ncIdList.sort(Comparator.comparing(o->o.score, Comparator.reverseOrder()));
 
-            Peptide[] nPeptideArray = new Peptide[2];
+            Peptide[] nPeptideArray = new Peptide[nModPepsSet.size()];
             nModPepsSet.toArray(nPeptideArray);
-            Peptide[] cPeptideArray = new Peptide[2];
+            Peptide[] cPeptideArray = new Peptide[cModPepsSet.size()];
             cModPepsSet.toArray(cPeptideArray);
-            double lastScore = -1;
+//            double lastScore = -1;
             for (NCid ncId : ncIdList.subList(0,Math.min(2, ncIdList.size()))) {
                 Peptide nPartpeptide = nPeptideArray[ncId.nId];
                 Peptide cPartpeptide = cPeptideArray[ncId.cId];
-                if (nPartpeptide.getScore()+cPartpeptide.getScore() < lastScore) {
-                    continue;
-                }
+//                if (nPartpeptide.getScore()+cPartpeptide.getScore() < lastScore) {
+//                    continue;
+//                }
                 String freePepSeq = nPartpeptide.getFreeSeq()+finderTag.getFreeAaString()+cPartpeptide.getFreeSeq();
                 Peptide fullPeptide = new Peptide(freePepSeq, nPartpeptide.isDecoy, massTool);// todo
                 fullPeptide.finderTag = finderTag;
