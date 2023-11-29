@@ -105,8 +105,10 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(124815));//129543, 111179, 109395
-    public static int neighborNum = 20;
+//    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(129804,129885));//129543, 111179, 109395
+
+    public static int neighborNum = 1;
     public static void main(String[] args) {
         long startTime = System.nanoTime();
 
@@ -393,10 +395,6 @@ public class PIPI {
             }
             protCoverageMap.put(prot, tempCoverage/protLen);
 
-//            System.out.println(prot + "," + tempCoverage +","+ protLen + "," + tempCoverage/protLen+":");
-//            for (GetLongTag.TagRes tagRes : tagResList) {
-//                System.out.println("   "+ tagRes.tagSeq + ","+tagRes.relPos + ","+tagRes.normedIaaList.stream().mapToDouble(Double::doubleValue).sum());
-//            }
 
         }
 

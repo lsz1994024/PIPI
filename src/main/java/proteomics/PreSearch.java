@@ -139,8 +139,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         int minTagLen = 3;
 
         GRBEnv env = new GRBEnv(true);
-//        env.set(GRB.IntParam.OutputFlag,0);
-//        env.set(GRB.IntParam.LogToConsole, 0);
+        env.set(GRB.IntParam.OutputFlag,0);
+        env.set(GRB.IntParam.LogToConsole, 0);
         env.start();
 
 
@@ -171,15 +171,21 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 t++;
             }
         }
-        List<OccGroup> occGroupList = new ArrayList<>(100);
+        List<OccGroup> occGroupList = new ArrayList<>(32);
 //        Map<Pair<Integer, Integer>, Integer> posRangeOccIdMap = new HashMap<>();
         int numResSub = searchAndSaveFuzzy1(scanNum , tagsToTest, distinctTagIds, occGroupList, minTagLen, totalMass);
         occGroupList.sort(Comparator.comparing(o->o.totalScore, Comparator.reverseOrder()));
 
         int count = 0;
         double topScore = 0;
+        if (occGroupList.isEmpty()) {
+            System.out.println(scanNum + "," + occGroupList.size());
+            return null;
+        }
+        double topOccScore = occGroupList.get(0).totalScore;
         outLoop:
         for (OccGroup occG : occGroupList) {
+            if (occG.totalScore < 0.8*topOccScore) break;
             List<Pair<ExpTag, Integer>> tagRelPosList = occG.tagRelPosList;
             tagRelPosList.sort(Comparator.comparing(o->o.getFirst().getTotalIntensity(),Comparator.reverseOrder()));
 
@@ -189,7 +195,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 double thisScore = tagRelPos.getFirst().getTotalIntensity();
                 if (count == 0) topScore = thisScore;
                 count++;
-                if (count > 10 && thisScore < topScore) break outLoop;
+//                if  ((count > 10 && thisScore < topScore) ) break outLoop;
+                if  ((count > 10 && thisScore < topScore) && (tagRelPos.getFirst().isNorC == 0)) continue;  // give nc tags a chance
                 updateCandiListMaxP(scanNum, protId, tagRelPos.getSecond(), tagRelPos.getFirst(), ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
             }
         }
@@ -366,6 +373,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             tagChar = tagInfo.getFreeAaString().toCharArray();
 
             fmRes = buildIndex.fmIndexNormal.fmSearchFuzzy(tagChar);
+            if (fmRes == null) return 0;
             solCount += fmRes.ep-fmRes.sp+1;
             matchedPos = fmRes.matchedPos;
             int oriIsNorC = tagInfo.isNorC;
@@ -402,8 +410,9 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     Map.Entry<Pair<Integer, Integer>,Integer> entry = iterator.next();
                     int lSpan = entry.getKey().getFirst();
                     int rSpan = entry.getKey().getSecond();
-                    if (lPos >= lSpan && rPos <= rSpan) {
-                        if (occGroupList.get(entry.getValue()).protId.contentEquals(protId)) {
+//                    if (lPos >= lSpan-1 && rPos <= rSpan+1) {
+                    if (lPos <= rSpan && rPos >= lSpan) {
+                            if (occGroupList.get(entry.getValue()).protId.contentEquals(protId)) {
                             occId = entry.getValue();
                             OccGroup occG = occGroupList.get(occId);
                             occG.addTag(resTagInfo, lPos);
@@ -814,7 +823,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(cPartSeqLen, 1);
 //                    Map<Double, Set<Integer>> allMassAllPosesMap = new HashMap<>(cPartSeqLen * 30, 1); //Set<pos>
 
-                    if (cPartSeq.contentEquals("KLYTGAGYDEVK")) {
+                    if (cPartSeq.contentEquals("DQKK")) {
                         int a =1;
                     }
                     inferPTM.prepareInfoCTerm(scanNum, cPartSeq, absPos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
@@ -822,9 +831,9 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
 
-                    if (!yIdMaxAbsPosMap.isEmpty()) {
-                        int a= 1;
-                    }
+//                    if (!yIdMaxAbsPosMap.isEmpty()) {
+//                        int a= 1;
+//                    }
                     inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
                             cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
                             , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet);
@@ -949,12 +958,12 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     Set<Map<Integer, Double>> posPtmIdResSet = new HashSet<>();
-//                    if (nPartSeq.contentEquals("LTE")) {
-//                        int a = 1;
-//                    }
-                    if (!yIdMinAbsPosMap.isEmpty()) {
-                        int a= 1;
+                    if (nPartSeq.contentEquals("KFGTLNLV")) {
+                        int a = 1;
                     }
+//                    if (!yIdMinAbsPosMap.isEmpty()) {
+//                        int a= 1;
+//                    }
                     inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt,
                             nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map, optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
 //                    inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
@@ -998,7 +1007,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
                 double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
-                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.05));
+                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.01));
                 fullPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fullPeptide.getIonMatrixNow(), ms2Tolerance));
                 updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt-nPartpeptide.length(), tagPosInProt+finderTag.size()-1);
             }
@@ -1031,7 +1040,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
                 double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
                 fullPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fullPeptide.getIonMatrixNow(), ms2Tolerance));
-                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.05));
+                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.01));
 
                 updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt, tagPosInProt+finderTag.size()+cPartpeptide.length()-1);
             }
@@ -1087,7 +1096,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 
                 if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
                 double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
-                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.05));
+                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.01));
                 fullPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fullPeptide.getIonMatrixNow(), ms2Tolerance));
                 updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt-nPartpeptide.length(), tagPosInProt+finderTag.size()+cPartpeptide.length()-1);
             }
@@ -1536,7 +1545,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
         double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, partPeptide.matchedBions, partPeptide.matchedYions, jRange) ;
 //         {
-            partPeptide.setScore(score*(1-partPeptide.posVarPtmResMap.size()*0.05));
+            partPeptide.setScore(score*(1-partPeptide.posVarPtmResMap.size()*0.01));
             partPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ionMatrix, ms2Tolerance));
             if (modPepsSet.size() < 2) { //max restore 2 patterns for one peptide  //todo make this avaliable to differentiate priority
                 modPepsSet.add(partPeptide);
