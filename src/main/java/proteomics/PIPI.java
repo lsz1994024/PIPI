@@ -89,12 +89,12 @@ public class PIPI {
 //    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
 //    static final int  maxNumVarPtmConsidered = 1;
 
-//    / DL simu
+    //    / DL simu
 //    public static final boolean isPtmSimuTest = false; //normal //todo
     static final boolean usePfmAndReduceDb = true;  //normal //todo
     static final int minTagLenToExtract = 3;  //normal //todo
     static final int maxTagLenToExtract = 99;  //normal //todo
-//    static final boolean nTermSpecific = true; //normal //todo
+    //    static final boolean nTermSpecific = true; //normal //todo
 //    static final boolean cTermSpecific = true; //normal //todo
     public static final boolean nTermSpecific = true; //normal //todo
     public static final boolean cTermSpecific = true; //normal //todo
@@ -105,8 +105,8 @@ public class PIPI {
 
 
     public static final int[] debugScanNumArray = new int[]{};
-//    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(129804,129885));//129543, 111179, 109395
+    //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(50630));//129543, 111179, 109395
 
     public static int neighborNum = 1;
     public static void main(String[] args) {
@@ -811,7 +811,7 @@ public class PIPI {
                             int a = 1;
                         }
                         if (  scanName_TopPeptide_Map.containsKey(entry.scanName)
-                            && entry.score < scanName_TopPeptide_Map.get(entry.scanName).getScore()) {
+                                && entry.score < scanName_TopPeptide_Map.get(entry.scanName).getScore()) {
                             toBeDeleteTaskList.add(task);
                             continue; // if the complementary is not better dont change in sql
                         }
@@ -1339,7 +1339,7 @@ public class PIPI {
             this.massDiffPpm = 0d;
         }
     }
-//    private void writeFinalResult(Map<String, PercolatorEntry> percolatorResultMap, String outputPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, String outputDir, String hostName) throws IOException, SQLException {
+    //    private void writeFinalResult(Map<String, PercolatorEntry> percolatorResultMap, String outputPath, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, String outputDir, String hostName) throws IOException, SQLException {
 //        TreeMap<Double, List<String>> tempMap = new TreeMap<>();
 //        String resultPath = outputDir + "." + hostName +".candidates.csv";
 //        BufferedWriter dbgWriter = new BufferedWriter(new FileWriter(resultPath));

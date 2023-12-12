@@ -41,7 +41,7 @@ import static proteomics.PIPI.*;
 
 
 public class InferPTM {
-//    private static final int PoolSolutions = 100;
+    //    private static final int PoolSolutions = 100;
     private static final int timeLimit = 2;
     private static final int MaxPtmNumInPart = 3;
     private static final Pattern pattern = Pattern.compile("([0-9A-Za-z]+)(\\(([0-9\\-]+)\\))?");
@@ -641,7 +641,8 @@ public class InferPTM {
     public void findBestPtmMIPExtC(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
                                    double ms1TolAbs, Map<Integer, Integer> absPosYIdMap, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
                                    Set<Pair<Integer, Map<Double, Integer>>> resList, byte isProtNorC_Term, int optStartPos,
-                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,Set<Map<Integer, Double>> posPtmIdResSet,TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet) {
+                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,Set<Map<Integer, Double>> posPtmIdResSet,
+                                   TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet, Set<Integer> secAbsPoses) {
 
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>(absPosYIdMap.values().size());
@@ -664,6 +665,10 @@ public class InferPTM {
             // y variables
             Map<Integer, GRBVar> yVarMap = new HashMap<>(yIdAllPosesMap.size()); // <yId, var>
             for (int yId : absPosYIdMap.values()) {
+                if (secAbsPoses.contains( Collections.min(yIdAllPosesMap.get(yId) ) )) {
+                    continue;
+                }
+
                 GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y" + yId);
                 yVarMap.put(yId, yVar);
                 //constraints
@@ -681,6 +686,9 @@ public class InferPTM {
             for (int relPos = 0; relPos < partSeqLen; relPos++) {
                 char aa = partSeq.charAt(relPos);
                 int absPos = refPos + relPos;
+                if (secAbsPoses.contains( absPos) ) {
+                    continue;
+                }
                 boolean hasFixMod = aaWithFixModSet.contains(aa);
                 if (hasFixMod) continue;
                 List<Byte> positionsToTry = new ArrayList<>(3);
@@ -781,7 +789,9 @@ public class InferPTM {
             Map<Integer, TreeMap<Double, GRBVar>> z_yIonVarMap = new HashMap<>(partSeqLen);// <tpId, <eMass, zVar>>
             int numOfTps = Math.min(partSeqLen-1, 12);
             for (int tpId = 1; tpId <= numOfTps; tpId++) { // tpId = theoretical peak Id, one less than aa num
-                 char aa = partSeq.charAt(tpId);
+//            for (int absPos : xVarMap.keySet()) { // tpId = theoretical peak Id, one less than aa num
+//                int tpId = absPos - refPos;
+//                char aa = partSeq.charAt(tpId);
                 int absPos = refPos + tpId;
                 //y ions
                 double minYmz;
@@ -1037,8 +1047,9 @@ public class InferPTM {
     public void findBestPtmMIPExtN(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
                                    double ms1TolAbs, Map<Integer, Integer> absPosYIdMap,
                                    Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, int optEndPosP1,
-                                   boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap, Set<Map<Integer, Double>> posPtmIdResSet, String protSeq, TreeMap<Double, Double> plMap,
-                                   TreeSet<Peptide> nModPepsSet, SparseVector unUsedExpProcessedPL, double cutMass) {
+                                   boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap, Set<Map<Integer, Double>> posPtmIdResSet,
+                                   String protSeq, TreeMap<Double, Double> plMap,
+                                   TreeSet<Peptide> nModPepsSet, SparseVector unUsedExpProcessedPL, double cutMass,Set<Integer> secAbsPoses) {
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
         for (int pos : absPosYIdMap.keySet()) {
@@ -1062,6 +1073,9 @@ public class InferPTM {
             // x y variables
             Map<Integer, GRBVar> yVarMap = new HashMap<>( yIdAllPosesMap.size() ); // <yId, var>
             for (int yId : yIdAllPosesMap.keySet()) {
+                if (secAbsPoses.contains( Collections.max(yIdAllPosesMap.get(yId) ) )) {
+                    continue;
+                }
                 GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y"+yId);
                 yVarMap.put(yId, yVar);
                 //constraints
@@ -1078,6 +1092,10 @@ public class InferPTM {
             for (int relPos = 0; relPos < partSeqLen; relPos++) {
                 char aa = partSeq.charAt(relPos);
                 int absPos = refPos + relPos - partSeqLen;
+                if (secAbsPoses.contains( absPos) ) {
+                    continue;
+                }
+
                 boolean hasFixMod = aaWithFixModSet.contains(aa);
                 if (hasFixMod && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
                 List<Byte> positionsToTry = new ArrayList<>(3);
@@ -1110,13 +1128,8 @@ public class InferPTM {
                         ptmMass = varPtm.mass;
                         if (massTable.get(partSeq.charAt(relPos)) + ptmMass < ms2Tolerance) continue;
                         if (usedMassForThisAa.contains(ptmMass)) continue;
+//                        if (Math.abs(44-ptmMass) >3 && Math.abs(-30-ptmMass) >3) continue;// debug
 
-//                        GRBVar xVar;
-//                        if (Math.abs(ptmMass - 86.000) < 0.1 || Math.abs(ptmMass - 68.026) < 0.02 ||Math.abs(ptmMass - 17.991) < 0.02) {
-//                            xVar = model.addVar(0, 1, 30, GRB.BINARY, "x" + absPos + "_" + ptmMass);
-//                        } else {
-//                            xVar = model.addVar(0, 1, 0, GRB.BINARY, "x" + absPos + "_" + ptmMass);
-//                        }
                         GRBVar xVar = model.addVar(0, 1, -0.1, GRB.BINARY, "x" + absPos + "_" + ptmMass);
                         massXVarMap.put(ptmMass, xVar);
                         sumX_leq_1orY.addTerm(1, xVar);
@@ -1185,8 +1198,10 @@ public class InferPTM {
             Map<Integer, TreeMap<Double, GRBVar>> z_bIonVarMap = new HashMap<>(partSeqLen);// <tpId, <eMass, zVar>>
             int numOfTps = Math.min(partSeqLen-1, 12);
             for (int tpId = 0; tpId < numOfTps; tpId++) { // tpId = theoretical peak Id, one less than aa num
-                char aa = partSeq.charAt(tpId);
+//            for (int absPos : xVarMap.keySet()) { // tpId = theoretical peak Id, one less than aa num
                 int absPos = refPos + tpId - partSeqLen;
+//                int tpId = absPos - refPos + partSeqLen;
+                char aa = partSeq.charAt(tpId);
                 //b ions
                 double minBmz;
                 double maxBmz;
@@ -1278,12 +1293,22 @@ public class InferPTM {
                 tp_eMass_match_Base.addConstant(seqMass_nextEnd_TpId + MassTool.PROTON);
                 for (int tmpPos = refPos-partSeqLen; tmpPos < absPos+1; tmpPos++) {
                     if (tmpPos <= absPosOfNextEnd) {  // Sum (ya * ma) , all needed aa masses
-                        tp_eMass_match_Base.addTerm(massTable.get(partSeq.charAt(tmpPos-refPos+partSeqLen)), yVarMap.get(absPosYIdMap.get(tmpPos)));
+                        if ( yVarMap.containsKey(absPosYIdMap.get(tmpPos))) {
+                            tp_eMass_match_Base.addTerm(massTable.get(partSeq.charAt(tmpPos-refPos+partSeqLen)), yVarMap.get(absPosYIdMap.get(tmpPos)));
+                        } else {
+                            tp_eMass_match_Base.addConstant(massTable.get(partSeq.charAt(tmpPos-refPos+partSeqLen)));
+                        }
+//                        if (yVarMap.get(absPosYIdMap.get(tmpPos)) == null) {
+//                            int aaa = 1;
+//                        }
                     }
                     Map<Double, GRBVar> ptmMassVarMap = xVarMap.get(tmpPos);
                     if (ptmMassVarMap == null) continue;
                     for (double ptmMass : ptmMassVarMap.keySet()) {   // Sum (xi * mi) , all needed ptm masses
                         tp_eMass_match_Base.addTerm(ptmMass, ptmMassVarMap.get(ptmMass));
+                        if (ptmMassVarMap.get(ptmMass) == null) {
+                            int aaa = 1;
+                        }
                     }
                 }
                 GRBLinExpr one_tp_for_one_ep = new GRBLinExpr();// is this a redundant constraint?
@@ -1293,7 +1318,12 @@ public class InferPTM {
                     one_tp_for_one_ep.addTerm(1, zVar);
                     GRBLinExpr tp_eMass_match_Actual_1 = new GRBLinExpr(tp_eMass_match_Base);
                     tp_eMass_match_Actual_1.addTerm(D, zVar);
-                    model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
+                    try {
+                        model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
+                    } catch (Exception e) {
+                        System.out.println(scanNum + ", error");
+                    }
+//                    model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
 
                     GRBLinExpr tp_eMass_match_Actual_2 = new GRBLinExpr(tp_eMass_match_Base);
                     tp_eMass_match_Actual_2.addTerm(-D, zVar);
@@ -1336,7 +1366,7 @@ public class InferPTM {
             if (partSeqLen > 8) timeLimit = 3;
             if (partSeqLen > 10) timeLimit = 4;
             if (partSeqLen > 13) timeLimit = 5;
-            model.set(GRB.DoubleParam.TimeLimit, 5); // timeLimit
+            model.set(GRB.DoubleParam.TimeLimit, 10); // timeLimit
             model.set(GRB.IntParam.ConcurrentMIP, 8); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
@@ -1371,6 +1401,9 @@ public class InferPTM {
                     if (absPosYIdMap.containsKey(absPos)) { //just for verification
                         int yId = absPosYIdMap.get(absPos);
                         GRBVar yVar = yVarMap.get(yId);
+                        if (yVar == null) {
+                            int a = 1;
+                        }
                         if ((int) Math.round(yVar.get(GRB.DoubleAttr.Xn)) == 1) {
                             thisSol.put(absPos, -1.0); //-1 means no ptm yet
                             if (xVarMap.containsKey(absPos)) {
