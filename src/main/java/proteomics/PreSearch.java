@@ -187,38 +187,39 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         outLoop:
         for (OccGroup occG : occGroupList) {
             if (occG.totalScore < 0.6*topOccScore) break;
-            List<Pair<ExpTag, Integer>> tagRelPosList = occG.tagRelPosList;
-            tagRelPosList.sort(Comparator.comparing(o->o.getFirst().getTotalIntensity(),Comparator.reverseOrder()));
-            String protId = occG.protId;
-            if (tagRelPosList.size() > 1) {
-                int mainTagId = 0;
-                for (int id = 0; id < tagRelPosList.size(); ++ id) {
-                    if (tagRelPosList.get(id).getFirst().isNorC != 0) {
-                        mainTagId = id;
-                        break;
-                    }
-                }
-                Set<Integer> tagIdNoNeedToRun = new HashSet<>();
-                tagIdNoNeedToRun.add(mainTagId);
-//                for (int secTagId = 0; secTagId < tagRelPosList.size(); ++ secTagId) {
-//                    if (secTagId == mainTagId) continue;
-                List<Pair<ExpTag, Integer>> extraTagRelPoses = new ArrayList<>(tagRelPosList);
-                mainTagId = 2;
-                extraTagRelPoses.remove(mainTagId);
-                double maxScore = updateCandiListMaxP(scanNum, protId, tagRelPosList.get(mainTagId), extraTagRelPoses, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
-                if (maxScore > 1.5) continue;
-                count++;
-//                }
-                for (int tagId = 0; tagId < tagRelPosList.size(); ++ tagId) {
-                    if (tagIdNoNeedToRun.contains(tagId)) continue;
-                    updateCandiListMaxP(scanNum, protId, tagRelPosList.get(tagId), null, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
-                    count++;
-                }
+            occG.tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
 
-            } else {
-                updateCandiListMaxP(scanNum, protId, tagRelPosList.get(0), null, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
-                count++;
-            }
+            String protId = occG.protId;
+            double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagRelPosList, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
+//            if (tagRelPosList.size() > 1) {
+//                int mainTagId = 0;
+//                for (int id = 0; id < tagRelPosList.size(); ++ id) {
+//                    if (tagRelPosList.get(id).getFirst().isNorC != 0) {
+//                        mainTagId = id;
+//                        break;
+//                    }
+//                }
+//                Set<Integer> tagIdNoNeedToRun = new HashSet<>();
+//                tagIdNoNeedToRun.add(mainTagId);
+////                for (int secTagId = 0; secTagId < tagRelPosList.size(); ++ secTagId) {
+////                    if (secTagId == mainTagId) continue;
+//                List<Pair<ExpTag, Integer>> extraTagRelPoses = new ArrayList<>(tagRelPosList);
+//                mainTagId = 2;
+//                extraTagRelPoses.remove(mainTagId);
+//                double maxScore = updateCandiListMaxP(scanNum, protId, tagRelPosList.get(mainTagId), extraTagRelPoses, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
+//                if (maxScore > 1.5) continue;
+//                count++;
+////                }
+//                for (int tagId = 0; tagId < tagRelPosList.size(); ++ tagId) {
+//                    if (tagIdNoNeedToRun.contains(tagId)) continue;
+//                    updateCandiListMaxP(scanNum, protId, tagRelPosList.get(tagId), null, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
+//                    count++;
+//                }
+//
+//            } else {
+//                updateCandiListMaxP(scanNum, protId, tagRelPosList.get(0), null, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
+//                count++;
+//            }
         }
         if (lszDebugScanNum.contains(scanNum)){
             int a = 1;
@@ -826,8 +827,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 remainMC -= getNumOfMCFromTag(extraTagRelPos.getFirst());
             }
             if (tagCMass  > precursorMass-maxPtmMass
-            && tagCMass  < precursorMass+maxPtmMass
-            && isKR(protSeq.charAt(nearestCpos-1))){
+                    && tagCMass  < precursorMass+maxPtmMass
+                    && isKR(protSeq.charAt(nearestCpos-1))){
                 krPoses.add(nearestCpos-1);
             }
 
@@ -936,7 +937,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 //                    }
                     inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
                             cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
-                            , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet, secAbsPoses);
+                            , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet);
 
                     if (lszDebugScanNum.contains(scanNum) && cPartSeq.contentEquals("SSAQQVAVSR")){ // SLEEEGAA
                         int a = 1;
@@ -1073,7 +1074,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 //                        int a= 1;
 //                    }
                     inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map
-                            , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass,secAbsPoses);
+                            , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
 //                    inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
 //                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
                 }
@@ -1216,7 +1217,457 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         }
         return maxScore;
     }
+    private double addCandisWithMultiMaxPeakMILP(int scanNum, String protId, List<Pair<ExpTag, Integer>> tagRelPosList, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet
+            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) {
 
+        double maxScore = 0;
+
+        if (lszDebugScanNum.contains(scanNum) ) {
+            int a = 1;
+        }
+        TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
+        for (Pair<ExpTag, Integer> tagRelPos : tagRelPosList) {
+            for (ExpAa expAa : tagRelPos.getFirst().expAaList) {
+                if (plMap.containsKey(expAa.getHeadLocation())) {
+                    unUsedPlMap.remove(expAa.getHeadLocation());
+                }
+                if (plMap.containsKey(expAa.getTailLocation())) {
+                    unUsedPlMap.remove(expAa.getTailLocation());
+                }
+            }
+        }
+        SparseVector unUsedExpPeakVec;
+        unUsedExpPeakVec = specProcessor.digitizePL(unUsedPlMap);
+
+        String protSeq = buildIndex.protSeqMap.get(protId);
+        int protLen = protSeq.length();
+        int tagNum = tagRelPosList.size();
+        Pair<ExpTag, Integer> lastTagPosPair = tagRelPosList.get(tagNum-1);
+        int remainMC = massTool.missedCleavage -
+                getNumOfMCFromStr(protSeq.substring(tagRelPosList.get(0).getSecond(), lastTagPosPair.getSecond()+ lastTagPosPair.getFirst().size()));
+        if (lastTagPosPair.getFirst().isNorC == C_TAG && isKR(lastTagPosPair.getFirst().getFreeAaString().charAt(lastTagPosPair.getFirst().size()-1))) {
+            remainMC++; // the last KR at pepC does not count as MC
+        }
+        int gPosL = 0, gPosR = 0; //g for gap
+
+        for (int gId = 0; gId < tagNum+1; ++gId) {
+            ExpTag rTag = tagRelPosList.get(gId).getFirst();
+            int rTagPos = tagRelPosList.get(gId).getSecond();
+
+//            ExpTag lTag;
+//            int lAbsPos;
+//            if (gId != 0) {
+//                lTag = tagRelPosList.get(gId-1).getFirst();
+//                lAbsPos = tagRelPosList.get(gId-1).getSecond();
+//            }
+
+            if (gId == 0 && rTag.isNorC == N_TAG) continue;
+            if (gId == tagNum && rTag.isNorC == C_TAG) continue;
+//            gPosL = (gId==0) ? 0 : tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size();
+//            gPosR = (gId==tagNum) ? protSeq.length() : tagRelPosList.get(gId).getSecond()-1;
+//            int tagLen = tag.size();
+
+            boolean canSolve = false;
+            if ( rTagPos < 0 || rTagPos+rTag.size() > protLen
+                || rTagPos == 0 && rTag.isNorC != N_TAG
+                || rTagPos + rTag.size() == protLen && rTag.isNorC != C_TAG) {
+                canSolve = false;
+            } else {
+                if (gId == 0) {
+                    canSolve = solveGapN(scanNum, rTag, rTagPos, protId, protSeq, remainMC,
+                            ms1TolAbs, expProcessedPL, plMap, env);
+                } else if (gId == tagNum) {// solve a C gap
+                    canSolve = solveGapC(scanNum, rTag, rTagPos, protId, protSeq, remainMC,
+                            ms1TolAbs, expProcessedPL, plMap, env);
+                } else {// solve a middle gap
+                    ExpTag lTag = tagRelPosList.get(gId-1).getFirst();
+                    int lTagPos = tagRelPosList.get(gId-1).getSecond();
+                    String gapSeq = protSeq.substring(tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size(), tagRelPosList.get(gId).getSecond());
+                    double deltaMass = tagRelPosList.get(gId).getFirst().getHeadLocation() - tagRelPosList.get(gId-1).getFirst().getTailLocation() - massTool.calResidueMass(gapSeq);
+                    canSolve = solveGapMid(scanNum, lTag, lTagPos, rTag, rTagPos, gapSeq, deltaMass, ms1TolAbs, expProcessedPL, plMap, env);
+                }
+            }
+
+            if (!canSolve) { // makeup solution
+
+            }
+        }
+
+        //merge results
+//        if ( cModPepsSet.isEmpty() ) {
+//            //only n
+//            double lastScore = -1;
+//            for (Peptide nPartpeptide : nModPepsSet) {
+//                if (nPartpeptide.getScore() < lastScore) {
+//                    continue;   // only takes top1 or binglie top1
+//                }
+//                String freePepSeq = nPartpeptide.getFreeSeq()+finderTag.getFreeAaString();
+//                Peptide fullPeptide = new Peptide(freePepSeq, nPartpeptide.isDecoy, massTool);
+//                fullPeptide.finderTag = finderTag;
+//
+//                PosMassMap fullPosMassMap;
+//                if (nPartpeptide.hasVarPTM()){
+//                    fullPosMassMap = nPartpeptide.getVarPTMs().clone(); // maybe replace PosMass at all
+//                    fullPeptide.posVarPtmResMap.putAll(nPartpeptide.posVarPtmResMap);
+//                } else {
+//                    fullPosMassMap = new PosMassMap();
+//                }
+//                int idOfAa = nPartpeptide.length()-1;
+//                for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
+//                    if (Character.isUpperCase(aaChar)) {
+//                        idOfAa += 1;
+//                    } else {
+//                        fullPosMassMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
+//                        fullPeptide.posVarPtmResMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar));
+//                    }
+//                }
+//                if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
+//                double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
+//                if (calScore > maxScore) maxScore = calScore;
+//                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.01));
+//                fullPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fullPeptide.getIonMatrixNow(), ms2Tolerance));
+//                updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt-nPartpeptide.length(), tagPosInProt+finderTag.size()-1);
+//            }
+//        } else if ( nModPepsSet.isEmpty() ) {
+//            //only c
+//            double lastScore = -1;
+//            for (Peptide cPartpeptide : cModPepsSet) {
+//                if (cPartpeptide.getScore() < lastScore) {
+//                    continue;   // only takes top1 or binglie top1
+//                }
+//                String freePepSeq = finderTag.getFreeAaString() + cPartpeptide.getFreeSeq();
+//                Peptide fullPeptide = new Peptide(freePepSeq, cPartpeptide.isDecoy, massTool);
+//                fullPeptide.finderTag = finderTag;
+//
+//                PosMassMap fullPosMassMap = new PosMassMap(); // maybe replace PosMass at all
+//                int idOfAa = cPartpeptide.length()-1;
+//                for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
+//                    if (Character.isUpperCase(aaChar)) {
+//                        idOfAa += 1;
+//                    } else {
+//                        fullPosMassMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
+//                        fullPeptide.posVarPtmResMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar));
+//                    }
+//                }
+//                for (int pos : cPartpeptide.posVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+//                    fullPosMassMap.put(pos + finderTag.size(), cPartpeptide.posVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
+//                    fullPeptide.posVarPtmResMap.put(pos + finderTag.size(), cPartpeptide.posVarPtmResMap.get(pos));
+//                }
+//
+//                if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
+//                double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
+//                if (calScore > maxScore) maxScore = calScore;
+//
+//                fullPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fullPeptide.getIonMatrixNow(), ms2Tolerance));
+//                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.01));
+//
+//                updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt, tagPosInProt+finderTag.size()+cPartpeptide.length()-1);
+//            }
+//        } else if ( ! cModPepsSet.isEmpty() && ! nModPepsSet.isEmpty() ){
+//            List<NCid> ncIdList = new ArrayList<>(4);
+//            int n = 0;
+//            int c;
+//            for (Peptide nPeptide : nModPepsSet) {
+//                c = 0;
+//                for (Peptide cPeptide : cModPepsSet) {
+//                    ncIdList.add(new NCid(n,c,nPeptide.getScore()+cPeptide.getScore()));
+//                    c++;
+//                }
+//                n++;
+//            }
+//            ncIdList.sort(Comparator.comparing(o->o.score, Comparator.reverseOrder()));
+//
+//            Peptide[] nPeptideArray = new Peptide[nModPepsSet.size()];
+//            nModPepsSet.toArray(nPeptideArray);
+//            Peptide[] cPeptideArray = new Peptide[cModPepsSet.size()];
+//            cModPepsSet.toArray(cPeptideArray);
+////            double lastScore = -1;
+//            for (NCid ncId : ncIdList.subList(0,Math.min(2, ncIdList.size()))) {
+//                Peptide nPartpeptide = nPeptideArray[ncId.nId];
+//                Peptide cPartpeptide = cPeptideArray[ncId.cId];
+////                if (nPartpeptide.getScore()+cPartpeptide.getScore() < lastScore) {
+////                    continue;
+////                }
+//                String freePepSeq = nPartpeptide.getFreeSeq()+finderTag.getFreeAaString()+cPartpeptide.getFreeSeq();
+//                Peptide fullPeptide = new Peptide(freePepSeq, nPartpeptide.isDecoy, massTool);// todo
+//                fullPeptide.finderTag = finderTag;
+//
+//                PosMassMap fullPosMassMap;
+//                if (nPartpeptide.hasVarPTM()){
+//                    fullPosMassMap = nPartpeptide.getVarPTMs().clone(); // maybe replace PosMass at all
+//                    fullPeptide.posVarPtmResMap.putAll(nPartpeptide.posVarPtmResMap);
+//                } else {
+//                    fullPosMassMap = new PosMassMap();
+//                }
+//                int idOfAa = nPartpeptide.length()-1;
+//                for (char aaChar : finderTag.getPtmAaString().toCharArray()) {
+//                    if (Character.isUpperCase(aaChar)) {
+//                        idOfAa += 1;
+//                    } else {
+//                        fullPosMassMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar).mass);
+//                        fullPeptide.posVarPtmResMap.put(idOfAa, massTool.labelVarPtmMap.get(aaChar));
+//                    }
+//                }
+//                for (int pos : cPartpeptide.posVarPtmResMap.keySet()) { //copy the top 1 ptm pattern in n part // whhat if also choose the largeset priority
+//                    fullPosMassMap.put(pos + finderTag.size() + nPartpeptide.length(), cPartpeptide.posVarPtmResMap.get(pos).mass); // copy the ptms from partModPepsUnsettled
+//                    fullPeptide.posVarPtmResMap.put(pos + finderTag.size() + nPartpeptide.length(), cPartpeptide.posVarPtmResMap.get(pos));
+//                }
+//
+//                if (! fullPosMassMap.isEmpty()) fullPeptide.setVarPTM(fullPosMassMap);
+//                double calScore = massTool.buildVectorAndCalXCorr(fullPeptide.getIonMatrixNow(), 1, expProcessedPL, fullPeptide.matchedBions, fullPeptide.matchedYions);//todo decide the penalty
+//                if (calScore > maxScore) maxScore = calScore;
+//
+//                fullPeptide.setScore(calScore*(1 - fullPeptide.posVarPtmResMap.size() * 0.01));
+//                fullPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, fullPeptide.getIonMatrixNow(), ms2Tolerance));
+//                updatePeptideTreeSet(fullPeptide, peptideTreeSet, peptideInfoMap, protId, protSeq, tagPosInProt-nPartpeptide.length(), tagPosInProt+finderTag.size()+cPartpeptide.length()-1);
+//            }
+//        }
+        return maxScore;
+    }
+
+    private boolean solveGapC(int scanNum, ExpTag tag, int tagPosInProt, String protId, String protSeq, int remainMC, double ms1TolAbs,
+                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
+
+        double tagCMass = tag.getTailLocation() + massTool.H2O - MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
+        if (tag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs) return true;// C tag, tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+        // only when oriTag is not C oriTag can it extend to c
+        TreeSet<Peptide> cModPepsSet = new TreeSet<>(Comparator.reverseOrder());
+        double cCutMass = tag.getTailLocation() - MassTool.PROTON;
+        int tagLen = tag.size();
+        int protLen = protSeq.length();
+        List<Integer> cPoses = new ArrayList<>();
+        List<Integer> krPoses = new ArrayList<>();
+        int mcInC = 0;
+        boolean startRecord = false;
+        char aaChar;
+        boolean isKR;
+
+        for (int cPos = tagPosInProt+tagLen; cPos < protLen; cPos++) {  //
+            aaChar = protSeq.charAt(cPos);
+            if (isX(aaChar))  break;
+            isKR = isKR(aaChar);
+            tagCMass += massTool.getMassTable().get(aaChar); //even when tag is fuzzy, tagcmass wont be disturbed
+            if (mcInC > remainMC || tagCMass > precursorMass+maxPtmMass) break;
+            if (tagCMass >= precursorMass-maxPtmMass) {
+                if (startRecord) {
+                    cPoses.add(cPos);
+                } else {
+                    startRecord = true;
+                }
+                if (isKR)  krPoses.add(cPos);
+
+                if (Math.abs(tagCMass - precursorMass) <= ms1TolAbs) {
+                    String cPartSeq = protSeq.substring(tagPosInProt+tagLen, cPos+1);
+                    storeCleanPartPeptides(cPartSeq, cCutMass, C_PART, unUsedExpProcessedPL, unUsedPlMap, cModPepsSet);
+                    return true;
+                }
+            }
+            if (isKR) mcInC++;
+        }// finish collect all possible cposes and krPoses
+        if ( !startRecord) return false;// cPoses is empty
+
+        Map<Integer, Integer> posYIdMap = new HashMap<>();
+        Map<Integer, Integer> yIdMaxAbsPosMap = new HashMap<>();
+        int optStartPos = 1;
+        int optEndPosP1 = 0;
+        if (cTermSpecific) {
+            if ( ! krPoses.isEmpty()) {
+                optEndPosP1 = krPoses.get(krPoses.size()-1) + 1;  //max kr
+                optStartPos = krPoses.get(0) + 1;  // good trick//min kr
+                if ( ! cPoses.isEmpty() && cPoses.get(cPoses.size()-1) == protLen - 1) {
+                    optEndPosP1 = protLen;
+                }
+                int yId = 0;
+                for (int pos = optStartPos; pos < optEndPosP1; pos++) {
+                    posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
+                    int oldMaxPos = yIdMaxAbsPosMap.getOrDefault(yId, -99);
+                    yIdMaxAbsPosMap.put(yId, pos > oldMaxPos ? pos : oldMaxPos);
+                    if (krPoses.contains(pos)) {
+                        yId++;
+                    }
+                }
+            } else {
+                if (cPoses.isEmpty()) {
+                    optEndPosP1 = protLen;
+                    optStartPos = protLen;  // good trick
+                } else if (cPoses.get(cPoses.size()-1) == protLen-1) {
+                    optEndPosP1 = protLen;
+                    optStartPos = protLen;  // good trick
+                }
+            }
+        } else {
+            optEndPosP1 = cPoses.get(cPoses.size()-1) + 1; //max
+            optStartPos = cPoses.get(0);  // good trick  //min
+            int yId = 0;
+            for (int pos = optStartPos; pos < optEndPosP1; pos++) {
+                posYIdMap.put(pos, yId); // using rel pos in part seq i.e. start from 0 not the prot pos
+                int oldMaxPos = yIdMaxAbsPosMap.getOrDefault(yId, -99);
+                yIdMaxAbsPosMap.put(yId, pos > oldMaxPos ? pos : oldMaxPos);
+                yId++;
+            }
+        }
+
+        byte isProtNorC_Term = NON_TERM_PROT;
+        if (optStartPos == 1 && protSeq.charAt(0) == 'M') {
+            isProtNorC_Term = N_TERM_PROT;
+        }
+        if (optStartPos <= optEndPosP1) {
+            int cPartStartPos = tagPosInProt + tagLen;
+            String cPartSeq = protSeq.substring(cPartStartPos, optEndPosP1);
+
+            int cPartSeqLen = cPartSeq.length();
+            double flexiableMass = precursorMass - (tag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(cPartStartPos, optStartPos));
+            Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(cPartSeqLen, 1);
+
+            inferPTM.prepareInfoCTerm(scanNum, cPartSeq, absPos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
+
+            Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
+            Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
+
+            inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
+                    cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
+                    , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet);
+
+            if (lszDebugScanNum.contains(scanNum) && cPartSeq.contentEquals("SSAQQVAVSR")){ // SLEEEGAA
+                int a = 1;
+            }
+//                    inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
+//                            expProcessedPL, false, allMassAllPosesMap, absPos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
+        }
+        if (cModPepsSet.isEmpty()) return false;
+
+        return true;
+    }
+
+    private boolean solveGapN(int scanNum, ExpTag tag, int tagPosInProt, String protId, String protSeq, int remainMC, double ms1TolAbs,
+                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
+
+        TreeSet<Peptide> nModPepsSet = new TreeSet<>(Comparator.reverseOrder());
+        boolean shouldSolveN = true;
+        double nDeltaMass = tag.getHeadLocation() - MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
+        double nCutMass = precursorMass + MassTool.PROTON - tag.getHeadLocation() - massTool.H2O;
+        if (tag.isNorC == N_TAG || Math.abs(tag.getHeadLocation() - MassTool.PROTON) < ms1TolAbs)  return true;
+
+        List<Integer> nPoses = new ArrayList<>();
+        List<Integer> krPoses = new ArrayList<>();
+        boolean startRecord = false;
+        int mcInN = 0;
+        char aaChar;
+        boolean isKR;
+        for (int nPos = tagPosInProt-1; nPos >= 0; nPos--) {
+            aaChar = protSeq.charAt(nPos);
+            if (isX(aaChar)) break;
+            isKR = isKR(aaChar);
+
+            nDeltaMass -= massTool.getMassTable().get(aaChar);
+            if (isKR) mcInN++;
+            if (mcInN > remainMC || nDeltaMass < minPtmMass) {
+                if (isKR || nPos == 0) {
+                    krPoses.add(nPos);
+                }
+                break;
+            }
+
+            if (nDeltaMass < maxPtmMass) {
+                if (startRecord) {
+                    nPoses.add(nPos);
+                    if (isKR)  krPoses.add(nPos); // only count the kr poses in the flexible zone
+                } else {
+                    startRecord = true;
+                }
+
+                if (Math.abs(nDeltaMass) <= ms1TolAbs) {
+                    shouldSolveN = false;
+                    String nPartSeq = protSeq.substring(nPos, tagPosInProt);
+                    storeCleanPartPeptides(nPartSeq, nCutMass, N_PART, unUsedExpProcessedPL, unUsedPlMap, nModPepsSet);
+                    break;
+                }
+            }
+        }
+        if ( ! startRecord) return false;
+
+        if (shouldSolveN) {
+            int optEndPosP1 = -10;
+            int optStartPos = -2;
+            Map<Integer, Integer> posYIdMap = new HashMap<>();
+            Map<Integer, Integer> yIdMinAbsPosMap = new HashMap<>();
+            if (nTermSpecific) {
+                if (!krPoses.isEmpty()) {
+                    optEndPosP1 = Collections.max(krPoses) + 1;
+                    optStartPos = Collections.min(krPoses) + 1;
+
+                    if (!nPoses.isEmpty() && nPoses.get(0) == 0) { // if so, no need to care isKR(-1) because there is no aa on -1
+                        optStartPos = 0;
+                    }
+                    int yId = -1;
+                    for (int pos = optEndPosP1 - 1; pos > optStartPos - 1; pos--) {
+                        if (krPoses.contains(pos)) {
+                            yId++;
+                        }
+                        int tmpMinPos = yIdMinAbsPosMap.getOrDefault(yId, 999999);
+                        yIdMinAbsPosMap.put(yId, pos < tmpMinPos ? pos : tmpMinPos);
+                        posYIdMap.put(pos, yId);
+                    }
+                } else {
+                    if (nPoses.isEmpty()) {
+                        optEndPosP1 = 0;
+                        optStartPos = 0;
+                    } else if (Collections.min(nPoses) == 0) { //if krPoses is empty, the only feasible situation is min(nPoses) == 0 where there is no digestion at N term
+                        optEndPosP1 = 0;
+                        optStartPos = 0;
+                    }
+                }
+            } else {
+                optEndPosP1 = Collections.max(nPoses) + 1;
+                optStartPos = Collections.min(nPoses);
+                int yId = -1;
+                for (int pos = optEndPosP1 - 1; pos > optStartPos - 1; pos--) {
+                    yId++;
+                    posYIdMap.put(pos, yId);
+                    int tmpMinPos = yIdMinAbsPosMap.getOrDefault(yId, 999999);
+                    yIdMinAbsPosMap.put(yId, pos < tmpMinPos ? pos : tmpMinPos);
+                }
+            }
+
+            if (optStartPos <= optEndPosP1 && shouldSolveN) {
+                String nPartSeq = protSeq.substring(optStartPos, tagPosInProt);
+                int nPartSeqLen = tagPosInProt - optStartPos;
+                double flexiableMass = tag.getHeadLocation() - MassTool.PROTON - massTool.calResidueMass(protSeq.substring(optEndPosP1, tagPosInProt));
+                Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeqLen, 1);
+                inferPTM.prepareInfoNTerm(scanNum, nPartSeq,
+                        pos_MassVarPtm_Map, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
+
+                Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
+                Set<Map<Integer, Double>> posPtmIdResSet = new HashSet<>();
+                inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map
+                        , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
+//                    inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
+//                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
+            }
+        }
+        if (nModPepsSet.isEmpty()) return false;
+
+        return true;
+    }
+
+    private boolean solveGapMid(int scanNum, ExpTag lTag, int lTagPos, ExpTag rTag, int rTagPos, String gapSeq, double deltaMass, double ms1TolAbs,
+                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
+
+        int gapLen = gapSeq.length();
+        // only when oriTag is not C oriTag can it extend to c
+        TreeSet<Peptide> midModPepsSet = new TreeSet<>(Comparator.reverseOrder());
+        // note: these two refMass is similar to cCutMass nCutMass, but different. CutMass are pure sum of aa res masses, the Proton and H2O mass will be added in subsequent Xcorr step
+        double bIonRefMass = lTag.getTailLocation();
+        double yIonRefMass = precursorMass + 2*MassTool.PROTON - rTag.getHeadLocation();
+
+        Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(gapLen, 1);
+        inferPTM.prepareInfoMid(scanNum, gapSeq, absPos_MassVarPtm_Map, lTagPos+lTag.size());
+//        Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
+        inferPTM.findBestPtmInGap(scanNum, env, deltaMass, lTagPos+lTag.size(), rTagPos,
+                 gapSeq, ms1TolAbs, absPos_MassVarPtm_Map, unUsedPlMap, midModPepsSet, bIonRefMass, yIonRefMass);
+        if (midModPepsSet.isEmpty()) return false;
+        return true;
+    }
 //    private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet
 //            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) {
 //
@@ -1658,7 +2109,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         inferPTM.updateIonMatrix(ionMatrix, cutMass, isNCPart);
         Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
         double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, expProcessedPL, partPeptide.matchedBions, partPeptide.matchedYions, jRange) ;
-//         {
         partPeptide.setScore(score*(1-partPeptide.posVarPtmResMap.size()*0.01));
         partPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, ionMatrix, ms2Tolerance));
         if (modPepsSet.size() < 2) { //max restore 2 patterns for one peptide  //todo make this avaliable to differentiate priority
@@ -1667,7 +2117,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             modPepsSet.pollLast();
             modPepsSet.add(partPeptide);
         }
-//        }
     }
     public class NCid {
         public NCid(int nId, int cId, double score) {
