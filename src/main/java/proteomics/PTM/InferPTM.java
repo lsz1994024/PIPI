@@ -640,8 +640,8 @@ public class InferPTM {
 
     public void findBestPtmMIPExtC(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
                                    double ms1TolAbs, Map<Integer, Integer> absPosYIdMap, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
-                                   Set<Pair<Integer, Map<Double, Integer>>> resList, byte isProtNorC_Term, int optStartPos,
-                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,Set<Map<Integer, Double>> posPtmIdResSet,
+                                   int optStartPos,
+                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,
                                    TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet) {
 
 
@@ -909,25 +909,25 @@ public class InferPTM {
                 }
             }
 
-//            for (int thisTpId = 1; thisTpId < numOfTps; thisTpId++) {
-//                if (!z_yIonVarMap.containsKey(thisTpId)) continue;
-//                double thisMinYmz = z_yIonVarMap.get(thisTpId).firstKey();
-//                int nextTpId;
-//                for (nextTpId = thisTpId+1; nextTpId < partSeqLen; nextTpId++) {
-//                    if (!z_yIonVarMap.containsKey(nextTpId)) continue;
-//                    double nextMaxYmz = z_yIonVarMap.get(nextTpId).lastKey();
-//                    if (nextMaxYmz < thisMinYmz) break;
-//                    for (double thisYmz : z_yIonVarMap.get(thisTpId).keySet()){
-//                        if (thisYmz > nextMaxYmz) break;
-//                        for (double nextYmz : z_yIonVarMap.get(nextTpId).subMap(thisYmz, true, nextMaxYmz, true).keySet()) {
-//                            GRBLinExpr zThisNextNoCross = new GRBLinExpr();
-//                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(thisTpId).get(thisYmz));
-//                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(nextTpId).get(nextYmz));
-//                            model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
-//                        }
-//                    }
-//                }
-//            }
+            for (int thisTpId = 1; thisTpId < numOfTps; thisTpId++) {
+                if (!z_yIonVarMap.containsKey(thisTpId)) continue;
+                double thisMinYmz = z_yIonVarMap.get(thisTpId).firstKey();
+                int nextTpId;
+                for (nextTpId = thisTpId+1; nextTpId < partSeqLen; nextTpId++) {
+                    if (!z_yIonVarMap.containsKey(nextTpId)) continue;
+                    double nextMaxYmz = z_yIonVarMap.get(nextTpId).lastKey();
+                    if (nextMaxYmz < thisMinYmz) break;
+                    for (double thisYmz : z_yIonVarMap.get(thisTpId).keySet()){
+                        if (thisYmz > nextMaxYmz) break;
+                        for (double nextYmz : z_yIonVarMap.get(nextTpId).subMap(thisYmz, true, nextMaxYmz, true).keySet()) {
+                            GRBLinExpr zThisNextNoCross = new GRBLinExpr();
+                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(thisTpId).get(thisYmz));
+                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(nextTpId).get(nextYmz));
+                            model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
+                        }
+                    }
+                }
+            }
 
 
             model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
@@ -938,7 +938,7 @@ public class InferPTM {
             if (partSeqLen > 13) timeLimit = 5;
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
-            model.set(GRB.IntParam.Threads, 4); // second
+            model.set(GRB.IntParam.Threads, 32); // second
 
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
             model.set(GRB.IntParam.CutPasses, 3); // 2: slower
@@ -1003,7 +1003,6 @@ public class InferPTM {
                     }
                 }
                 int trueSeqEndAbsPos = Collections.max(thisSol.keySet());
-                posPtmIdResSet.add(thisSol);
                 double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
                 if (poolObjVal < objValThres){
                     break;
@@ -1426,9 +1425,9 @@ public class InferPTM {
     public void findBestPtmMIPExtN(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
                                    double ms1TolAbs, Map<Integer, Integer> absPosYIdMap,
                                    Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, int optEndPosP1,
-                                   boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap, Set<Map<Integer, Double>> posPtmIdResSet,
+                                   boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap,
                                    String protSeq, TreeMap<Double, Double> plMap,
-                                   TreeSet<Peptide> nModPepsSet, SparseVector unUsedExpProcessedPL, double cutMass) {
+                                   TreeSet<Peptide> nModPepsSet) {
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
         for (int pos : absPosYIdMap.keySet()) {
@@ -1736,7 +1735,7 @@ public class InferPTM {
             if (partSeqLen > 8) timeLimit = 3;
             if (partSeqLen > 10) timeLimit = 4;
             if (partSeqLen > 13) timeLimit = 5;
-            model.set(GRB.DoubleParam.TimeLimit, 10); // timeLimit
+            model.set(GRB.DoubleParam.TimeLimit, 5); // timeLimit
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
@@ -1803,7 +1802,7 @@ public class InferPTM {
                     }
                 }
 //                nModPepsSet
-                posPtmIdResSet.add(thisSol);
+//                posPtmIdResSet.add(thisSol);
                 double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
                 if (model.get(GRB.DoubleAttr.PoolObjVal) < objValThres){
                     break;
@@ -1817,13 +1816,7 @@ public class InferPTM {
                     tmpPeptide.posVarPtmResMap.put(absPos-trueSeqStartAbsPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
                 }
                 tmpPeptide.setVarPTM(posMassMap);
-
-//                double[][] ionMatrix = tmpPeptide.getIonMatrixNow();
-//                updateIonMatrix(ionMatrix, cutMass, N_PART);
-//                Set<Integer> jRange = IntStream.rangeClosed(0, partSeq.length()-1).boxed().collect(Collectors.toSet());
-//                double score = massTool.buildVectorAndCalXCorr(ionMatrix, 1, unUsedExpProcessedPL, tmpPeptide.matchedBions, tmpPeptide.matchedYions, jRange) ;
                 tmpPeptide.setScore(poolObjVal);
-//                tmpPeptide.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, tmpPeptide.getIonMatrix(), ms2Tolerance));
 
                 nModPepsSet.add(tmpPeptide);
             }

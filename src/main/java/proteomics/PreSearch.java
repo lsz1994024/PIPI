@@ -188,7 +188,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         for (OccGroup occG : occGroupList) {
             if (occG.totalScore < 0.6*topOccScore) break;
             occG.tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
-            occG.tagRelPosList.remove(0);// debug
+//            occG.tagRelPosList.remove(1);// debug
             String protId = occG.protId;
             double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagRelPosList, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
 //            if (tagRelPosList.size() > 1) {
@@ -932,18 +932,10 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
 
-//                    if (!yIdMaxAbsPosMap.isEmpty()) {
-//                        int a= 1;
-//                    }
                     inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
-                            cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
-                            , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet);
+                            cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map,  optStartPos, optEndPosP1 == protLen
+                            , yIdMaxAbsPosMap, unUsedPlMap, cModPepsSet);
 
-                    if (lszDebugScanNum.contains(scanNum) && cPartSeq.contentEquals("SSAQQVAVSR")){ // SLEEEGAA
-                        int a = 1;
-                    }
-//                    inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
-//                            expProcessedPL, false, allMassAllPosesMap, absPos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
                 }
             }
         } // end settle C section
@@ -1067,16 +1059,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 
                     Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                     Set<Map<Integer, Double>> posPtmIdResSet = new HashSet<>();
-//                    if (nPartSeq.contentEquals("KFGTLNLV")) {
-//                        int a = 1;
-//                    }
-//                    if (!yIdMinAbsPosMap.isEmpty()) {
-//                        int a= 1;
-//                    }
                     inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map
-                            , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
-//                    inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
-//                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
+                            , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap,protSeq, unUsedPlMap, nModPepsSet);
                 }
             }
         }// end settle N sectionl
@@ -1255,6 +1239,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             remainMC++; // the last KR at pepC does not count as MC
         }
 
+        List<TreeSet<Peptide>> segResList = new ArrayList<>();
         for (int gId = 0; gId < tagNum+1; ++gId) {
             ExpTag lTag = null;
             int lTagPos = 0;
@@ -1268,39 +1253,39 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 rTag = tagRelPosList.get(gId).getFirst();
                 rTagPos = tagRelPosList.get(gId).getSecond();
             }
-
-            boolean canSolve = false;
-//            if ( rTagPos == 0 && rTag.isNorC != N_TAG
-//                || rTagPos + rTag.size() == protLen && rTag.isNorC != C_TAG) {
-//                canSolve = false;
-//            } else {
+            boolean canSolve;
             if (gId == 0) {
                 if (rTag.isNorC == N_TAG) {
                     canSolve = true;
                 } else {
+                    TreeSet<Peptide> nModPepsSet = new TreeSet<>(Comparator.reverseOrder());
                     canSolve = solveGapN(scanNum, rTag, rTagPos, protSeq, remainMC,
-                            ms1TolAbs, expProcessedPL, plMap, env);
+                            ms1TolAbs, expProcessedPL, plMap, env, nModPepsSet);
+                    segResList.add(nModPepsSet);
                 }
             } else if (gId == tagNum) {// solve a C gap
                 if (lTag.isNorC == C_TAG) {
                     canSolve = true;
                 } else {
+                    TreeSet<Peptide> cModPepsSet = new TreeSet<>(Comparator.reverseOrder());
                     canSolve = solveGapC(scanNum, lTag, lTagPos, protId, protSeq, remainMC,
-                            ms1TolAbs, expProcessedPL, plMap, env);
+                            ms1TolAbs, expProcessedPL, plMap, env, cModPepsSet);
+                    segResList.add(cModPepsSet);
                 }
             } else {// solve a middle gap
+                TreeSet<Peptide> midModPepsSet = new TreeSet<>(Comparator.reverseOrder());
                 String gapSeq = protSeq.substring(tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size(), tagRelPosList.get(gId).getSecond());
                 double deltaMass = tagRelPosList.get(gId).getFirst().getHeadLocation() - tagRelPosList.get(gId-1).getFirst().getTailLocation() - massTool.calResidueMass(gapSeq);
-                canSolve = solveGapMid(scanNum, lTag, lTagPos, rTag, rTagPos, gapSeq, deltaMass, ms1TolAbs, expProcessedPL, plMap, env);
+                canSolve = solveGapMid(scanNum, lTag, lTagPos, rTag, rTagPos, gapSeq, deltaMass, ms1TolAbs, expProcessedPL, plMap, env, midModPepsSet);
+                segResList.add(midModPepsSet);
             }
-//            }
-
-            if (!canSolve) { // makeup solution
+            if (!canSolve) { // todo makeup solution
 
             }
         }
 
         //merge results
+        int a = 1;
 //        if ( cModPepsSet.isEmpty() ) {
 //            //only n
 //            double lastScore = -1;
@@ -1433,12 +1418,11 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     }
 
     private boolean solveGapC(int scanNum, ExpTag tag, int tagPosInProt, String protId, String protSeq, int remainMC, double ms1TolAbs,
-                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
+                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env, TreeSet<Peptide> cModPepsSet) {
 
         double tagCMass = tag.getTailLocation() + massTool.H2O - MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
         if (tag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs) return true;// C tag, tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
         // only when oriTag is not C oriTag can it extend to c
-        TreeSet<Peptide> cModPepsSet = new TreeSet<>(Comparator.reverseOrder());
         double cCutMass = tag.getTailLocation() - MassTool.PROTON;
         int tagLen = tag.size();
         int protLen = protSeq.length();
@@ -1521,25 +1505,19 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         if (optStartPos <= optEndPosP1) {
             int cPartStartPos = tagPosInProt + tagLen;
             String cPartSeq = protSeq.substring(cPartStartPos, optEndPosP1);
-
             int cPartSeqLen = cPartSeq.length();
             double flexiableMass = precursorMass - (tag.getTailLocation() + massTool.H2O-MassTool.PROTON) - massTool.calResidueMass(protSeq.substring(cPartStartPos, optStartPos));
             Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(cPartSeqLen, 1);
 
             inferPTM.prepareInfoCTerm(scanNum, cPartSeq, absPos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos);
 
-            Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
-            Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
-
-            inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
-                    cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, resList, isProtNorC_Term, optStartPos, optEndPosP1 == protLen
-                    , yIdMaxAbsPosMap, posPtmIdResList, unUsedPlMap, cModPepsSet);
-
-            if (lszDebugScanNum.contains(scanNum) && cPartSeq.contentEquals("SSAQQVAVSR")){ // SLEEEGAA
-                int a = 1;
+            if (cPartSeqLen == 1) {
+                findPtmOnOneAa(cModPepsSet, flexiableMass, absPos_MassVarPtm_Map, cPartSeq, cPartStartPos);
+            } else {
+                inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
+                        cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, optStartPos, optEndPosP1 == protLen
+                        , yIdMaxAbsPosMap, unUsedPlMap, cModPepsSet);
             }
-//                    inferPTM.getFeasibleMassPosMapC(scanNum, resList, unUsedPlMap, cPartSeq, cCutMass, C_PART,
-//                            expProcessedPL, false, allMassAllPosesMap, absPos_MassVarPtm_Map, cModPepsSet, cPartStartPos, yIdMaxAbsPosMap, optStartPos);
         }
         if (cModPepsSet.isEmpty()) return false;
 
@@ -1547,9 +1525,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     }
 
     private boolean solveGapN(int scanNum, ExpTag tag, int tagPosInProt, String protSeq, int remainMC, double ms1TolAbs,
-                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
-
-        TreeSet<Peptide> nModPepsSet = new TreeSet<>(Comparator.reverseOrder());
+                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env, TreeSet<Peptide> nModPepsSet) {
         boolean shouldSolveN = true;
         double nDeltaMass = tag.getHeadLocation() - MassTool.PROTON; //n term delta mass should be independent of cDeltaMass
         double nCutMass = precursorMass + MassTool.PROTON - tag.getHeadLocation() - massTool.H2O;
@@ -1637,15 +1613,16 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 String nPartSeq = protSeq.substring(optStartPos, tagPosInProt);
                 int nPartSeqLen = tagPosInProt - optStartPos;
                 double flexiableMass = tag.getHeadLocation() - MassTool.PROTON - massTool.calResidueMass(protSeq.substring(optEndPosP1, tagPosInProt));
-                Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map = new HashMap<>(nPartSeqLen, 1);
+                Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(nPartSeqLen, 1);
                 inferPTM.prepareInfoNTerm(scanNum, nPartSeq,
-                        pos_MassVarPtm_Map, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
+                        absPos_MassVarPtm_Map, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
 
-                Set<Map<Integer, Double>> posPtmIdResSet = new HashSet<>();
-                inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map
-                        , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
-//                    inferPTM.getFeasibleMassPosMapN(scanNum, resList, plMap, nPartSeq, nCutMass, N_PART,
-//                            expProcessedPL, false, allMassAllPosesMap, pos_MassVarPtm_Map, nModPepsSet, tagPosInProt, yIdMinAbsPosMap, optEndPosP1);
+                if (nPartSeqLen == 1) {
+                    findPtmOnOneAa(nModPepsSet, flexiableMass, absPos_MassVarPtm_Map, nPartSeq, tagPosInProt-1);
+                } else {
+                    inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map
+                            , optEndPosP1, optStartPos == 0, yIdMinAbsPosMap, protSeq, unUsedPlMap, nModPepsSet);
+                }
             }
         }
         if (nModPepsSet.isEmpty()) return false;
@@ -1654,9 +1631,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     }
 
     private boolean solveGapMid(int scanNum, ExpTag lTag, int lTagPos, ExpTag rTag, int rTagPos, String gapSeq, double deltaMass, double ms1TolAbs,
-                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
+                              SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env, TreeSet<Peptide> midModPepsSet) {
 
-        TreeSet<Peptide> midModPepsSet = new TreeSet<>(Comparator.reverseOrder());
         int gapLen = gapSeq.length();
         Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(gapLen, 1);
         inferPTM.prepareInfoMid(scanNum, gapSeq, absPos_MassVarPtm_Map, lTagPos+lTag.size());
