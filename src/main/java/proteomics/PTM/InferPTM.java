@@ -909,25 +909,25 @@ public class InferPTM {
                 }
             }
 
-            for (int thisTpId = 1; thisTpId < numOfTps; thisTpId++) {
-                if (!z_yIonVarMap.containsKey(thisTpId)) continue;
-                double thisMinYmz = z_yIonVarMap.get(thisTpId).firstKey();
-                int nextTpId;
-                for (nextTpId = thisTpId+1; nextTpId < partSeqLen; nextTpId++) {
-                    if (!z_yIonVarMap.containsKey(nextTpId)) continue;
-                    double nextMaxYmz = z_yIonVarMap.get(nextTpId).lastKey();
-                    if (nextMaxYmz < thisMinYmz) break;
-                    for (double thisYmz : z_yIonVarMap.get(thisTpId).keySet()){
-                        if (thisYmz > nextMaxYmz) break;
-                        for (double nextYmz : z_yIonVarMap.get(nextTpId).subMap(thisYmz, true, nextMaxYmz, true).keySet()) {
-                            GRBLinExpr zThisNextNoCross = new GRBLinExpr();
-                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(thisTpId).get(thisYmz));
-                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(nextTpId).get(nextYmz));
-                            model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
-                        }
-                    }
-                }
-            }
+//            for (int thisTpId = 1; thisTpId < numOfTps; thisTpId++) {
+//                if (!z_yIonVarMap.containsKey(thisTpId)) continue;
+//                double thisMinYmz = z_yIonVarMap.get(thisTpId).firstKey();
+//                int nextTpId;
+//                for (nextTpId = thisTpId+1; nextTpId < partSeqLen; nextTpId++) {
+//                    if (!z_yIonVarMap.containsKey(nextTpId)) continue;
+//                    double nextMaxYmz = z_yIonVarMap.get(nextTpId).lastKey();
+//                    if (nextMaxYmz < thisMinYmz) break;
+//                    for (double thisYmz : z_yIonVarMap.get(thisTpId).keySet()){
+//                        if (thisYmz > nextMaxYmz) break;
+//                        for (double nextYmz : z_yIonVarMap.get(nextTpId).subMap(thisYmz, true, nextMaxYmz, true).keySet()) {
+//                            GRBLinExpr zThisNextNoCross = new GRBLinExpr();
+//                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(thisTpId).get(thisYmz));
+//                            zThisNextNoCross.addTerm(1, z_yIonVarMap.get(nextTpId).get(nextYmz));
+//                            model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
+//                        }
+//                    }
+//                }
+//            }
 
 
             model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
@@ -937,8 +937,8 @@ public class InferPTM {
             if (partSeqLen > 10) timeLimit = 4;
             if (partSeqLen > 13) timeLimit = 5;
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
-            model.set(GRB.IntParam.Threads, 32); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
+            model.set(GRB.IntParam.Threads, 4); // second
 
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
             model.set(GRB.IntParam.CutPasses, 3); // 2: slower
@@ -946,6 +946,7 @@ public class InferPTM {
             model.set(GRB.IntParam.PreSparsify, 1); // second
             model.set(GRB.DoubleParam.Heuristics, 0.5); // second
 
+//            model.set(GRB.IntParam.AggFill, 1000); // second
 
 //            model.set(GRB.DoubleParam.TuneTimeLimit, 43200);
 //            model.set(GRB.IntParam.TuneTrials, 5);
@@ -1660,7 +1661,7 @@ public class InferPTM {
                 TreeMap<Double, GRBVar> eMassVarMap = new TreeMap<>();
 
                 double D = maxBmz - minBmz + 1; // plus one for security to ensure that all |eMass-tMass| < D
-                double ms2Tol = 0.02; //Dalton
+//                double ms2Tol = 0.02; //Dalton
                 GRBLinExpr tp_eMass_match_Base = new GRBLinExpr();
                 tp_eMass_match_Base.addConstant(seqMass_nextEnd_TpId + MassTool.PROTON);
                 for (int tmpPos = refPos-partSeqLen; tmpPos < absPos+1; tmpPos++) {
@@ -1690,16 +1691,12 @@ public class InferPTM {
                     one_tp_for_one_ep.addTerm(1, zVar);
                     GRBLinExpr tp_eMass_match_Actual_1 = new GRBLinExpr(tp_eMass_match_Base);
                     tp_eMass_match_Actual_1.addTerm(D, zVar);
-                    try {
-                        model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
-                    } catch (Exception e) {
-                        System.out.println(scanNum + ", error");
-                    }
+                    model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+2*ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
 //                    model.addConstr(tp_eMass_match_Actual_1, GRB.LESS_EQUAL, D+ms2Tol+eMass, "tp_eMass_match_Actual_1"+tpId+"_"+eMass);
 
                     GRBLinExpr tp_eMass_match_Actual_2 = new GRBLinExpr(tp_eMass_match_Base);
                     tp_eMass_match_Actual_2.addTerm(-D, zVar);
-                    model.addConstr(tp_eMass_match_Actual_2, GRB.GREATER_EQUAL, -D-ms2Tol+eMass, "tp_eMass_match_Actual_2"+tpId+"_"+eMass);
+                    model.addConstr(tp_eMass_match_Actual_2, GRB.GREATER_EQUAL, -D-2*ms2Tol+eMass, "tp_eMass_match_Actual_2"+tpId+"_"+eMass);
                 }
                 if (!eMassVarMap.isEmpty()) {
                     z_bIonVarMap.put(tpId, eMassVarMap);
@@ -1721,6 +1718,7 @@ public class InferPTM {
                             GRBLinExpr zThisNextNoCross = new GRBLinExpr();
                             zThisNextNoCross.addTerm(1, z_bIonVarMap.get(thisTpId).get(thisYmz));
                             zThisNextNoCross.addTerm(1, z_bIonVarMap.get(nextTpId).get(nextYmz));
+//                            System.out.println(thisTpId + ": "+thisYmz+","+nextTpId + ": "+nextYmz);
                             model.addConstr(zThisNextNoCross, GRB.LESS_EQUAL,1, String.format("zThisNextNoCross_%d_%f_%d_%f", thisTpId, thisYmz, nextTpId, nextYmz));
                         }
                     }
@@ -1739,17 +1737,18 @@ public class InferPTM {
             if (partSeqLen > 10) timeLimit = 4;
             if (partSeqLen > 13) timeLimit = 5;
             model.set(GRB.DoubleParam.TimeLimit, 10); // timeLimit
-            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
-            model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
-            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
-            model.set(GRB.IntParam.PrePasses, 2); // second
+//            model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
+//            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
+//            model.set(GRB.IntParam.PrePasses, 2); // second
             model.set(GRB.IntParam.PreSparsify, 1); // second
-            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
+//            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
 
+            model.set(GRB.IntParam.AggFill, 1000); // second
 
-//            model.set(GRB.DoubleParam.TuneTimeLimit, 400);//43200
+//            model.set(GRB.DoubleParam.TuneTimeLimit, 3600);//43200
 //            model.set(GRB.IntParam.TuneTrials, 5);
 ////            model.set(GRB.IntParam.TuneCriterion, 3);
 //            model.tune();

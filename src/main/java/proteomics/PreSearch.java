@@ -188,7 +188,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         for (OccGroup occG : occGroupList) {
             if (occG.totalScore < 0.6*topOccScore) break;
             occG.tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
-
+            occG.tagRelPosList.remove(0);// debug
             String protId = occG.protId;
             double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagRelPosList, ms1TolAbs, peptideTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
 //            if (tagRelPosList.size() > 1) {
@@ -1220,11 +1220,20 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     private double addCandisWithMultiMaxPeakMILP(int scanNum, String protId, List<Pair<ExpTag, Integer>> tagRelPosList, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet
             , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) {
 
-        double maxScore = 0;
-
-        if (lszDebugScanNum.contains(scanNum) ) {
-            int a = 1;
+        int tagNum = tagRelPosList.size();
+        String protSeq = buildIndex.protSeqMap.get(protId);
+        int protLen = protSeq.length();
+        if (tagRelPosList.get(0).getSecond() < 0
+            || tagRelPosList.get(0).getSecond() == 0 && tagRelPosList.get(0).getFirst().isNorC != N_TAG) {
+            tagRelPosList.remove(0);
         }
+        if (tagRelPosList.get(tagNum-1).getSecond() >= protLen
+            || tagRelPosList.get(tagNum-1).getSecond() + tagRelPosList.get(tagNum-1).getFirst().size() == protLen && tagRelPosList.get(tagNum-1).getFirst().isNorC != C_TAG) {
+            tagRelPosList.remove(tagNum-1);
+        }
+        tagNum = tagRelPosList.size();
+
+        double maxScore = 0;
         TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
         for (Pair<ExpTag, Integer> tagRelPos : tagRelPosList) {
             for (ExpAa expAa : tagRelPos.getFirst().expAaList) {
@@ -1239,54 +1248,52 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         SparseVector unUsedExpPeakVec;
         unUsedExpPeakVec = specProcessor.digitizePL(unUsedPlMap);
 
-        String protSeq = buildIndex.protSeqMap.get(protId);
-        int protLen = protSeq.length();
-        int tagNum = tagRelPosList.size();
         Pair<ExpTag, Integer> lastTagPosPair = tagRelPosList.get(tagNum-1);
         int remainMC = massTool.missedCleavage -
                 getNumOfMCFromStr(protSeq.substring(tagRelPosList.get(0).getSecond(), lastTagPosPair.getSecond()+ lastTagPosPair.getFirst().size()));
         if (lastTagPosPair.getFirst().isNorC == C_TAG && isKR(lastTagPosPair.getFirst().getFreeAaString().charAt(lastTagPosPair.getFirst().size()-1))) {
             remainMC++; // the last KR at pepC does not count as MC
         }
-        int gPosL = 0, gPosR = 0; //g for gap
 
         for (int gId = 0; gId < tagNum+1; ++gId) {
-            ExpTag rTag = tagRelPosList.get(gId).getFirst();
-            int rTagPos = tagRelPosList.get(gId).getSecond();
-
-//            ExpTag lTag;
-//            int lAbsPos;
-//            if (gId != 0) {
-//                lTag = tagRelPosList.get(gId-1).getFirst();
-//                lAbsPos = tagRelPosList.get(gId-1).getSecond();
-//            }
-
-            if (gId == 0 && rTag.isNorC == N_TAG) continue;
-            if (gId == tagNum && rTag.isNorC == C_TAG) continue;
-//            gPosL = (gId==0) ? 0 : tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size();
-//            gPosR = (gId==tagNum) ? protSeq.length() : tagRelPosList.get(gId).getSecond()-1;
-//            int tagLen = tag.size();
+            ExpTag lTag = null;
+            int lTagPos = 0;
+            if (gId != 0) {
+                lTag = tagRelPosList.get(gId-1).getFirst();
+                lTagPos = tagRelPosList.get(gId-1).getSecond();
+            }
+            ExpTag rTag = null;
+            int rTagPos = 0;
+            if (gId != tagNum) {
+                rTag = tagRelPosList.get(gId).getFirst();
+                rTagPos = tagRelPosList.get(gId).getSecond();
+            }
 
             boolean canSolve = false;
-            if ( rTagPos < 0 || rTagPos+rTag.size() > protLen
-                || rTagPos == 0 && rTag.isNorC != N_TAG
-                || rTagPos + rTag.size() == protLen && rTag.isNorC != C_TAG) {
-                canSolve = false;
-            } else {
-                if (gId == 0) {
-                    canSolve = solveGapN(scanNum, rTag, rTagPos, protId, protSeq, remainMC,
+//            if ( rTagPos == 0 && rTag.isNorC != N_TAG
+//                || rTagPos + rTag.size() == protLen && rTag.isNorC != C_TAG) {
+//                canSolve = false;
+//            } else {
+            if (gId == 0) {
+                if (rTag.isNorC == N_TAG) {
+                    canSolve = true;
+                } else {
+                    canSolve = solveGapN(scanNum, rTag, rTagPos, protSeq, remainMC,
                             ms1TolAbs, expProcessedPL, plMap, env);
-                } else if (gId == tagNum) {// solve a C gap
-                    canSolve = solveGapC(scanNum, rTag, rTagPos, protId, protSeq, remainMC,
-                            ms1TolAbs, expProcessedPL, plMap, env);
-                } else {// solve a middle gap
-                    ExpTag lTag = tagRelPosList.get(gId-1).getFirst();
-                    int lTagPos = tagRelPosList.get(gId-1).getSecond();
-                    String gapSeq = protSeq.substring(tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size(), tagRelPosList.get(gId).getSecond());
-                    double deltaMass = tagRelPosList.get(gId).getFirst().getHeadLocation() - tagRelPosList.get(gId-1).getFirst().getTailLocation() - massTool.calResidueMass(gapSeq);
-                    canSolve = solveGapMid(scanNum, lTag, lTagPos, rTag, rTagPos, gapSeq, deltaMass, ms1TolAbs, expProcessedPL, plMap, env);
                 }
+            } else if (gId == tagNum) {// solve a C gap
+                if (lTag.isNorC == C_TAG) {
+                    canSolve = true;
+                } else {
+                    canSolve = solveGapC(scanNum, lTag, lTagPos, protId, protSeq, remainMC,
+                            ms1TolAbs, expProcessedPL, plMap, env);
+                }
+            } else {// solve a middle gap
+                String gapSeq = protSeq.substring(tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size(), tagRelPosList.get(gId).getSecond());
+                double deltaMass = tagRelPosList.get(gId).getFirst().getHeadLocation() - tagRelPosList.get(gId-1).getFirst().getTailLocation() - massTool.calResidueMass(gapSeq);
+                canSolve = solveGapMid(scanNum, lTag, lTagPos, rTag, rTagPos, gapSeq, deltaMass, ms1TolAbs, expProcessedPL, plMap, env);
             }
+//            }
 
             if (!canSolve) { // makeup solution
 
@@ -1539,7 +1546,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         return true;
     }
 
-    private boolean solveGapN(int scanNum, ExpTag tag, int tagPosInProt, String protId, String protSeq, int remainMC, double ms1TolAbs,
+    private boolean solveGapN(int scanNum, ExpTag tag, int tagPosInProt, String protSeq, int remainMC, double ms1TolAbs,
                               SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
 
         TreeSet<Peptide> nModPepsSet = new TreeSet<>(Comparator.reverseOrder());
@@ -1558,7 +1565,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             aaChar = protSeq.charAt(nPos);
             if (isX(aaChar)) break;
             isKR = isKR(aaChar);
-
             nDeltaMass -= massTool.getMassTable().get(aaChar);
             if (isKR) mcInN++;
             if (mcInN > remainMC || nDeltaMass < minPtmMass) {
@@ -1567,7 +1573,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 break;
             }
-
             if (nDeltaMass < maxPtmMass) {
                 if (startRecord) {
                     nPoses.add(nPos);
@@ -1575,7 +1580,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 } else {
                     startRecord = true;
                 }
-
                 if (Math.abs(nDeltaMass) <= ms1TolAbs) {
                     shouldSolveN = false;
                     String nPartSeq = protSeq.substring(nPos, tagPosInProt);
@@ -1637,7 +1641,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 inferPTM.prepareInfoNTerm(scanNum, nPartSeq,
                         pos_MassVarPtm_Map, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq);
 
-                Set<Pair<Integer, Map<Double, Integer>>> resList = new HashSet<>(100);
                 Set<Map<Integer, Double>> posPtmIdResSet = new HashSet<>();
                 inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs , posYIdMap, pos_MassVarPtm_Map
                         , optEndPosP1,optStartPos == 0, yIdMinAbsPosMap, posPtmIdResSet,protSeq, unUsedPlMap, nModPepsSet, unUsedExpProcessedPL, nCutMass);
@@ -1653,20 +1656,37 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     private boolean solveGapMid(int scanNum, ExpTag lTag, int lTagPos, ExpTag rTag, int rTagPos, String gapSeq, double deltaMass, double ms1TolAbs,
                               SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env) {
 
-        int gapLen = gapSeq.length();
-        // only when oriTag is not C oriTag can it extend to c
         TreeSet<Peptide> midModPepsSet = new TreeSet<>(Comparator.reverseOrder());
-        // note: these two refMass is similar to cCutMass nCutMass, but different. CutMass are pure sum of aa res masses, the Proton and H2O mass will be added in subsequent Xcorr step
-        double bIonRefMass = lTag.getTailLocation();
-        double yIonRefMass = precursorMass + 2*MassTool.PROTON - rTag.getHeadLocation();
-
+        int gapLen = gapSeq.length();
         Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(gapLen, 1);
         inferPTM.prepareInfoMid(scanNum, gapSeq, absPos_MassVarPtm_Map, lTagPos+lTag.size());
+        if (gapLen == 1) {
+            findPtmOnOneAa(midModPepsSet, deltaMass, absPos_MassVarPtm_Map, gapSeq, lTagPos+lTag.size());
+        } else {
+            // note: these two refMass is similar to cCutMass nCutMass, but different. CutMass are pure sum of aa res masses, the Proton and H2O mass will be added in subsequent Xcorr step
+            double bIonRefMass = lTag.getTailLocation();
+            double yIonRefMass = precursorMass + 2*MassTool.PROTON - rTag.getHeadLocation();
 //        Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
-        inferPTM.findBestPtmInGap(scanNum, env, deltaMass, lTagPos+lTag.size(), rTagPos,
-                 gapSeq, ms1TolAbs, absPos_MassVarPtm_Map, unUsedPlMap, midModPepsSet, bIonRefMass, yIonRefMass);
+            inferPTM.findBestPtmInGap(scanNum, env, deltaMass, lTagPos+lTag.size(), rTagPos,
+                    gapSeq, ms1TolAbs, absPos_MassVarPtm_Map, unUsedPlMap, midModPepsSet, bIonRefMass, yIonRefMass);
+        }
         if (midModPepsSet.isEmpty()) return false;
         return true;
+    }
+
+    private void findPtmOnOneAa(TreeSet<Peptide> midModPepsSet, double deltaMass, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, String gapSeq, int absPos) {
+        TreeMap<Double, VarPtm> massPtmMap = absPos_MassVarPtm_Map.get(absPos);
+        for (double ptmMass : massPtmMap.keySet()) {
+            if (Math.abs(ptmMass - deltaMass) < 2*ms2Tolerance) {
+                Peptide tmpPeptide = new Peptide(gapSeq, false, massTool);
+                PosMassMap posMassMap = new PosMassMap();
+                posMassMap.put(0, ptmMass);
+                tmpPeptide.posVarPtmResMap.put(0, massPtmMap.get(ptmMass));
+                tmpPeptide.setVarPTM(posMassMap);
+                tmpPeptide.setScore(0);
+                midModPepsSet.add(tmpPeptide);
+            }
+        }
     }
 //    private void updateCandiList(int scanNum, String protId, int tagPosInProt, ExpTag finderTag, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet
 //            , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) {
