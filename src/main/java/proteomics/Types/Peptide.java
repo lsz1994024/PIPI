@@ -433,8 +433,11 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
 //    }
 
     public int compareTo(Peptide peptide) {
+//        try {
         if (this.getVarPtmContainingSeqNow().contentEquals(peptide.getVarPtmContainingSeqNow())) return 0;
-
+//        } catch ( Exception e) {
+//            System.out.println(scanNum);
+//        }
         if (hasVarPTM() && peptide.hasVarPTM()) { // only when two peptide are both modified, use priority to compare them in the very beginning
             if (score*this.getPriority() > peptide.score*peptide.getPriority()){
                 return 1;

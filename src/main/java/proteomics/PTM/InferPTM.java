@@ -937,7 +937,7 @@ public class InferPTM {
             if (partSeqLen > 10) timeLimit = 4;
             if (partSeqLen > 13) timeLimit = 5;
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
@@ -967,7 +967,7 @@ public class InferPTM {
             if (lszDebugScanNum.contains(scanNum) ){ // SLEEEGAA
                 int a = 1;
             }
-            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.1*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
+            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
                 Map<Integer, Double> thisSol = new HashMap<>();
@@ -1050,14 +1050,16 @@ public class InferPTM {
 
                 GRBLinExpr sumX_leq_1 = new GRBLinExpr();
                 Map<Double, GRBVar> massXVarMap = new HashMap<>();
-                List<VarPtm> varPtmList = aaAllVarPtmMap.get(aa).get(ANYWHERE);
-                if (varPtmList == null) continue;
-                double ptmMass;
-                for (VarPtm varPtm : varPtmList) {
-                    ptmMass = varPtm.mass;
+                TreeMap<Double, VarPtm> massVarPtmMap = absPos_MassVarPtm_Map.get(absPos);
+                if (massVarPtmMap == null) continue;
+                for (double ptmMass : massVarPtmMap.keySet()) {
+                    VarPtm varPtm = massVarPtmMap.get(ptmMass);
                     if (massTable.get(gapSeq.charAt(relPos)) + ptmMass < ms2Tol) continue;
-
+//                    if(Math.abs(ptmMass-68)>1 && Math.abs(ptmMass-16)>1)continue;
                     GRBVar xVar = model.addVar(0, 1, -0.1, GRB.BINARY, "x" + absPos + "_" + ptmMass);
+//                    if ("x988_-15.994915".contentEquals("x" + absPos + "_" + ptmMass)) {
+//                        int a = 1;
+//                    }
                     massXVarMap.put(ptmMass, xVar);
                     sumX_leq_1.addTerm(1, xVar);
                     deltaMass.addTerm(ptmMass, xVar); // + m_i * x_i
@@ -1112,7 +1114,7 @@ public class InferPTM {
             if (gapLen > 10) timeLimit = 4;
             if (gapLen > 13) timeLimit = 5;
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
@@ -1138,9 +1140,13 @@ public class InferPTM {
             if (lszDebugScanNum.contains(scanNum) ){ // SLEEEGAA
                 int a = 1;
             }
-            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.1*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
+            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
+                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
+                if (poolObjVal < objValThres){
+                    break;
+                }
                 Map<Integer, Double> thisSol = new HashMap<>();
                 for (int absPos = refAbsPos; absPos < gapSeq.length() + refAbsPos; absPos++) {
                     thisSol.put(absPos, -1.0); //-1 means no ptm yet
@@ -1148,6 +1154,7 @@ public class InferPTM {
                         Map<Double, GRBVar> ptmIdXVarMap = xVarMap.get(absPos);
                         for (double ptmMass : ptmIdXVarMap.keySet()) {
                             GRBVar xVar = ptmIdXVarMap.get(ptmMass);
+//                            System.out.println(absPos+ ", "+gapSeq.substring(absPos-refAbsPos, absPos-refAbsPos+1)+ ","+ptmMass + ","+xVar.get(GRB.DoubleAttr.Xn));
                             if ((int) Math.round(xVar.get(GRB.DoubleAttr.Xn)) == 1) {
                                 thisSol.put(absPos, ptmMass);
                                 break;
@@ -1155,12 +1162,10 @@ public class InferPTM {
                         }
                     }
                 }
-                int trueSeqEndAbsPos = Collections.max(thisSol.keySet());
+//                System.out.println("up is sol + " + solNum+ ","+thisSol);
+
+//                int trueSeqEndAbsPos = Collections.max(thisSol.keySet());
 //                posPtmIdResSet.add(thisSol);
-                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
-                if (poolObjVal < objValThres){
-                    break;
-                }
                 Peptide tmpPeptide = new Peptide(gapSeq, false, massTool);
                 PosMassMap posMassMap = new PosMassMap();
                 for (int absPos : thisSol.keySet()) {
@@ -1168,9 +1173,15 @@ public class InferPTM {
                     posMassMap.put(absPos-refAbsPos, thisSol.get(absPos));
                     tmpPeptide.posVarPtmResMap.put(absPos-refAbsPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
                 }
-                tmpPeptide.setVarPTM(posMassMap);
+                if ( ! posMassMap.isEmpty()) {
+                    tmpPeptide.setVarPTM(posMassMap);
+                }
                 tmpPeptide.setScore(poolObjVal);
+//                try {
                 midModPepsSet.add(tmpPeptide);
+//                } catch (Exception e ){
+//                    System.out.println(scanNum +",wrong");
+//                }
             }
             model.dispose();
         } catch (GRBException e) {
@@ -1444,6 +1455,8 @@ public class InferPTM {
 
         try {
             GRBModel model = new GRBModel(env);
+            model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
+
             //// Constraints
             GRBLinExpr totalNumsOnPep = new GRBLinExpr();
             GRBLinExpr totalFlexiableMass = new GRBLinExpr();
@@ -1670,17 +1683,11 @@ public class InferPTM {
                         } else {
                             tp_eMass_match_Base.addConstant(massTable.get(partSeq.charAt(tmpPos-refPos+partSeqLen)));
                         }
-//                        if (yVarMap.get(absPosYIdMap.get(tmpPos)) == null) {
-//                            int aaa = 1;
-//                        }
                     }
                     Map<Double, GRBVar> ptmMassVarMap = xVarMap.get(tmpPos);
                     if (ptmMassVarMap == null) continue;
                     for (double ptmMass : ptmMassVarMap.keySet()) {   // Sum (xi * mi) , all needed ptm masses
                         tp_eMass_match_Base.addTerm(ptmMass, ptmMassVarMap.get(ptmMass));
-                        if (ptmMassVarMap.get(ptmMass) == null) {
-                            int aaa = 1;
-                        }
                     }
                 }
                 GRBLinExpr one_tp_for_one_ep = new GRBLinExpr();// is this a redundant constraint?
@@ -1725,10 +1732,9 @@ public class InferPTM {
             }
 
             //obj function
-            model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
-            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")) {
-                int a = 1;
-            }
+//            if (lszDebugScanNum.contains(scanNum) && partSeq.contentEquals("KFGVLSDNFK")) {
+//                int a = 1;
+//            }
 //            model.set(GRB.IntParam.PoolSearchMode, 2);  //0 for only one sol, 1 for possible more but not guaranteed = poolSolutions, 2 for guaranteed but long time
 //            model.set(GRB.IntParam.PoolSolutions, 30);
             int timeLimit = 2;
@@ -1763,17 +1769,21 @@ public class InferPTM {
                     return;
             }
             int solCount = model.get(GRB.IntAttr.SolCount);
-            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.1*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
+            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
+                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
+                if (model.get(GRB.DoubleAttr.PoolObjVal) < objValThres){
+                    break;
+                }
                 Map<Integer, Double> thisSol = new HashMap<>();
                 for (int absPos = refPos-partSeqLen; absPos < refPos; absPos++) {
                     if (absPosYIdMap.containsKey(absPos)) { //just for verification
                         int yId = absPosYIdMap.get(absPos);
                         GRBVar yVar = yVarMap.get(yId);
-                        if (yVar == null) {
-                            int a = 1;
-                        }
+//                        if (yVar == null) {
+//                            int a = 1;
+//                        }
                         if ((int) Math.round(yVar.get(GRB.DoubleAttr.Xn)) == 1) {
                             thisSol.put(absPos, -1.0); //-1 means no ptm yet
                             if (xVarMap.containsKey(absPos)) {
@@ -1803,10 +1813,7 @@ public class InferPTM {
                 }
 //                nModPepsSet
 //                posPtmIdResSet.add(thisSol);
-                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
-                if (model.get(GRB.DoubleAttr.PoolObjVal) < objValThres){
-                    break;
-                }
+
                 int trueSeqStartAbsPos = Collections.min(thisSol.keySet());
                 Peptide tmpPeptide = new Peptide(partSeq.substring(trueSeqStartAbsPos-refPos+partSeqLen), false, massTool);
                 PosMassMap posMassMap = new PosMassMap();
