@@ -106,7 +106,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
     //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(23603));//129543, 111179, 50630, 35359
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(13352));//129543, 111179, 50630, 35359
 
     public static int neighborNum = 1;
     public static void main(String[] args) {
@@ -168,7 +168,6 @@ public class PIPI {
         int ms1ToleranceUnit = Integer.valueOf(parameterMap.get("ms1_tolerance_unit"));
         double minClear = Double.valueOf(parameterMap.get("min_clear_mz"));
         double maxClear = Double.valueOf(parameterMap.get("max_clear_mz"));
-        String percolatorPath = parameterMap.get("percolator_path");
         boolean outputPercolatorInput = (Integer.valueOf(parameterMap.get("output_percolator_input")) == 1);
 //        String outputDir = parameterMap.get("output_dir");
 
@@ -227,28 +226,14 @@ public class PIPI {
                 spectraParserArray[i] = new MgfFile(new File(spectraPath + fileList[i]));
                 fileIdNameMap.put(i, fileList[i].split("\\.")[0].replaceAll("\\.","_"));
                 fileNameIdMap.put(fileList[i].split("\\.")[0].replaceAll("\\.","_"), i);
-
             }
-
             String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
             datasetReader = new DatasetReader(spectraParserArray, ms1Tolerance, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         }
-//        BufferedReader parameterReader = new BufferedReader(new FileReader("/home/slaiad/Code/PIPI/src/main/resources/ChickOpenTruth.txt"));
-//
-//        Map<Integer, String> pepTruth = new HashMap<>();
-//        String line;
-//        while ((line = parameterReader.readLine()) != null) {
-//            if (line.isEmpty()) continue;
-//            line = line.trim();
-//            String[] splitRes = line.split(",");
-//            String pepWithMod = splitRes[1].replace('I','L');
-//            pepTruth.put(Integer.valueOf(splitRes[0]), pepWithMod);
-//        }
 
         SpecProcessor specProcessor = new SpecProcessor(massTool);
         Map<String, Integer> precursorChargeMap = new HashMap<>();
         Map<String, Double> precursorMassMap = new HashMap<>();
-        TreeMap<Double, Set<String>> pcMassScanNameMap = new TreeMap<>();
 
         logger.info("Get long tags to reduce proteins...");
         int threadNum_0 = Integer.valueOf(parameterMap.get("thread_num"));
@@ -287,7 +272,6 @@ public class PIPI {
             mgfTitleMap.put(scanName, sqlResSetGetLongTag.getString("mgfTitle"));
             isotopeCorrectionNumMap.put(scanName, sqlResSetGetLongTag.getInt("isotopeCorrectionNum"));
             ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetGetLongTag.getDouble("ms1PearsonCorrelationCoefficient"));
-
             boolean shouldRun = false;
             for (int debugScanNum : lszDebugScanNum) {
                 if (Math.abs(scanNum-debugScanNum) < 2) {
@@ -299,9 +283,7 @@ public class PIPI {
 //                    continue;//22459   comment this continue line, if run all scans
                 }
             }
-
             int fileId = fileNameIdMap.get( scanName.split("\\.")[0] );
-
             precursorChargeMap.put(scanName, precursorCharge);
             precursorMassMap.put(scanName, precursorMass);
             submitNumSpecCoderX++;
@@ -394,8 +376,6 @@ public class PIPI {
                 tempCoverage += 1-posProductMap.get(pos);
             }
             protCoverageMap.put(prot, tempCoverage/protLen);
-
-
         }
 
         List<Pair<String, Double>> protScoreLongList = new ArrayList<>();
@@ -412,17 +392,12 @@ public class PIPI {
             if (pair.getSecond() < proteinCovThres) break;
             reducedProtIdSet.add(pair.getFirst());
         }
-
-        if (! usePfmAndReduceDb)
-        {
-            reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
-        }
+        if (! usePfmAndReduceDb) reducedProtIdSet = protLengthMap.keySet();  //dont reduce for simulation dataset
 
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0) {
             reducedProtIdSet = protLengthMap.keySet();  //dont reduce for debug
         }
 //        reducedProtIdSet = protLengthMap.keySet();  //dont reduce for debug
-
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
@@ -430,10 +405,7 @@ public class PIPI {
                 iter.remove();
             }
         }
-
         System.out.println("Protein size: "+protLengthMap.size()+" reduced to " + reducedProtIdSet.size());
-
-
         //  END Score for Proteins
         //////////==================================================
 
@@ -441,81 +413,84 @@ public class PIPI {
         //////////==================================================
         //   Get Tags and Get Peptide Candidates
         logger.info("Building decoy...");
-        int threadNum_1 = Integer.valueOf(parameterMap.get("thread_num"));
-        if (threadNum_1 == 0) {
-            threadNum_1 = 3 + Runtime.getRuntime().availableProcessors();
-        }
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
-            //change thread 1
-//            threadNum_1 = 1;
-        }
-        System.out.println("thread NUM "+ threadNum_1);
-
-        ExecutorService threadPoolBuildDecoyProts = Executors.newFixedThreadPool(threadNum_1);
-        ArrayList<Future<BuildDecoyProts.Entry>> taskListBuildDecoyProts = new ArrayList<>(reducedProtIdSet.size() + 10);
-        ReentrantLock lockSpecCoder = new ReentrantLock();
-
-        for (String protId : reducedProtIdSet) {    //All protSeq are recorded but some decoy version are not because their targets are not in the reducedProtIdSet
-            taskListBuildDecoyProts.add(threadPoolBuildDecoyProts.submit(new BuildDecoyProts(parameterMap, buildIndex, protId)));
-        }
-
-        int lastProgressBuildDecoyProts = 0;
-        int totalCountBuildDecoyProts = taskListBuildDecoyProts.size();
-        int countBuildDecoyProts = 0;
-        double minPeptideMass = 9999;
-        double maxPeptideMass = 0;
-
-//        Map<String, Set<Pair<String, Integer>>> tagProtPosMap = new HashMap<>();
-        while (countBuildDecoyProts < totalCountBuildDecoyProts) {
-            // record search results and delete finished ones.
-            List<Future<BuildDecoyProts.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBuildDecoyProts - countBuildDecoyProts);
-            for (Future<BuildDecoyProts.Entry> task : taskListBuildDecoyProts) {
-                if (task.isDone()) {
-                    if (task.get() != null ) {
-                        BuildDecoyProts.Entry entry = task.get();
-                        String protId = entry.protId;
-                        String decoyProtSeq = entry.decoyProtSeq;
-                        String decoyProtId = "DECOY_"+protId;
-                        buildIndex.protSeqMap.put(decoyProtId, decoyProtSeq);
-
-                    }
-                    toBeDeleteTaskList.add(task);
-                } else if (task.isCancelled()) {
-                    toBeDeleteTaskList.add(task);
+        String dbPath = parameterMap.get("db");
+        String decoyFullDBPath = dbPath + ".decoy.fasta";
+        File decoyFullFile = new File(decoyFullDBPath);
+        if (decoyFullFile.exists()) {
+            DbTool decoyDbTool = new DbTool(decoyFullDBPath, "others");
+            Map<String, String> decoyProtSeqMap = decoyDbTool.getProtSeqMap();
+            for (String decoyProtId : decoyProtSeqMap.keySet()) {
+                String targetProtId = decoyProtId.split("DECOY_")[1];
+                if (reducedProtIdSet.contains(targetProtId)) {
+                    buildIndex.protSeqMap.put(decoyProtId, decoyProtSeqMap.get(decoyProtId)); // using the target sequence to replace contaminant sequence if there is conflict.
                 }
             }
-            countBuildDecoyProts += toBeDeleteTaskList.size();
-            taskListBuildDecoyProts.removeAll(toBeDeleteTaskList);
-            taskListBuildDecoyProts.trimToSize();
-
-            int progress = countBuildDecoyProts * 20 / totalCountBuildDecoyProts;
-            if (progress != lastProgressBuildDecoyProts) {
-                logger.info("Build Decoy Prots {}%...", progress * 5);
-                lastProgressBuildDecoyProts = progress;
+        } else {
+            BufferedWriter decoyWriter = new BufferedWriter(new FileWriter(decoyFullDBPath));
+            int threadNum_1 = Integer.valueOf(parameterMap.get("thread_num"));
+            if (threadNum_1 == 0)  threadNum_1 = 3 + Runtime.getRuntime().availableProcessors();
+            ExecutorService threadPoolBuildDecoyProts = Executors.newFixedThreadPool(threadNum_1);
+            ArrayList<Future<BuildDecoyProts.Entry>> taskListBuildDecoyProts = new ArrayList<>(reducedProtIdSet.size() + 10);
+            ReentrantLock lockSpecCoder = new ReentrantLock();
+            for (String protId : protLengthMap.keySet()) {    //All protSeq are recorded but some decoy version are not because their targets are not in the reducedProtIdSet
+                taskListBuildDecoyProts.add(threadPoolBuildDecoyProts.submit(new BuildDecoyProts(parameterMap, buildIndex, protId)));
             }
+            int lastProgressBuildDecoyProts = 0;
+            int totalCountBuildDecoyProts = taskListBuildDecoyProts.size();
+            int countBuildDecoyProts = 0;
+            while (countBuildDecoyProts < totalCountBuildDecoyProts) {
+                List<Future<BuildDecoyProts.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountBuildDecoyProts - countBuildDecoyProts);
+                for (Future<BuildDecoyProts.Entry> task : taskListBuildDecoyProts) {
+                    if (task.isDone()) {
+                        if (task.get() != null ) {
+                            BuildDecoyProts.Entry entry = task.get();
+                            String protId = entry.protId;
+                            String decoyProtSeq = entry.decoyProtSeq;
+                            String decoyProtId = "DECOY_"+protId;
+                            if (reducedProtIdSet.contains(protId)) buildIndex.protSeqMap.put(decoyProtId, decoyProtSeq);
+                            decoyWriter.write(String.format(Locale.US, ">%s\n", decoyProtId));
+                            decoyWriter.write(decoyProtSeq + "\n");
+                        }
+                        toBeDeleteTaskList.add(task);
+                    } else if (task.isCancelled()) {
+                        toBeDeleteTaskList.add(task);
+                    }
+                }
+                countBuildDecoyProts += toBeDeleteTaskList.size();
+                taskListBuildDecoyProts.removeAll(toBeDeleteTaskList);
+                taskListBuildDecoyProts.trimToSize();
 
-            if (countBuildDecoyProts == totalCountBuildDecoyProts) {
-                break;
+                int progress = countBuildDecoyProts * 20 / totalCountBuildDecoyProts;
+                if (progress != lastProgressBuildDecoyProts) {
+                    logger.info("Build Decoy Prots {}%...", progress * 5);
+                    lastProgressBuildDecoyProts = progress;
+                }
+
+                if (countBuildDecoyProts == totalCountBuildDecoyProts) {
+                    break;
+                }
+                Thread.sleep(6000);
             }
-            Thread.sleep(6000);
+            // shutdown threads.
+            threadPoolBuildDecoyProts.shutdown();
+            if (!threadPoolBuildDecoyProts.awaitTermination(60, TimeUnit.SECONDS)) {
+                threadPoolBuildDecoyProts.shutdownNow();
+                if (!threadPoolBuildDecoyProts.awaitTermination(60, TimeUnit.SECONDS))
+                    throw new Exception("Pool did not terminate");
+            }
+            if (lockSpecCoder.isLocked()) {
+                lockSpecCoder.unlock();
+            }
+            decoyWriter.close();
         }
-        // shutdown threads.
-        threadPoolBuildDecoyProts.shutdown();
-        if (!threadPoolBuildDecoyProts.awaitTermination(60, TimeUnit.SECONDS)) {
-            threadPoolBuildDecoyProts.shutdownNow();
-            if (!threadPoolBuildDecoyProts.awaitTermination(60, TimeUnit.SECONDS))
-                throw new Exception("Pool did not terminate");
-        }
-        if (lockSpecCoder.isLocked()) {
-            lockSpecCoder.unlock();
-        }
+
         logger.info("Generating reduced FM index...");
         buildBiDirectionFMIndex(buildIndex);
-        buildIndex.minPeptideMass = minPeptideMass;
-        buildIndex.maxPeptideMass = maxPeptideMass;
+        buildIndex.minPeptideMass = 0;
+        buildIndex.maxPeptideMass = 9999;
         // writer concatenated fasta
         Map<String, String> proteinAnnotationMap;
-        String dbPath = parameterMap.get("db");
+
         DbTool dbTool = buildIndex.dbTool;
         DbTool contaminantsDb = null;
         if (true) { //addContaminants = true
@@ -901,8 +876,6 @@ public class PIPI {
         }
         writerProtNormal.write(normalSb.toString());
         writerProtReverse.write(normalSb.reverse().toString());
-//        System.out.println(normalSb.toString());
-//        System.out.println(normalSb.reverse().toString());
         writerProtNormal.close();
         writerProtReverse.close();
         char[] textNormal = buildIndex.loadFile("catProtNormal.txt", true);
@@ -910,21 +883,6 @@ public class PIPI {
         buildIndex.fmIndexNormal = new FMIndex(textNormal);
         buildIndex.fmIndexReverse = new FMIndex(textReverse);
         buildIndex.textNormalLen = textNormal.length-1; //remove the \r\n
-//        int dotPos = 0;
-//        int dotNum = 0;
-//        buildIndex.dotPosArrReverse = new int[buildIndex.protSeqMap.keySet().size()];
-//        for (String protId : buildIndex.protSeqMap.keySet()) {
-//            buildIndex.dotPosArrReverse[dotNum] = dotPos;
-//            buildIndex.posProtMapReverse.put(dotNum, protId);
-//            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
-//            buildIndex.protSeqMap.put(protId, protSeq);
-//            writerProtReverse.write("." + protSeq.replace('I', 'L'));
-//            dotNum++;
-//            dotPos += protSeq.length()+1;
-//        }
-//        writerProtReverse.close();
-//        char[] textReverse = buildIndex.loadFile("catProtReduced.txt", true);
-//        buildIndex.fmIndexReverse = new FMIndex(textReverse);
     }
     private boolean isTarget(Collection<String> proteinIds) {
         for (String protein : proteinIds) {

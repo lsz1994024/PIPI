@@ -206,6 +206,11 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             if (pepIdsToRemove.contains(j)) continue;
             for (int i = 0; i < j; i++) {
                 if (pepIdsToRemove.contains(i)) continue;
+                try {
+                    isHomo(pepList.get(i), pepList.get(j), peptideInfoMap);
+                } catch (Exception e) {
+                    System.out.println(scanNum + ", isHomo");
+                }
                 if (isHomo(pepList.get(i), pepList.get(j), peptideInfoMap) || pepList.get(j).getScore() > 0.6*pepList.get(i).getScore()) {
                     int iPriority = pepList.get(i).getPriority();
                     int jPriority = pepList.get(j).getPriority();
@@ -387,13 +392,6 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             this.totalScore = initialTag.getTotalIntensity();
         }
         public void addTag(ExpTag newTag, int tagPosInProt) {
-//            if (tagRelPosList.get(0).getFirst().getFreeAaString().contentEquals("FGTL") && newTag.getFreeAaString().contentEquals("KFGTL")) {
-//                int a = 1;
-//            }
-//
-//            if (tagRelPosList.get(0).getFirst().getFreeAaString().contentEquals("KFGTL") && newTag.getFreeAaString().contentEquals("FGTL")) {
-//                int a = 1;
-//            }
             boolean shouldAdd = true;
             for (Pair<ExpTag, Integer> tagRelPosPair : this.tagRelPosList) {
                 if (tagRelPosPair.getFirst().getFreeAaString().contentEquals(newTag.getFreeAaString())
@@ -405,29 +403,22 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             }
             if (! shouldAdd) return;
 
-//            for (Pair<ExpTag, Integer> tagRelPosPair : this.tagRelPosList) {
-//                if (tagRelPosPair.getFirst().getFreeAaString().contentEquals(newTag.getFreeAaString())
-//                        && tagRelPosPair.getSecond() == tagPosInProt
-//                        && tagRelPosPair.getFirst().getHeadLocation() == newTag.getHeadLocation()) { //dont add exactly the same tag
-//                    shouldAdd = false;
-//                    break;
+            int tagLen = newTag.size();
+//            for (int i = 0; i < tagLen; i++) {   // for exptag out of the current range, add there intens into totalScore
+//                if ( i+tagPosInProt < this.lPos) {
+//                    this.totalScore += newTag.expAaList.get(i).getHeadIntensity();
+//                    if (i == tagLen-1) {
+//                        this.totalScore += newTag.expAaList.get(i).getTailIntensity();
+//                    }
+//                }
+//                if ( i+tagPosInProt > this.rPos) {
+//                    this.totalScore += newTag.expAaList.get(i).getTailIntensity();
+//                    if (i == 0) {
+//                        this.totalScore += newTag.expAaList.get(i).getHeadIntensity();
+//                    }
 //                }
 //            }
-            int tagLen = newTag.size();
-            for (int i = 0; i < tagLen; i++) {   // for exptag out of the current range, add there intens into totalScore
-                if ( i+tagPosInProt < this.lPos) {
-                    this.totalScore += newTag.expAaList.get(i).getHeadIntensity();
-                    if (i == tagLen-1) {
-                        this.totalScore += newTag.expAaList.get(i).getTailIntensity();
-                    }
-                }
-                if ( i+tagPosInProt > this.rPos) {
-                    this.totalScore += newTag.expAaList.get(i).getTailIntensity();
-                    if (i == 0) {
-                        this.totalScore += newTag.expAaList.get(i).getHeadIntensity();
-                    }
-                }
-            }
+            this.totalScore += newTag.getTotalIntensity();
             this.tagRelPosList.add(new Pair<>(newTag, tagPosInProt));
             this.lPos = Math.min(tagPosInProt, this.lPos);
             this.rPos = Math.max(tagPosInProt + tagLen, this.rPos);
