@@ -1300,8 +1300,11 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         }
         //merge results
         try {
-            collectResult(segResList, resPepTreeSet, expProcessedPL, plMap,
-                    peptideInfoMap, protId, protSeq, tagRelPosList.get(0).getSecond(), tagRelPosList.get(0).getFirst().isNorC==N_TAG, tagRelPosList.get(tagNum-1).getSecond()+tagRelPosList.get(tagNum-1).getFirst().size(), tagRelPosList.get(tagNum-1).getFirst().isNorC==C_TAG);
+            if ( ! segResList.isEmpty()) {
+//                int a = 1;
+                collectResult(segResList, resPepTreeSet, expProcessedPL, plMap,
+                        peptideInfoMap, protId, protSeq, tagRelPosList.get(0).getSecond(), tagRelPosList.get(0).getFirst().isNorC==N_TAG, tagRelPosList.get(tagNum-1).getSecond()+tagRelPosList.get(tagNum-1).getFirst().size(), tagRelPosList.get(tagNum-1).getFirst().isNorC==C_TAG);
+            }
         } catch (Exception e ) {
             System.out.println(scanNum +",collectResult");
         }
@@ -1339,6 +1342,9 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 curRelPos += segArr[id].getFreeSeq().length();
             }
+//            if (pepSeqSB.toString().contentEquals("YLYV")) {
+//                int a= 1;
+//            }
             Peptide resPep = new Peptide(pepSeqSB.toString(), false, massTool);
             if (! posMassMap.isEmpty()) {
                 resPep.setVarPTM(posMassMap);
@@ -1349,7 +1355,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             resPep.setMatchedPeakNum(Score.getMatchedIonNum(plMap, 1, resPep.getIonMatrixNow(), ms2Tolerance));
             resPep.setScore(calScore*(1 - resPep.posVarPtmResMap.size() * 0.02));
 
-            updatePeptideTreeSet(resPep, resPepTreeSet, peptideInfoMap, protId, protSeq, protSeq.indexOf(pepSeqSB.toString()), protSeq.indexOf(pepSeqSB.toString())+pepSeqSB.length());
+            updatePeptideTreeSet(resPep, resPepTreeSet, peptideInfoMap, protId, protSeq, protSeq.indexOf(pepSeqSB.toString()), protSeq.indexOf(pepSeqSB.toString())+pepSeqSB.length()-1);
         }
     }
 
