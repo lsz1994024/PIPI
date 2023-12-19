@@ -642,7 +642,7 @@ public class InferPTM {
                                    double ms1TolAbs, Map<Integer, Integer> absPosYIdMap, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
                                    int optStartPos,
                                    boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,
-                                   TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet) {
+                                   TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet,Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
 
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>(absPosYIdMap.values().size());
@@ -686,21 +686,21 @@ public class InferPTM {
 
                 boolean hasFixMod = aaWithFixModSet.contains(aa);
                 if (hasFixMod) continue;
-                List<Byte> positionsToTry = new ArrayList<>(3);
-                positionsToTry.add(ANYWHERE);
-                if (yIdMaxAbsPosMap.containsValue(absPos)) {
-                    positionsToTry.add(PEPC);
-                    xPosPEPC_MassMap.put(absPos, new ArrayList<>());
-                }
-                if (absPos == optStartPos - 1) {
-                    if ((aa == 'K' || aa == 'R') || !cTermSpecific) {
-                        positionsToTry.add(PEPC);
-                        xPosPEPC_MassMap.put(absPos, new ArrayList<>());
-                    }
-                }
-                if (couldBeProtC && relPos == partSeqLen - 1) {
-                    positionsToTry.add(PROTC);
-                }
+                List<Byte> positionsToTry = absPos_ptmPositions_Map.get(absPos);
+//                positionsToTry.add(ANYWHERE);
+//                if (yIdMaxAbsPosMap.containsValue(absPos)) {
+//                    positionsToTry.add(PEPC);
+//                    xPosPEPC_MassMap.put(absPos, new ArrayList<>());
+//                }
+//                if (absPos == optStartPos - 1) {
+//                    if ((aa == 'K' || aa == 'R') || !cTermSpecific) {
+//                        positionsToTry.add(PEPC);
+//                        xPosPEPC_MassMap.put(absPos, new ArrayList<>());
+//                    }
+//                }
+//                if (couldBeProtC && relPos == partSeqLen - 1) {
+//                    positionsToTry.add(PROTC);
+//                }
 
                 GRBLinExpr sumX_leq_1orY = new GRBLinExpr();
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
@@ -724,7 +724,14 @@ public class InferPTM {
 //                        ptmId++;
                         usedMassForThisAa.add(ptmMass);
                         if (position == PEPC) {
-                            xPosPEPC_MassMap.get(absPos).add(ptmMass); // for later PEPC ptm and yi yj constraint
+                            List<Double> PEPC_MassList = xPosPEPC_MassMap.get(absPos);
+                            if (PEPC_MassList == null) {
+                                PEPC_MassList = new ArrayList<>();
+                                PEPC_MassList.add(ptmMass);
+                                xPosPEPC_MassMap.put(absPos, PEPC_MassList);
+                            } else {
+                                PEPC_MassList.add(ptmMass); // for later PEPC ptm and yi yj constraint
+                            }
                         }
                     }
                 }
@@ -970,6 +977,10 @@ public class InferPTM {
             double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
+                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
+                if (poolObjVal < objValThres){
+                    break;
+                }
                 Map<Integer, Double> thisSol = new HashMap<>();
                 for (int absPos = refPos; absPos < partSeq.length() + refPos; absPos++) {
                     if (absPosYIdMap.containsKey(absPos)) { //just for verification
@@ -1003,10 +1014,7 @@ public class InferPTM {
                     }
                 }
                 int trueSeqEndAbsPos = Collections.max(thisSol.keySet());
-                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
-                if (poolObjVal < objValThres){
-                    break;
-                }
+
                 Peptide tmpPeptide = new Peptide(partSeq.substring(0, trueSeqEndAbsPos+1-refPos), false, massTool);
                 PosMassMap posMassMap = new PosMassMap();
                 for (int absPos : thisSol.keySet()) {
@@ -1113,17 +1121,18 @@ public class InferPTM {
             if (gapLen > 8) timeLimit = 3;
             if (gapLen > 10) timeLimit = 4;
             if (gapLen > 13) timeLimit = 5;
-            model.set(GRB.DoubleParam.TimeLimit, 5); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
+            model.set(GRB.DoubleParam.TimeLimit, 200); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
             model.set(GRB.IntParam.Threads, 32); // second
+            model.set(GRB.IntParam.AggFill, 10); // second
 
-            model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
-            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
-            model.set(GRB.IntParam.PrePasses, 2); // second
-            model.set(GRB.IntParam.PreSparsify, 1); // second
-            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
+            model.set(GRB.IntParam.MIPFocus, 3); // second
+//            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
+//            model.set(GRB.IntParam.PrePasses, 2); // second
+//            model.set(GRB.IntParam.PreSparsify, 1); // second
+//            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
 
-//            model.set(GRB.DoubleParam.TuneTimeLimit, 43200);
+//            model.set(GRB.DoubleParam.TuneTimeLimit, 7200);
 //            model.set(GRB.IntParam.TuneTrials, 5);
 //            model.tune();
             model.optimize();
@@ -1438,7 +1447,8 @@ public class InferPTM {
                                    Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, int optEndPosP1,
                                    boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap,
                                    String protSeq, TreeMap<Double, Double> plMap,
-                                   TreeSet<Peptide> nModPepsSet) {
+                                   TreeSet<Peptide> nModPepsSet,
+                                   Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
         for (int pos : absPosYIdMap.keySet()) {
@@ -1483,22 +1493,22 @@ public class InferPTM {
 
                 boolean hasFixMod = aaWithFixModSet.contains(aa);
                 if (hasFixMod && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
-                List<Byte> positionsToTry = new ArrayList<>(3);
-                positionsToTry.add(ANYWHERE);
-                if (yIdMinAbsPosMap.containsValue(absPos)) {
-                    positionsToTry.add(PEPN);
-                    xPosPEPN_MassMap.put(absPos, new ArrayList<>());
-                }
-                if (absPos == optEndPosP1) {
-                    if (! nTermSpecific || absPos == 0 || protSeq.charAt(absPos-1) == 'K' || protSeq.charAt(absPos-1) == 'R') {
-                        positionsToTry.add(PEPN);
-                        xPosPEPN_MassMap.put(absPos, new ArrayList<>());
-                    }
-                }
-                if (couldBeProtN && relPos == 0) {
-                    positionsToTry.add(PROTN);
-                    xPosPEPN_MassMap.put(absPos, new ArrayList<>());
-                }
+                List<Byte> positionsToTry = absPos_ptmPositions_Map.get(absPos);
+//                positionsToTry.add(ANYWHERE);
+//                if (yIdMinAbsPosMap.containsValue(absPos)) {
+//                    positionsToTry.add(PEPN);
+//                    xPosPEPN_MassMap.put(absPos, new ArrayList<>());
+//                }
+//                if (absPos == optEndPosP1) {
+//                    if (! nTermSpecific || absPos == 0 || protSeq.charAt(absPos-1) == 'K' || protSeq.charAt(absPos-1) == 'R') {
+//                        positionsToTry.add(PEPN);
+//                        xPosPEPN_MassMap.put(absPos, new ArrayList<>());
+//                    }
+//                }
+//                if (couldBeProtN && relPos == 0) {
+//                    positionsToTry.add(PROTN);
+//                    xPosPEPN_MassMap.put(absPos, new ArrayList<>());
+//                }
 
                 GRBLinExpr sumX_leq_1orY = new GRBLinExpr();
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
@@ -1523,7 +1533,14 @@ public class InferPTM {
 
                         usedMassForThisAa.add(ptmMass);
                         if (position == PEPN) {
-                            xPosPEPN_MassMap.get(absPos).add(ptmMass); // for later PEPC ptm and yi yj constraint
+                            List<Double> PEPN_MassList = xPosPEPN_MassMap.get(absPos);
+                            if (PEPN_MassList == null) {
+                                PEPN_MassList = new ArrayList<>();
+                                PEPN_MassList.add(ptmMass);
+                                xPosPEPN_MassMap.put(absPos, PEPN_MassList);
+                            } else {
+                                PEPN_MassList.add(ptmMass); // for later PEPC ptm and yi yj constraint
+                            }
                         }
                     }
                 }
@@ -2772,7 +2789,8 @@ public class InferPTM {
                                  final Map<Integer, Integer> yIdMaxAbsPosMap,
                                  final boolean couldBeProtC,
                                  final int optStartPos,
-                                 final int startRefPos) {
+                                 final int startRefPos,
+                                 Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
 
         int partSeqLen = partSeq.length();
         char aa;
@@ -2795,6 +2813,7 @@ public class InferPTM {
             if (couldBeProtC && relPos == partSeqLen-1) {
                 positionsToTry.add(PROTC);
             }
+            absPos_ptmPositions_Map.put(absPos, positionsToTry);
 
             if (aaAllVarPtmMap.containsKey(aa)) {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
@@ -2872,7 +2891,8 @@ public class InferPTM {
                                  boolean couldBeProtN,
                                  int optEndPosP1,
                                  int endRefPos,
-                                 String protSeq) {
+                                 String protSeq,
+                                 Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
 
         int partSeqLen = partSeq.length();
         char aa;
@@ -2896,6 +2916,7 @@ public class InferPTM {
                 positionsToTry.add(PROTN);
             }
 
+            absPos_ptmPositions_Map.put(absPos, positionsToTry);
             if (aaAllVarPtmMap.containsKey(aa)) {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
                 Map<String, VarPtm> dstMap = new HashMap<>();

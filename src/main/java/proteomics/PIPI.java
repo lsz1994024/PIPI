@@ -106,7 +106,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
     //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(146972));//129543, 111179, 50630, 35359
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(23603));//129543, 111179, 50630, 35359
 
     public static int neighborNum = 1;
     public static void main(String[] args) {
@@ -455,11 +455,9 @@ public class PIPI {
         ArrayList<Future<BuildDecoyProts.Entry>> taskListBuildDecoyProts = new ArrayList<>(reducedProtIdSet.size() + 10);
         ReentrantLock lockSpecCoder = new ReentrantLock();
 
-//        int submitNumGetPepCandis = 0;
         for (String protId : reducedProtIdSet) {    //All protSeq are recorded but some decoy version are not because their targets are not in the reducedProtIdSet
             taskListBuildDecoyProts.add(threadPoolBuildDecoyProts.submit(new BuildDecoyProts(parameterMap, buildIndex, protId)));
         }
-//        System.out.println("totalSubmit in GetPepCandi, "+ submitNumGetPepCandis);
 
         int lastProgressBuildDecoyProts = 0;
         int totalCountBuildDecoyProts = taskListBuildDecoyProts.size();
@@ -511,34 +509,10 @@ public class PIPI {
         if (lockSpecCoder.isLocked()) {
             lockSpecCoder.unlock();
         }
-
-        // build reduced protein fm index
-//        long t1=System.currentTimeMillis();
         logger.info("Generating reduced FM index...");
         buildBiDirectionFMIndex(buildIndex);
-//        BufferedWriter writerProt = new BufferedWriter(new FileWriter("catProtReduced.txt"));
-//        int dotPos = 0;
-//        int dotNum = 0;
-//        buildIndex.dotPosArrReduced = new int[buildIndex.protSeqMap.keySet().size()];
-//        for (String protId : buildIndex.protSeqMap.keySet()) {
-//            buildIndex.dotPosArrReduced[dotNum] = dotPos;
-//            buildIndex.posProtMapReduced.put(dotNum, protId);
-//            String protSeq = buildIndex.protSeqMap.get(protId).replace('I', 'L');
-//            buildIndex.protSeqMap.put(protId, protSeq);
-//            writerProt.write("." + protSeq.replace('I', 'L'));
-//            dotNum++;
-//            dotPos += protSeq.length()+1;
-//            int numOfTags = buildIndex.inferSegment.getLongTagNumForProt(protSeq);
-//            protLengthMap.put(protId, numOfTags);
-//        }
-//        writerProt.close();
-//        char[] text = buildIndex.loadFile("catProtReduced.txt", true);
-//        buildIndex.fmIndexReduced = new FMIndex(text);
-//
-//        System.out.println("time," + (t4-t3) + "," + (t3-t2)+ "," + (t2-t1));
         buildIndex.minPeptideMass = minPeptideMass;
         buildIndex.maxPeptideMass = maxPeptideMass;
-//        buildIndex.tagProtPosMap = tagProtPosMap;
         // writer concatenated fasta
         Map<String, String> proteinAnnotationMap;
         String dbPath = parameterMap.get("db");
