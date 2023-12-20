@@ -172,7 +172,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         }
         List<OccGroup> occGroupList = new LinkedList<>();
 //        Map<Pair<Integer, Integer>, Integer> posRangeOccIdMap = new HashMap<>();
-        int numResSub = searchAndSaveFuzzy1(scanNum , tagsToTest, distinctTagIds, occGroupList, minTagLen, totalMass);
+        int numResSub = searchWithMultiTags(scanNum , tagsToTest, distinctTagIds, occGroupList, minTagLen, totalMass);
         occGroupList.sort(Comparator.comparing(o->o.totalScore, Comparator.reverseOrder()));
 
         mergeTags(occGroupList);
@@ -425,7 +425,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             this.spanLen = Math.min(this.rPos - this.lPos, this.spanLen+ tagLen);
         }
     }
-    private int searchAndSaveFuzzy1(int scanNum, List<ExpTag> tagsToTest, Set<Integer> distinctTagIds
+    private int searchWithMultiTags(int scanNum, List<ExpTag> tagsToTest, Set<Integer> distinctTagIds
             , List<OccGroup> occGroupList, int minTagLen, double totalMass) {
 
         char[] tagChar;
