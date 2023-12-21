@@ -27,7 +27,6 @@ public class ExpTag implements Comparable<ExpTag> {
     private double totalIntensity;
     private String freeAaString;
     private String ptmAaString;
-    private int regionIdx;
     public List<ExpAa> expAaList;
     public List<Double> intensityList;
 
@@ -64,6 +63,8 @@ public class ExpTag implements Comparable<ExpTag> {
         return hashCode;
     }
 
+    public ExpTag() {} // for clone
+
     public boolean equals(Object other) {
         return (other instanceof ExpTag) && (this.hashCode() == other.hashCode());
     }
@@ -80,10 +81,6 @@ public class ExpTag implements Comparable<ExpTag> {
     public int compareTo(ExpTag other) {
         return Double.compare(this.expAaList.get(0).getHeadLocation(), other.expAaList.get(0).getHeadLocation());
     }
-
-//    public ExpAa[] getExpAAs() {
-//        return expAaArray;
-//    }
 
     public String getFreeAaString() {
         return freeAaString;
@@ -108,14 +105,17 @@ public class ExpTag implements Comparable<ExpTag> {
         return expAaList.get(expAaList.size()-1).getTailLocation();
     }
 
-//    public ExpTag clone() throws CloneNotSupportedException {
-//        super.clone();
-//        if (expAaArray.length == 3 ){
-//            return new ExpTag(expAaArray[0].clone(), expAaArray[1].clone(), expAaArray[2].clone());
-//        }else {
-//            return new ExpTag(expAaArray[0].clone(), expAaArray[1].clone(), expAaArray[2].clone(), expAaArray[3].clone());
-//        }
-//    }
+    public ExpTag clone()  {
+        ExpTag newTag = new ExpTag();
+        newTag.isNorC = this.isNorC;
+        newTag.hashCode = this.hashCode;
+        newTag.totalIntensity = this.totalIntensity;
+        newTag.freeAaString = this.freeAaString;
+        newTag.ptmAaString = this.ptmAaString;
+        newTag.expAaList = new ArrayList<>(this.expAaList);
+        newTag.intensityList = new ArrayList<>(this.intensityList);
+        return newTag;
+    }
 
     public int size() {
         return expAaList.size();
@@ -136,6 +136,12 @@ public class ExpTag implements Comparable<ExpTag> {
         int diffLen = this.size() - pos;
         if (newTag.size() <= diffLen) return;
 
+        int theLastIntensId = Math.min(this.size(), pos+ newTag.size());
+        for (int i = pos; i < theLastIntensId; ++i ){
+            this.intensityList.set(pos, Math.max(this.intensityList.get(i), newTag.intensityList.get(i-pos)));  //the overlapping peaks, use the one with larger intensity  , head peaks
+        }
+        this.intensityList.set(theLastIntensId, Math.max(this.intensityList.get(theLastIntensId), newTag.intensityList.get(theLastIntensId-pos))); //the last tail peak
+
         for (int i = diffLen; i < newTag.size(); i++) {
             this.intensityList.add(newTag.intensityList.get(i+1));
             this.expAaList.add(newTag.expAaList.get(i));
@@ -155,11 +161,10 @@ public class ExpTag implements Comparable<ExpTag> {
         freeAaString = sbFreeSeq.toString();
         ptmAaString = sbPtmSeq.toString();
 
-        double intensity = expAaList.get(0).getHeadIntensity();
-        for (ExpAa aa : expAaList) {
-            intensity += aa.getTailIntensity();
+        totalIntensity = 0;
+        for (double intens : intensityList) {
+            totalIntensity += intens;
         }
-        totalIntensity = intensity;
     }
 
     public ExpTag subTag(int start, int end){ // start included  end not included

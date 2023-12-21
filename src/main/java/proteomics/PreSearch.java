@@ -19,6 +19,7 @@ package proteomics;
 import ProteomicsLibrary.MassTool;
 import ProteomicsLibrary.Score;
 import ProteomicsLibrary.SpecProcessor;
+import ProteomicsLibrary.Types.AA;
 import ProteomicsLibrary.Types.SparseBooleanVector;
 import ProteomicsLibrary.Types.SparseVector;
 import com.google.common.collect.Sets;
@@ -145,37 +146,26 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 
         int tagNumsToTest =  Math.min(20, allLongTagList.size());
         List<ExpTag> tagsToTest = new ArrayList<>();
-        Set<Integer> distinctTagIds = new HashSet<>();
         TreeSet<Peptide> resPeptTreeSet = new TreeSet<>(Collections.reverseOrder());
         ExpTag tagInfo;
-        int t = 0;
         for (int i = 0; i < tagNumsToTest; i++) {
             tagInfo = allLongTagList.get(i);
             if (tagInfo.isNorC == N_TAG) { //n tag //todo can I relax this. can I check all N and C tags as non NC (both direction)
                 tagsToTest.add(tagInfo);
-                distinctTagIds.add(t);
-                t++;
             } else if (tagInfo.isNorC == C_TAG) { // c tag
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
                 tagsToTest.add(revTagInfo);
-                distinctTagIds.add(t);
-                t++;
             } else { // non-nc tag
                 tagsToTest.add(tagInfo);
-                distinctTagIds.add(t);
-                t++;
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
                 tagsToTest.add(revTagInfo);
-                distinctTagIds.add(t);
-                t++;
             }
         }
         List<OccGroup> occGroupList = new LinkedList<>();
-//        Map<Pair<Integer, Integer>, Integer> posRangeOccIdMap = new HashMap<>();
-        int numResSub = searchWithMultiTags(scanNum , tagsToTest, distinctTagIds, occGroupList, minTagLen, totalMass);
+        searchWithMultiTags(scanNum , tagsToTest, occGroupList, minTagLen, totalMass);
         occGroupList.sort(Comparator.comparing(o->o.totalScore, Comparator.reverseOrder()));
 
-        mergeTags(occGroupList);
+//        mergeTags(occGroupList);
 
         int count = 0;
         double topScore = 0;
@@ -187,11 +177,11 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         outLoop:
         for (OccGroup occG : occGroupList) {
             if (occG.totalScore < 0.7*topOccScore) break;
-            occG.tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
+            occG.tagPosList.sort(Comparator.comparing(o->o.getSecond()));
 //            occG.tagRelPosList.remove(2);// debug
             String protId = occG.protId;
             count++;
-            double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagRelPosList, ms1TolAbs, resPeptTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
+            double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagPosList, ms1TolAbs, resPeptTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
         }
         if (lszDebugScanNum.contains(scanNum)){
             int a = 1;
@@ -207,23 +197,21 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             for (int i = 0; i < j; i++) {
                 if (pepIdsToRemove.contains(i)) continue;
                 try {
-                    isHomo(pepList.get(i), pepList.get(j), peptideInfoMap);
-                } catch (Exception e) {
-                    System.out.println(scanNum + ", isHomo");
-                }
-                if (isHomo(pepList.get(i), pepList.get(j), peptideInfoMap) || pepList.get(j).getScore() > 0.6*pepList.get(i).getScore()) {
-                    int iPriority = pepList.get(i).getPriority();
-                    int jPriority = pepList.get(j).getPriority();
-                    if (iPriority < jPriority) {
-                        pepIdsToRemove.add(i);
-                    } else if (iPriority > jPriority) {
-                        pepIdsToRemove.add(j);
-                    } else {// iPriority == jPriority
-
-                        if (onlyDifferUnsettledPtm(pepList.get(i), pepList.get(j))) {
+                    if (isHomo(pepList.get(i), pepList.get(j), peptideInfoMap) || pepList.get(j).getScore() > 0.6*pepList.get(i).getScore()) {
+                        int iPriority = pepList.get(i).getPriority();
+                        int jPriority = pepList.get(j).getPriority();
+                        if (iPriority < jPriority) {
+                            pepIdsToRemove.add(i);
+                        } else if (iPriority > jPriority) {
                             pepIdsToRemove.add(j);
+                        } else {// iPriority == jPriority
+                            if (onlyDifferUnsettledPtm(pepList.get(i), pepList.get(j))) {
+                                pepIdsToRemove.add(j);
+                            }
                         }
                     }
+                } catch (Exception e) {
+                    System.out.println(scanNum + ", isHomo");
                 }
             }
         }
@@ -299,19 +287,95 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         return entry;
     }
 
+    private void mergeTagPosList(List<Pair<ExpTag, Integer>> tagRelPosList) {
+        if (tagRelPosList.size() == 1) return;
+        tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
+        int lastTagId = 0;
+        int contTagId = 1;
+        List<Integer> tagIdAppended = new ArrayList<>();
+        List<Integer> badIds = new ArrayList<>();
+        while (contTagId < tagRelPosList.size()) {
+            int lastTagPos = tagRelPosList.get(lastTagId).getSecond();
+            ExpTag lastTag = tagRelPosList.get(lastTagId).getFirst();
+            int contTagPos = tagRelPosList.get(contTagId).getSecond();
+            ExpTag contTag = tagRelPosList.get(contTagId).getFirst();
+
+            if (contTagPos <= lastTagPos+lastTag.size()) {
+                double lastFlagMass;
+                double contFlagMass = contTag.getHeadLocation();
+                if (lastTagPos == contTagPos) {
+                    lastFlagMass = lastTag.getHeadLocation();
+                } else {
+                    lastFlagMass = lastTag.expAaList.get(contTagPos-lastTagPos-1).getTailLocation();
+                }
+                if (Math.abs(contFlagMass-lastFlagMass) < 0.02) {
+                    lastTag.appendTag(contTagPos-lastTagPos, contTag);
+                    tagIdAppended.add(contTagId);
+                    contTagId++;
+                } else {
+                    int badTadId = -1;
+                    if (lastTag.isNorC == N_TAG) {
+                        badTadId = contTagId;
+                    } else if (contTag.isNorC == C_TAG) {
+                        badTadId = lastTagId;
+                    } else {
+                        badTadId = lastTag.getTotalIntensity() < contTag.getTotalIntensity() ? lastTagId : contTagId;
+                    }
+                    tagIdAppended.add(badTadId);
+                    badIds.add(badTadId);
+                    if (badTadId == lastTagId) {
+                        lastTagId = contTagId;
+                        contTagId = lastTagId+1;
+                    } else {
+                        contTagId++;
+                    }
+                }
+            } else {
+                int badTadId = -1;
+                if (lastTag.isNorC == N_TAG) {
+                    badTadId = contTagId;
+                } else if (contTag.isNorC == C_TAG) {
+                    badTadId = lastTagId;
+                } else {
+                    badTadId = lastTag.getTotalIntensity() < contTag.getTotalIntensity() ? lastTagId : contTagId;
+                }
+
+                if (contTag.getHeadLocation() - lastTag.getTailLocation() < 57.021){ // if they dont overlap but the mass diff is wrong, remove one
+                    tagIdAppended.add(badTadId);   // todo should be more details, use the sum(aas between two tags)+-250 to judge
+                    badIds.add(badTadId);
+                    if (badTadId == lastTagId) {
+                        lastTagId = contTagId;
+                        contTagId = lastTagId+1;
+                    } else {
+                        contTagId++;
+                    }
+                } else {
+                    lastTagId = contTagId;
+                    contTagId = lastTagId+1;
+                }
+            }
+        }
+//        for (int i : badIds) totalScore -= tagRelPosList.get(i).getFirst().getTotalIntensity();
+        tagIdAppended.sort(Comparator.reverseOrder());
+        for (int i : tagIdAppended) {
+            tagRelPosList.remove(i);
+        }
+        Collections.sort(tagRelPosList, Comparator.comparing(o -> o.getSecond()));
+    }
+
     private void mergeTags(List<OccGroup> occGroupList) {
         for (OccGroup occ : occGroupList){
-            if (occ.tagRelPosList.size() == 1) continue;
-            occ.tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
+            if (occ.tagPosList.size() == 1) continue;
+            occ.tagPosList.sort(Comparator.comparing(o->o.getSecond()));
             int lastTagId = 0;
             int contTagId = 1;
             List<Integer> tagIdAppended = new ArrayList<>();
             List<Integer> badIds = new ArrayList<>();
-            while (contTagId < occ.tagRelPosList.size()) {
-                int lastTagPos = occ.tagRelPosList.get(lastTagId).getSecond();
-                ExpTag lastTag = occ.tagRelPosList.get(lastTagId).getFirst();
-                int contTagPos = occ.tagRelPosList.get(contTagId).getSecond();
-                ExpTag contTag = occ.tagRelPosList.get(contTagId).getFirst();
+            while (contTagId < occ.tagPosList.size()) {
+                int lastTagPos = occ.tagPosList.get(lastTagId).getSecond();
+                ExpTag lastTag = occ.tagPosList.get(lastTagId).getFirst();
+                int contTagPos = occ.tagPosList.get(contTagId).getSecond();
+                ExpTag contTag = occ.tagPosList.get(contTagId).getFirst();
 
                 if (contTagPos <= lastTagPos+lastTag.size()) {
                     double lastFlagMass;
@@ -368,142 +432,144 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                     }
                 }
             }
-            for (int i : badIds) occ.totalScore -= occ.tagRelPosList.get(i).getFirst().getTotalIntensity();
+            for (int i : badIds) occ.totalScore -= occ.tagPosList.get(i).getFirst().getTotalIntensity();
             tagIdAppended.sort(Comparator.reverseOrder());
             for (int i : tagIdAppended) {
-                occ.tagRelPosList.remove(i);
+                occ.tagPosList.remove(i);
             }
 
         }
     }
-    final class OccGroup {
-        public List<Pair<ExpTag, Integer>> tagRelPosList = new ArrayList<>();
+    final class OccGroup implements Cloneable {
+        public List<Pair<ExpTag, Integer>> tagPosList = new ArrayList<>();
         public int lPos;
         public int rPos;
         public int spanLen;
-        final public String protId;
+        public String protId;
         public double totalScore;
         public OccGroup(ExpTag initialTag, String protId, int tagPosInProt) {
-            this.tagRelPosList.add(new Pair<>(initialTag, tagPosInProt));
+            this.tagPosList.add(new Pair<>(initialTag, tagPosInProt));
             this.spanLen = initialTag.size();
             this.lPos = tagPosInProt;
             this.rPos = tagPosInProt + this.spanLen;
             this.protId = protId;
             this.totalScore = initialTag.getTotalIntensity();
         }
-        public void addTag(ExpTag newTag, int tagPosInProt) {
+
+        public OccGroup() {} // for clone
+
+
+        public void addTag(ExpTag newTag, int newTagPos) {
             boolean shouldAdd = true;
-            for (Pair<ExpTag, Integer> tagRelPosPair : this.tagRelPosList) {
-                if (tagRelPosPair.getFirst().getFreeAaString().contentEquals(newTag.getFreeAaString())
-                        && tagRelPosPair.getSecond() == tagPosInProt
-                        && tagRelPosPair.getFirst().getHeadLocation() == newTag.getHeadLocation()) { //dont add exactly the same tag
+            for (Pair<ExpTag, Integer> tagPosPair : this.tagPosList) {
+                if (tagPosPair.getFirst().getFreeAaString().contentEquals(newTag.getFreeAaString())
+                        && tagPosPair.getSecond() == newTagPos
+                        && tagPosPair.getFirst().getHeadLocation() == newTag.getHeadLocation()) { //dont add exactly the same tag
                     shouldAdd = false;
                     break;
                 }
             }
             if (! shouldAdd) return;
 
-            int tagLen = newTag.size();
-//            for (int i = 0; i < tagLen; i++) {   // for exptag out of the current range, add there intens into totalScore
-//                if ( i+tagPosInProt < this.lPos) {
-//                    this.totalScore += newTag.expAaList.get(i).getHeadIntensity();
-//                    if (i == tagLen-1) {
-//                        this.totalScore += newTag.expAaList.get(i).getTailIntensity();
-//                    }
-//                }
-//                if ( i+tagPosInProt > this.rPos) {
-//                    this.totalScore += newTag.expAaList.get(i).getTailIntensity();
-//                    if (i == 0) {
-//                        this.totalScore += newTag.expAaList.get(i).getHeadIntensity();
-//                    }
-//                }
-//            }
-            this.totalScore += newTag.getTotalIntensity();
-            this.tagRelPosList.add(new Pair<>(newTag, tagPosInProt));
-            this.lPos = Math.min(tagPosInProt, this.lPos);
-            this.rPos = Math.max(tagPosInProt + tagLen, this.rPos);
-            this.spanLen = Math.min(this.rPos - this.lPos, this.spanLen+ tagLen);
+            this.tagPosList.add(new Pair<>(newTag, newTagPos));
+            mergeTagPosList(this.tagPosList);
+
+            //update variables
+            this.totalScore = 0;
+            for (Pair<ExpTag, Integer> tagPosPair : this.tagPosList) this.totalScore += tagPosPair.getFirst().getTotalIntensity();
+            this.lPos = this.tagPosList.get(0).getSecond();
+            this.rPos = this.tagPosList.get(this.tagPosList.size()-1).getSecond() + this.tagPosList.get(this.tagPosList.size()-1).getFirst().size();
+            this.spanLen = this.rPos - this.lPos;
         }
+
+        public OccGroup clone() {
+            OccGroup newOccG = new OccGroup();
+            newOccG.tagPosList.addAll(this.tagPosList);
+            newOccG.spanLen = this.spanLen;
+            newOccG.lPos = this.lPos;
+            newOccG.rPos = this.rPos;
+            newOccG.protId = this.protId;
+            newOccG.totalScore = this.totalScore;
+            return newOccG;
+        }
+
+        public boolean equals(Object other) {
+            OccGroup tmp = (OccGroup) other;
+            if (! this.protId.contentEquals(tmp.protId)) return false;
+            if ( this.lPos != tmp.lPos) return false;
+            if ( this.rPos != tmp.rPos) return false;
+            if ( this.totalScore != tmp.totalScore) return false;
+
+            if (this.tagPosList.size() != tmp.tagPosList.size()) return false;
+            for (int i = 0; i < this.tagPosList.size(); ++i) {
+                if (! this.tagPosList.get(i).getFirst().getFreeAaString().contentEquals(tmp.tagPosList.get(i).getFirst().getFreeAaString())) {
+                    return false;
+                }
+                if (this.tagPosList.get(i).getFirst().getHeadLocation() != tmp.tagPosList.get(i).getFirst().getHeadLocation()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
     }
-    private int searchWithMultiTags(int scanNum, List<ExpTag> tagsToTest, Set<Integer> distinctTagIds
-            , List<OccGroup> occGroupList, int minTagLen, double totalMass) {
+    private void searchWithMultiTags(int scanNum, List<ExpTag> tagsToTest, List<OccGroup> occGroupList, int minTagLen, double totalMass) {
 
         char[] tagChar;
-        int numRes;
-        int solCount = 0;
         FMRes fmRes;
-        int matchedPos;
+        int matchedPos, tagLen;
         String protId;
-        int tagLen;
-        boolean isSubLast;
         ExpTag tagInfo;
-        Map<Pair<Integer, Integer>, Integer> posRangeOccIdMap = new HashMap<>();
         int tagsNum = tagsToTest.size();
-        Set<Pair<String, Integer>> matchedProtIdRelPosSet = new HashSet<>();
+//        Set<Pair<String, Integer>> matchedProtIdRelPosSet = new HashSet<>();
         int occId = -1;
         for (int i = 0; i < tagsNum; i++) {
             boolean shouldTryForwardSearch = false;
             tagInfo = tagsToTest.get(i);
-            if (distinctTagIds.contains(i)) matchedProtIdRelPosSet.clear();
-            tagChar = tagInfo.getFreeAaString().toCharArray();
-
-            fmRes = buildIndex.fmIndexNormal.fmSearchFuzzy(tagChar);
-            if (fmRes == null) return 0;
-            solCount += fmRes.ep-fmRes.sp+1;
-            matchedPos = fmRes.matchedPos;
-            int oriIsNorC = tagInfo.isNorC;
-            if (matchedPos != 0) {
-                shouldTryForwardSearch = true;
-                if (oriIsNorC == N_TAG) {
-                    tagInfo.isNorC = NON_NC_TAG;
-                }
-            }
             tagLen = tagInfo.size();
-//            if (matchedPos > 0 && tagInfo.size()-matchedPos < minTagLen) continue;
-            if (matchedPos == 0 || tagInfo.size()-matchedPos >= minTagLen) {
-                ExpTag resTagInfo = matchedPos == 0 ? tagInfo : tagInfo.subTag(matchedPos, tagLen);
-                int absTagPos;
-                int dotIndex;
-                int lPos;
-                int rPos;
-                for (int ii = fmRes.sp; ii <= fmRes.ep; ii++) {
-                    absTagPos = buildIndex.fmIndexNormal.SA[ii];
-                    dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrNormal, absTagPos);
-                    protId = buildIndex.posProtMapNormal.get(dotIndex);
-                    lPos = absTagPos - buildIndex.dotPosArrNormal[dotIndex] - 1;
-                    rPos = lPos + tagLen - matchedPos;
-                    Pair<String, Integer> protIdRelPos = new Pair<>(protId, lPos);
-                    if (matchedProtIdRelPosSet.contains(protIdRelPos)) {
-                        continue;
-                    } else {
-                        matchedProtIdRelPosSet.add(protIdRelPos);
-                    }
+            tagChar = tagInfo.getFreeAaString().toCharArray();
+            fmRes = buildIndex.fmIndexNormal.fmSearchFuzzy(tagChar);
+            if (fmRes != null) {
+                matchedPos = fmRes.matchedPos;
+                int oriIsNorC = tagInfo.isNorC;
+                if (matchedPos != 0) {
+                    shouldTryForwardSearch = true;
+                    if (oriIsNorC == N_TAG) tagInfo.isNorC = NON_NC_TAG;
+                }
+                tagLen = tagInfo.size();
+                if (matchedPos == 0 || tagLen-matchedPos >= minTagLen) {
+                    ExpTag resTag = matchedPos == 0 ? tagInfo : tagInfo.subTag(matchedPos, tagLen);
+                    int absTagPos, dotIndex, lPos, rPos;
 
-                    boolean foundRange = false;
-                    Iterator<Map.Entry<Pair<Integer, Integer>,Integer>> iterator = posRangeOccIdMap.entrySet().iterator();
-                    while (iterator.hasNext()) {
-                        Map.Entry<Pair<Integer, Integer>,Integer> entry = iterator.next();
-                        int lSpan = entry.getKey().getFirst();
-                        int rSpan = entry.getKey().getSecond();
-//                    if (lPos >= lSpan-1 && rPos <= rSpan+1) {
-                        if (lPos <= rSpan && rPos >= lSpan) {
-                            if (occGroupList.get(entry.getValue()).protId.contentEquals(protId)) {
-                                occId = entry.getValue();
-                                OccGroup occG = occGroupList.get(occId);
-                                occG.addTag(resTagInfo, lPos);
-                                iterator.remove(); // remove it for later update because it will be modified
-                                posRangeOccIdMap.put(new Pair<>(Math.min(occG.lPos-occG.spanLen, lSpan), Math.max(occG.rPos+occG.spanLen, rSpan)), occId);
+                    Set<OccGroup> oldOccGToDel = new HashSet<>();
+                    Set<OccGroup> newOccGToAdd = new HashSet<>();
+                    for (int ii = fmRes.sp; ii <= fmRes.ep; ii++) {
+                        absTagPos = buildIndex.fmIndexNormal.SA[ii];
+                        dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrNormal, absTagPos);
+                        protId = buildIndex.posProtMapNormal.get(dotIndex);
+                        lPos = absTagPos - buildIndex.dotPosArrNormal[dotIndex] - 1;
+                        rPos = lPos + tagLen - matchedPos;
+                        boolean foundRange = false;
+
+                        for (OccGroup occG : occGroupList) {
+                            if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos - occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
+                                oldOccGToDel.add(occG);
+                                OccGroup newOccG = occG.clone();
+                                newOccG.addTag(resTag.clone(), lPos); // maybe in this func  just use merge tag
+                                newOccGToAdd.add(newOccG);
                                 foundRange = true;
                                 break;
                             }
                         }
+                        if ( ! foundRange) {  //new occurrence that does not belong to any pos range
+                            OccGroup occG = new OccGroup(resTag.clone(), protId, lPos);
+                            newOccGToAdd.add(occG);
+                        }
                     }
-
-                    if ( ! foundRange) {  //new occurrence that does not belong to any pos range
-//                    occId++;
-                        OccGroup occG = new OccGroup(resTagInfo, protId, lPos);
-                        occGroupList.add(occG);
-                        posRangeOccIdMap.put(new Pair<>(occG.lPos-occG.spanLen, occG.rPos+occG.spanLen), posRangeOccIdMap.size());
+                    for (OccGroup oldOccG : oldOccGToDel)  occGroupList.remove(oldOccG);
+                    for (OccGroup newOccG : newOccGToAdd) {
+                        occGroupList.add(newOccG);
                     }
                 }
             }
@@ -513,159 +579,65 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 int dotIndex;
                 int lPos;
                 int rPos;
+
                 ExpTag revTagInfo = tagInfo.revTag(totalMass);
-                if (distinctTagIds.contains(i)) matchedProtIdRelPosSet.clear();
                 tagChar = revTagInfo.getFreeAaString().toCharArray();
                 fmRes = buildIndex.fmIndexReverse.fmSearchFuzzy(tagChar);
-                solCount += fmRes.ep-fmRes.sp+1;
-                matchedPos = fmRes.matchedPos;
-
-                if (matchedPos != 0) {
-                    if (oriIsNorC == C_TAG) {
-                        tagInfo.isNorC = NON_NC_TAG;
+                if (fmRes != null) {
+                    matchedPos = fmRes.matchedPos;
+                    int oriIsNorC = tagInfo.isNorC;
+                    if (matchedPos != 0) {
+                        if (oriIsNorC == C_TAG) {
+                            tagInfo.isNorC = NON_NC_TAG;
+                        }
+                        if (oriIsNorC == N_TAG) {
+                            tagInfo.isNorC = N_TAG;
+                        }
                     }
-                    if (oriIsNorC == N_TAG) {
-                        tagInfo.isNorC = N_TAG;
-                    }
-                }
-                if (matchedPos > 0 && tagInfo.size()-matchedPos < minTagLen) continue;
+                    if (matchedPos > 0 && tagInfo.size() - matchedPos < minTagLen) continue;
 
-//                ExpTag resRevTagInfo = matchedPos == 0 ? revTagInfo : revTagInfo.subTag(matchedPos, tagLen);
-                ExpTag resRevTagInfo = matchedPos == 0 ? tagInfo : tagInfo.subTag(0, tagLen-matchedPos);
+                    ExpTag resRevTag = matchedPos == 0 ? tagInfo : tagInfo.subTag(0, tagLen - matchedPos);
+                    Map<String, Set<Pair<Integer, Integer>>> protId_posRangesToDel = new HashMap<>();
+                    Set<OccGroup> oldOccGToDel = new HashSet<>();
+                    Set<OccGroup> newOccGToAdd = new HashSet<>();
+                    for (int ii = fmRes.sp; ii <= fmRes.ep; ii++) {
+                        absTagPos = buildIndex.fmIndexReverse.SA[ii];
+                        absTagPos = buildIndex.textNormalLen - absTagPos - tagLen + matchedPos; // should I minus one more?
+                        dotIndex = -2 - Arrays.binarySearch(buildIndex.dotPosArrNormal, absTagPos);
+                        protId = buildIndex.posProtMapNormal.get(dotIndex);
+                        lPos = absTagPos - buildIndex.dotPosArrNormal[dotIndex] - 1;
+                        rPos = lPos + tagLen - matchedPos;
 
-                for (int ii = fmRes.sp; ii <= fmRes.ep; ii++) {
-                    absTagPos = buildIndex.fmIndexReverse.SA[ii];
-                    absTagPos = buildIndex.textNormalLen - absTagPos - tagLen + matchedPos; // should I minus one more?
-                    dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrNormal, absTagPos);
-                    protId = buildIndex.posProtMapNormal.get(dotIndex);
-                    lPos = absTagPos - buildIndex.dotPosArrNormal[dotIndex] - 1;
-                    rPos = lPos + tagLen - matchedPos;
-                    Pair<String, Integer> protIdRelPos = new Pair<>(protId, lPos);
-                    if (matchedProtIdRelPosSet.contains(protIdRelPos)) {
-                        continue;
-                    } else {
-                        matchedProtIdRelPosSet.add(protIdRelPos);
-                    }
-
-                    boolean foundRange = false;
-                    Iterator<Map.Entry<Pair<Integer, Integer>,Integer>> iterator = posRangeOccIdMap.entrySet().iterator();
-                    while (iterator.hasNext()) {
-                        Map.Entry<Pair<Integer, Integer>,Integer> entry = iterator.next();
-                        int lSpan = entry.getKey().getFirst();
-                        int rSpan = entry.getKey().getSecond();
-                        if (lPos <= rSpan && rPos >= lSpan) {
-                            if (occGroupList.get(entry.getValue()).protId.contentEquals(protId)) {
-                                occId = entry.getValue();
-                                OccGroup occG = occGroupList.get(occId);
-                                occG.addTag(resRevTagInfo, lPos);
-                                iterator.remove(); // remove it for later update because it will be modified
-                                posRangeOccIdMap.put(new Pair<>(Math.min(occG.lPos-occG.spanLen, lSpan), Math.max(occG.rPos+occG.spanLen, rSpan)), occId);
+                        boolean foundRange = false;
+                        for (OccGroup occG : occGroupList) {
+                            if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos - occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
+                                oldOccGToDel.add(occG);
+                                OccGroup newOccG = occG.clone();
+                                newOccG.addTag(resRevTag.clone(), lPos); // maybe in this func  just use merge tag
+                                newOccGToAdd.add(newOccG);
                                 foundRange = true;
                                 break;
                             }
                         }
+                        if ( ! foundRange) {  //new occurrence that does not belong to any pos range
+                            OccGroup occG = new OccGroup(resRevTag.clone(), protId, lPos);
+                            newOccGToAdd.add(occG);
+                        }
                     }
-
-                    if ( ! foundRange) {  //new occurrence that does not belong to any pos range
-//                        occId++;
-                        OccGroup occG = new OccGroup(resRevTagInfo, protId, lPos);
-                        occGroupList.add(occG);
-                        posRangeOccIdMap.put(new Pair<>(occG.lPos-occG.spanLen, occG.rPos+occG.spanLen), posRangeOccIdMap.size());
+                    for (OccGroup oldOccG : oldOccGToDel) occGroupList.remove(oldOccG);
+                    for (OccGroup newOccG : newOccGToAdd) {
+                        occGroupList.add(newOccG);
                     }
                 }
             }
         }
-        return solCount;
     }
-//    private int searchAndSaveFuzzy1(int scanNum, List<ExpTag> tagsToTest, Set<Integer> distinctTagIds, double ms1TolAbs, TreeSet<Peptide> peptideTreeSet, Map<String, PeptideInfo> peptideInfoMap
-//            , List<OccGroup> occGroupList, FMIndex fmIndex, int minTagLen, SparseVector expProcessedPL,TreeMap<Double, Double> plMap) throws CloneNotSupportedException {
-//
-//        char[] tagChar;
-//        int numRes;
-//        int solCount = 0;
-//        FMRes fmRes;
-//        int matchedPos;
-//        String protId;
-//        int tagLen;
-//        boolean isSubLast;
-//        ExpTag tagInfo;
-//        Map<Pair<Integer, Integer>, Integer> posRangeOccIdMap = new HashMap<>();
-//        int tagsNum = tagsToTest.size();
-//        Set<Pair<String, Integer>> matchedProtIdRelPosSet = new HashSet<>();
-//        int occId = -1;
-//        for (int i = 0; i < tagsNum; i++) {
-//            tagInfo = tagsToTest.get(i);
-//            if (distinctTagIds.contains(i)) matchedProtIdRelPosSet.clear();
-//            forwardSearch()
-//
-//        }
-//        return solCount;
-//    }
-
-    //    private void forwardSearch(ExpTag tagInfo, FMIndex fmIndex, int minTagLen, Set<Pair<String, Integer>> matchedProtIdRelPosSet){
-//        char[] tagChar = tagInfo.getFreeAaString().toCharArray();
-//        FMRes fmRes = fmIndex.fmSearchFuzzy(tagChar);
-//        if (fmRes == null) return;
-//
-//        int matchedPos = fmRes.matchedPos;
-//        int tagLen = tagChar.length;
-//        if (matchedPos > 0 && tagLen-matchedPos < minTagLen) return;
-//
-//        ExpTag resTagInfo = matchedPos == 0 ? tagInfo : tagInfo.subTag(matchedPos, tagLen);
-//        int absTagPos;
-//        int dotIndex;
-//        int lPos;
-//        int rPos;
-//        String protId;
-//        int occId = -1;
-//        for (int ii = fmRes.sp; ii <= fmRes.ep; ii++) {
-//            absTagPos = fmIndex.SA[ii];
-//            dotIndex = -2-Arrays.binarySearch(buildIndex.dotPosArrNormal, absTagPos);
-//            protId = buildIndex.posProtMapNormal.get(dotIndex);
-//            lPos = absTagPos - buildIndex.dotPosArrNormal[dotIndex] - 1;
-//            rPos = lPos + tagLen;
-//            Pair<String, Integer> protIdRelPos = new Pair<>(protId, lPos);
-//            if (matchedProtIdRelPosSet.contains(protIdRelPos)) {
-//                continue;
-//            } else {
-//                matchedProtIdRelPosSet.add(protIdRelPos);
-//            }
-//
-//            boolean foundRange = false;
-//            Iterator<Map.Entry<Pair<Integer, Integer>,Integer>> iterator = posRangeOccIdMap.entrySet().iterator();
-//            while (iterator.hasNext()) {
-//                Map.Entry<Pair<Integer, Integer>,Integer> entry = iterator.next();
-//                int lSpan = entry.getKey().getFirst();
-//                int rSpan = entry.getKey().getSecond();
-//                if (lPos >= lSpan && rPos <= rSpan) {
-//                    if (occGroupList.get(entry.getValue()).protId.contentEquals(protId)) {
-//                        occId = entry.getValue();
-//                        OccGroup occG = occGroupList.get(occId);
-//                        occG.addTag(resTagInfo, lPos);
-//                        iterator.remove(); // remove it for later update because it will be modified
-//                        posRangeOccIdMap.put(new Pair<>(Math.min(occG.lPos-occG.spanLen, lSpan), Math.max(occG.rPos+occG.spanLen, rSpan)), occId);
-//                        foundRange = true;
-//                        break;
-//                    }
-//                }
-//            }
-//
-//            if ( ! foundRange) {  //new occurrence that does not belong to any pos range
-//                occId++;
-//                OccGroup occG = new OccGroup(resTagInfo, protId, lPos);
-//                occGroupList.add(occG);
-//                posRangeOccIdMap.put(new Pair<>(occG.lPos-occG.spanLen, occG.rPos+occG.spanLen), occId);
-//            }
-//        }
-//    }
     private boolean isHomo(Peptide p1, Peptide p2, Map<String, PeptideInfo> peptideInfoMap) {
-//        int a = 1;
         Set<String> temp1 = peptideInfoMap.get(p1.getFreeSeq()).protIdSet;
         Set<String> temp2 = peptideInfoMap.get(p2.getFreeSeq()).protIdSet;
 
         Set<String> set = new HashSet<>(temp1);
         set.retainAll(temp2);
-//        if (set.isEmpty()) return false;
         SparseBooleanVector sbv1 = buildIndex.inferSegment.generateSegmentBooleanVector(p1.getFreeSeq());
         SparseBooleanVector sbv2 = buildIndex.inferSegment.generateSegmentBooleanVector(p2.getFreeSeq());
         return sbv1.dot(sbv2) > 0.3*Math.min(p1.getFreeSeq().length(), p2.getFreeSeq().length());
@@ -1307,6 +1279,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             }
         } catch (Exception e ) {
             System.out.println(scanNum +",collectResult");
+            collectResult(segResList, resPepTreeSet, expProcessedPL, plMap,
+                    peptideInfoMap, protId, protSeq, tagRelPosList.get(0).getSecond(), tagRelPosList.get(0).getFirst().isNorC==N_TAG, tagRelPosList.get(tagNum-1).getSecond()+tagRelPosList.get(tagNum-1).getFirst().size(), tagRelPosList.get(tagNum-1).getFirst().isNorC==C_TAG);
         }
         return maxScore;
     }
