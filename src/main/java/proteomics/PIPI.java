@@ -106,7 +106,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
     //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(109939));//129543, 111179, 50630, 35359
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(142947));//129543, 111179, 50630, 35359
 
     public static int neighborNum = 1;
     public static void main(String[] args) {
@@ -512,7 +512,7 @@ public class PIPI {
         if (threadNum == 0) {
             threadNum = 3 + Runtime.getRuntime().availableProcessors();
         }
-        threadNum = 32;
+        threadNum = 44;
         if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
             // change thread PreSearch
             threadNum = 1;

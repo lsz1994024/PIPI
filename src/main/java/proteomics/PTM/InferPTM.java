@@ -1022,7 +1022,7 @@ public class InferPTM {
                     posMassMap.put(absPos-refPos, thisSol.get(absPos));
                     tmpPeptide.posVarPtmResMap.put(absPos-refPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
                 }
-                tmpPeptide.setVarPTM(posMassMap);
+                if (!posMassMap.isEmpty()) tmpPeptide.setVarPTM(posMassMap);
                 tmpPeptide.setScore(poolObjVal);
 //                try {
 //                cModPepsSet.add(tmpPeptide);
@@ -1839,7 +1839,7 @@ public class InferPTM {
                     posMassMap.put(absPos-trueSeqStartAbsPos, thisSol.get(absPos));
                     tmpPeptide.posVarPtmResMap.put(absPos-trueSeqStartAbsPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
                 }
-                tmpPeptide.setVarPTM(posMassMap);
+                if (!posMassMap.isEmpty()) tmpPeptide.setVarPTM(posMassMap);
                 tmpPeptide.setScore(poolObjVal);
 
                 nModPepsSet.add(tmpPeptide);
@@ -2881,6 +2881,30 @@ public class InferPTM {
                     }
                     pos_MassVarPtm_Map.put(absPos, massVarPtmMap);
                 }
+            }
+        } // end for (int i = 0; i < partSeq.length(); ++i) {
+    }
+
+    public void findPosssible1Ptm(int scanNum, String partSeq, Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map, int startRefPos, TreeSet<Peptide> modPepsSet, double deltaMass) {
+
+        int partSeqLen = partSeq.length();
+        int absPos;
+        for (int relPos = 0; relPos < partSeqLen; ++relPos) {
+            absPos = relPos + startRefPos;
+            TreeMap<Double, VarPtm> massVarPtmMap = pos_MassVarPtm_Map.get(absPos);
+            if (massVarPtmMap == null) continue;
+            massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol);
+            for (double mass : massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol).keySet()) {
+                if (massTable.get(partSeq.charAt(relPos)) + mass < ms2Tol) continue;
+                VarPtm varPtm = massVarPtmMap.get(mass);
+
+                Peptide tmpPeptide = new Peptide(partSeq, false, massTool);
+                PosMassMap posMassMap = new PosMassMap();
+                posMassMap.put(relPos, mass);
+                tmpPeptide.posVarPtmResMap.put(relPos, varPtm);
+                tmpPeptide.setVarPTM(posMassMap);
+                tmpPeptide.setScore(0);
+                modPepsSet.add(tmpPeptide);
             }
         } // end for (int i = 0; i < partSeq.length(); ++i) {
     }
