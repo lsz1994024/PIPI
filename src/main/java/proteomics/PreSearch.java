@@ -177,7 +177,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         for (OccGroup occG : occGroupList) {
             if (occG.totalScore < 0.7*topOccScore) break;
             occG.tagPosList.sort(Comparator.comparing(o->o.getSecond()));
-//            occG.tagRelPosList.remove(2);// debug
+//            occG.tagPosList.remove(1);// debug
             String protId = occG.protId;
             count++;
             double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagPosList, ms1TolAbs, resPeptTreeSet, peptideInfoMap, expProcessedPL, finalPlMap, env);
@@ -276,10 +276,10 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             entry.peptideInfoMapForRef.put(peptide.getFreeSeq(), peptideInfoMap.get(peptide.getFreeSeq()));
         }
 //        System.out.println(scanNum + ","+entry.peptideInfoMapForRef.size() + "," + peptideArray.length);l
-        if (lszDebugScanNum.contains(scanNum)){
-            int a = 1;
-            System.out.println(scanNum + "," + pepSetString);
-        }
+//        if (lszDebugScanNum.contains(scanNum)){
+//            int a = 1;
+//            System.out.println(scanNum + "," + pepSetString);
+//        }
         int c = 1;
 //        env.release();l
         env.dispose();
@@ -1193,7 +1193,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
     private double addCandisWithMultiMaxPeakMILP(int scanNum, String protId, List<Pair<ExpTag, Integer>> tagRelPosList, double ms1TolAbs, TreeSet<Peptide> resPepTreeSet
             , Map<String, PeptideInfo> peptideInfoMap, SparseVector expProcessedPL, TreeMap<Double, Double> plMap, GRBEnv env) {
 
-        int tagNum = tagRelPosList.size();
+        int tagNum;
         String protSeq = buildIndex.protSeqMap.get(protId);
         int protLen = protSeq.length();
         if (tagRelPosList.get(0).getSecond() < 0
@@ -1602,9 +1602,10 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             // note: these two refMass is similar to cCutMass nCutMass, but different. CutMass are pure sum of aa res masses, the Proton and H2O mass will be added in subsequent Xcorr step
             double bIonRefMass = lTag.getTailLocation();
             double yIonRefMass = precursorMass + 2*MassTool.PROTON - rTag.getHeadLocation();
-//        Set<Map<Integer, Double>> posPtmIdResList = new HashSet<>();
-            inferPTM.findBestPtmInGap(scanNum, env, deltaMass, lTagPos+lTag.size(), rTagPos,
-                    gapSeq, ms1TolAbs, absPos_MassVarPtm_Map, unUsedPlMap, midModPepsSet, bIonRefMass, yIonRefMass);
+//            inferPTM.findBestPtmInGap(scanNum, env, deltaMass, lTagPos+lTag.size(), rTagPos,
+//                    gapSeq, ms1TolAbs, absPos_MassVarPtm_Map, unUsedPlMap, midModPepsSet, bIonRefMass, yIonRefMass);
+            inferPTM.findBestPtmInGapPWL(scanNum, env, deltaMass, lTagPos+lTag.size(), rTagPos,
+                    gapSeq, ms1TolAbs, absPos_MassVarPtm_Map, unUsedPlMap, midModPepsSet, bIonRefMass, yIonRefMass, precursorMass);
         }
 
         // a manual way to find possibly missing 1-ptm solutions.

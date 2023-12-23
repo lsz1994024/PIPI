@@ -944,7 +944,7 @@ public class InferPTM {
             if (partSeqLen > 10) timeLimit = 4;
             if (partSeqLen > 13) timeLimit = 5;
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
-            model.set(GRB.IntParam.ConcurrentMIP, 8); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, 32); // second
 
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
@@ -1121,15 +1121,15 @@ public class InferPTM {
             if (gapLen > 8) timeLimit = 3;
             if (gapLen > 10) timeLimit = 4;
             if (gapLen > 13) timeLimit = 5;
-            model.set(GRB.DoubleParam.TimeLimit, 200); // second
+            model.set(GRB.DoubleParam.TimeLimit, 60); // second
             model.set(GRB.IntParam.ConcurrentMIP, 8); // second
             model.set(GRB.IntParam.Threads, 32); // second
             model.set(GRB.IntParam.AggFill, 10); // second
 
-            model.set(GRB.IntParam.MIPFocus, 3); // second
+//            model.set(GRB.IntParam.MIPFocus, 3); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
 //            model.set(GRB.IntParam.PrePasses, 2); // second
-//            model.set(GRB.IntParam.PreSparsify, 1); // second
+            model.set(GRB.IntParam.PreSparsify, 1); // second
 //            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
 
 //            model.set(GRB.DoubleParam.TuneTimeLimit, 7200);
@@ -1198,6 +1198,274 @@ public class InferPTM {
         }
     }
 
+    public void findBestPtmInGapPWL(int scanNum, GRBEnv env, double totalDeltaMass, int refAbsPos, int rTagPosInProt, String gapSeq,
+                                 double ms1TolAbs, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
+                                 TreeMap<Double, Double> plMap, TreeSet<Peptide> midModPepsSet, double bIonRefMass, double yIonRefMass, double precursorMass) {
+
+        try {
+            GRBModel model = new GRBModel(env);
+            //// Constraints
+            GRBLinExpr totalNumsInGap = new GRBLinExpr();
+            GRBLinExpr deltaMass = new GRBLinExpr();
+
+            // x variables
+            Map<Integer, Map<Double, GRBVar>> xVarMap = new HashMap<>(); // <pos, <mass, GRBVar>>
+            int gapLen = gapSeq.length();
+            for (int relPos = 0; relPos < gapLen; relPos++) {
+                char aa = gapSeq.charAt(relPos);
+                int absPos = refAbsPos + relPos;
+//                GRBVar nVar = model.addVar(0, 1, -0.1, GRB.CONTINUOUS, "nVar_"+absPos);
+//                GRBLinExpr nSumX = new GRBLinExpr();
+//                nSumX.addTerm(1, nVar);
+                boolean hasFixMod = aaWithFixModSet.contains(aa);
+                if (hasFixMod) continue;
+
+                GRBLinExpr sumX_leq_1 = new GRBLinExpr();
+                Map<Double, GRBVar> massXVarMap = new HashMap<>();
+                TreeMap<Double, VarPtm> massVarPtmMap = absPos_MassVarPtm_Map.get(absPos);
+                if (massVarPtmMap == null) continue;
+                for (double ptmMass : massVarPtmMap.keySet()) {
+                    if (massTable.get(gapSeq.charAt(relPos)) + ptmMass < ms2Tol) continue;
+//                    if(Math.abs(ptmMass-68)>1 && Math.abs(ptmMass-16)>1)continue;
+                    GRBVar xVar = model.addVar(0, 1, -0.1, GRB.BINARY, "x_" + absPos + "_" + ptmMass);
+                    massXVarMap.put(ptmMass, xVar);
+//                    nSumX.addTerm(-1, xVar);
+                    sumX_leq_1.addTerm(1, xVar);
+                    deltaMass.addTerm(ptmMass, xVar); // + m_i * x_i
+                    totalNumsInGap.addTerm(1, xVar); // + 1 * x_i
+                }
+                xVarMap.put(absPos, massXVarMap);
+                model.addConstr(sumX_leq_1, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
+//                model.addConstr(nSumX, GRB.EQUAL, 0, "nSumX_"+absPos);
+            }// all poses x Var finished
+
+            //// add constraints
+            model.addConstr(deltaMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs, "constrTotalMassLE");
+            model.addConstr(deltaMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalNumsInGap, GRB.LESS_EQUAL, Math.min(gapSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the gapSeq
+
+            // peaks
+            Map<Integer, GRBVar> yMassVarMap = new HashMap<>(gapLen-1);
+            Map<Integer, GRBVar> bMassVarMap = new HashMap<>(gapLen-1);
+            int numOfTps = Math.min(gapLen-1, 12);
+            NavigableMap<Double, Double> feasiblePeaks;
+            Pair<Double, Double> massRange;
+            for (int tpId = 1; tpId <= numOfTps; tpId++) { // tpId = theoretical peak Id, one less than aa num
+                GRBLinExpr bySumMass = new GRBLinExpr();
+
+                int absPos = refAbsPos + tpId;
+                //y ions
+                massRange = getPotentialYmzRange(rTagPosInProt, absPos, absPos_MassVarPtm_Map, gapSeq, refAbsPos, totalDeltaMass);
+                double minYmz = massRange.getFirst() + yIonRefMass;
+                double maxYmz = massRange.getSecond() + yIonRefMass;
+                if (minYmz >= maxYmz) {
+                    continue;
+                }
+                GRBVar yMassVar = model.addVar(minYmz, maxYmz, 0, GRB.CONTINUOUS, "yMassVar_"+tpId);
+                GRBLinExpr yMassDef = new GRBLinExpr();
+                yMassDef.addTerm(1, yMassVar);
+                for (int tmpAbsPos = absPos; tmpAbsPos < rTagPosInProt; tmpAbsPos++) {
+                    for (double tmpMass : xVarMap.get(tmpAbsPos).keySet()){
+                        yMassDef.addTerm(-tmpMass, xVarMap.get(tmpAbsPos).get(tmpMass));
+                    }
+                    yMassDef.addConstant(-massTable.get(gapSeq.charAt(tmpAbsPos-refAbsPos)));
+                }
+                model.addConstr(yMassDef, GRB.EQUAL, yIonRefMass, "yMassDef_"+tpId);
+                feasiblePeaks = plMap.subMap(minYmz, true, maxYmz,true);
+                List<Map.Entry<Double, Double>> peakEntries = new ArrayList<>(feasiblePeaks.entrySet());
+                int nPeaks = feasiblePeaks.size();
+                List<Double> pwX_yIonList = new ArrayList<>(Collections.nCopies(4*nPeaks+2, 0d));
+                List<Double> pwY_yIonList = new ArrayList<>(Collections.nCopies(4*nPeaks+2, 0d));
+                generatePWLpts(peakEntries, pwX_yIonList, pwY_yIonList);
+                double[] pwX_yIon = pwX_yIonList.stream().mapToDouble(Double::doubleValue).toArray();
+                double[] pwY_yIon = pwY_yIonList.stream().mapToDouble(Double::doubleValue).toArray();
+                model.setPWLObj(yMassVar, pwX_yIon, pwY_yIon);
+                yMassVarMap.put(tpId, yMassVar);
+                bySumMass.addTerm(1, yMassVar);
+                //b ions
+                massRange = getPotentialBmzRange(rTagPosInProt, absPos, absPos_MassVarPtm_Map, gapSeq, refAbsPos, totalDeltaMass);
+                double minBmz = massRange.getFirst() + bIonRefMass;
+                double maxBmz = massRange.getSecond() + bIonRefMass;
+                if (minBmz >= maxBmz) {
+                    continue;
+                }
+                GRBVar bMassVar = model.addVar(minBmz, maxBmz, 0, GRB.CONTINUOUS, "bMassVar_"+tpId);
+                GRBLinExpr bMassDef = new GRBLinExpr();
+                bMassDef.addTerm(1, bMassVar);
+                for (int tmpAbsPos = refAbsPos; tmpAbsPos < absPos; tmpAbsPos++) {
+                    for (double tmpMass : xVarMap.get(tmpAbsPos).keySet()){
+                        bMassDef.addTerm(-tmpMass, xVarMap.get(tmpAbsPos).get(tmpMass));
+                    }
+                    bMassDef.addConstant(-massTable.get(gapSeq.charAt(tmpAbsPos-refAbsPos)));
+                }
+                model.addConstr(bMassDef, GRB.EQUAL, bIonRefMass, "bMassDef_"+tpId);
+                feasiblePeaks = plMap.subMap(minBmz, true, maxBmz,true);
+                peakEntries = new ArrayList<>(feasiblePeaks.entrySet());
+                nPeaks = feasiblePeaks.size();
+                List<Double> pwX_bIonList = new ArrayList<>(Collections.nCopies(4*nPeaks+2, 0d));
+                List<Double> pwY_bIonList = new ArrayList<>(Collections.nCopies(4*nPeaks+2, 0d));
+                generatePWLpts(peakEntries, pwX_bIonList, pwY_bIonList);
+                double[] pwX_bIon = pwX_bIonList.stream().mapToDouble(Double::doubleValue).toArray();
+                double[] pwY_bIon = pwY_bIonList.stream().mapToDouble(Double::doubleValue).toArray();
+                model.setPWLObj(bMassVar, pwX_bIon, pwY_bIon);
+                bMassVarMap.put(tpId, bMassVar);
+                bySumMass.addTerm(1, bMassVar);
+
+                model.addConstr(bySumMass, GRB.LESS_EQUAL, precursorMass+2*MassTool.PROTON + ms1TolAbs, "bySumMassLEQ_"+tpId);
+                model.addConstr(bySumMass, GRB.GREATER_EQUAL, precursorMass+2*MassTool.PROTON - ms1TolAbs, "bySumMassGEQ_"+tpId);
+            }
+
+//            for (int tpId = 1; tpId <= numOfTps-1; tpId++) {
+//                GRBVar thisYVar = yMassVarMap.get(tpId);
+//                GRBVar nextYVar = yMassVarMap.get(tpId+1);
+//                GRBLinExpr thisYgtNextY = new GRBLinExpr();
+//                thisYgtNextY.addTerm(1, thisYVar);
+//                thisYgtNextY.addTerm(-1, nextYVar);
+//                model.addConstr(thisYgtNextY, GRB.GREATER_EQUAL, 57, "thisYgtNextY_"+tpId);
+//
+//                GRBVar thisBVar = bMassVarMap.get(tpId);
+//                GRBVar nextBVar = bMassVarMap.get(tpId+1);
+//                GRBLinExpr thisBgtNextB = new GRBLinExpr();
+//                thisBgtNextB.addTerm(-1, thisBVar);
+//                thisBgtNextB.addTerm(1, nextBVar);
+//                model.addConstr(thisBgtNextB, GRB.GREATER_EQUAL, 57, "thisBgtNextB_"+tpId);
+//            }
+
+            model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
+            //obj function
+            model.set(GRB.DoubleParam.TimeLimit, 5); // second
+            model.set(GRB.IntParam.ConcurrentMIP, 4); // second
+            model.set(GRB.IntParam.Threads, 32); // second
+//            model.set(GRB.IntParam.AggFill, 1000); // second
+
+//            model.set(GRB.IntParam.MIPFocus, 3); // second
+//            model.set(GRB.IntParam.CutPasses, 3); // 2: slowe r
+//            model.set(GRB.IntParam.Presolve, 1); // second
+            model.set(GRB.IntParam.PreSparsify, 1); // second
+//            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
+
+//            model.set(GRB.DoubleParam.TuneTimeLimit, 3600);
+//            model.set(GRB.IntParam.TuneTrials, 5);
+//            model.tune();
+            model.optimize();
+            switch (model.get(GRB.IntAttr.Status)) {
+                case GRB.OPTIMAL:
+                    break;
+                case GRB.TIME_LIMIT:
+                    break;
+                default:
+                    model.dispose();
+                    return; // if it is disposed here (i.e. infeasible, unbounded...), dont collect solutions, just return
+            }
+            int solCount = model.get(GRB.IntAttr.SolCount);
+            if (lszDebugScanNum.contains(scanNum) ){ // SLEEEGAA
+                int a = 1;
+            }
+            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
+            for (int solNum = 0; solNum < solCount; solNum++) {
+                model.set(GRB.IntParam.SolutionNumber, solNum);
+                double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
+                if (poolObjVal < objValThres){
+                    break;
+                }
+                Map<Integer, Double> thisSol = new HashMap<>();
+                for (int absPos = refAbsPos; absPos < gapSeq.length() + refAbsPos; absPos++) {
+                    thisSol.put(absPos, -1.0); //-1 means no ptm yet
+                    if (xVarMap.containsKey(absPos)) {  // when there is a C, the pos wont be in xVarMap but we still record it in thisSol
+                        Map<Double, GRBVar> ptmIdXVarMap = xVarMap.get(absPos);
+                        for (double ptmMass : ptmIdXVarMap.keySet()) {
+                            GRBVar xVar = ptmIdXVarMap.get(ptmMass);
+//                            System.out.println(absPos+ ", "+gapSeq.substring(absPos-refAbsPos, absPos-refAbsPos+1)+ ","+ptmMass + ","+xVar.get(GRB.DoubleAttr.Xn));
+                            if ((int) Math.round(xVar.get(GRB.DoubleAttr.Xn)) == 1) {
+                                thisSol.put(absPos, ptmMass);
+                                break;
+                            }
+                        }
+                    }
+                }
+//                System.out.println("up is sol + " + solNum+ ","+thisSol);
+
+//                int trueSeqEndAbsPos = Collections.max(thisSol.keySet());
+//                posPtmIdResSet.add(thisSol);
+                Peptide tmpPeptide = new Peptide(gapSeq, false, massTool);
+                PosMassMap posMassMap = new PosMassMap();
+                for (int absPos : thisSol.keySet()) {
+                    if (thisSol.get(absPos) == -1) continue;
+                    posMassMap.put(absPos-refAbsPos, thisSol.get(absPos));
+                    tmpPeptide.posVarPtmResMap.put(absPos-refAbsPos, absPos_MassVarPtm_Map.get(absPos).get(thisSol.get(absPos)));
+                }
+                if ( ! posMassMap.isEmpty()) {
+                    tmpPeptide.setVarPTM(posMassMap);
+                }
+                tmpPeptide.setScore(poolObjVal);
+//                try {
+                midModPepsSet.add(tmpPeptide);
+//                } catch (Exception e ){
+//                    System.out.println(scanNum +",wrong");
+//                }
+            }
+            model.dispose();
+        } catch (GRBException e) {
+            System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+        }
+    }
+
+    private void generatePWLpts(List<Map.Entry<Double, Double>> peakEntries, List<Double> pwX_List, List<Double> pwY_List){
+        int nPeaks = peakEntries.size();
+        pwX_List.set(0, 0d); pwY_List.set(0, 0d);
+        pwX_List.set(4*nPeaks+1, peakEntries.get(nPeaks-1).getKey()+1000); pwY_List.set(4*nPeaks+1, 0d);
+        for (int pId = 0; pId < nPeaks; ++pId) {
+            double tmpMz = peakEntries.get(pId).getKey();
+            double tmpIntes = peakEntries.get(pId).getValue();
+            pwX_List.set(pId*4+1, tmpMz-2*ms2Tol); pwY_List.set(pId*4+1, 0d);
+            pwX_List.set(pId*4+2, tmpMz-2*ms2Tol); pwY_List.set(pId*4+2, tmpIntes);
+            pwX_List.set(pId*4+3, tmpMz+2*ms2Tol); pwY_List.set(pId*4+3, tmpIntes);
+            pwX_List.set(pId*4+4, tmpMz+2*ms2Tol); pwY_List.set(pId*4+4, 0d);
+        }
+
+        List<Integer> pointsToDel = new LinkedList<>();
+        // adjust and delete
+        for (int pIdThis = 0; pIdThis < nPeaks-1; ++pIdThis) {
+            double thisMass = peakEntries.get(pIdThis).getKey();
+            double thisInte = peakEntries.get(pIdThis).getValue();
+            int pIdNext = pIdThis+1;
+            double nextMass = peakEntries.get(pIdNext).getKey();
+            double nextInte = peakEntries.get(pIdNext).getValue();
+            double massDiff = nextMass - thisMass;
+            if (massDiff < 4*ms2Tol) {
+                if (thisInte < nextInte) {
+                    pointsToDel.add(pIdThis*4+3);
+                    pointsToDel.add(pIdThis*4+4);
+                    pwY_List.set(pIdNext*4+1, thisInte);
+                } else if (thisInte > nextInte) {
+                    pointsToDel.add(pIdNext*4+1);
+                    pointsToDel.add(pIdNext*4+2);
+                    pwY_List.set(pIdThis*4+4, nextInte);
+                } else {
+                    pointsToDel.add(pIdThis*4+3);
+                    pointsToDel.add(pIdThis*4+4);
+                    pointsToDel.add(pIdNext*4+1);
+                    pointsToDel.add(pIdNext*4+2);
+                }
+            } else if (massDiff == 4*ms2Tol) {
+                if (thisInte != nextInte) {
+                    pointsToDel.add(pIdThis*4+4);
+                    pointsToDel.add(pIdNext*4+1);
+                } else {
+                    pointsToDel.add(pIdThis*4+3);
+                    pointsToDel.add(pIdThis*4+4);
+                    pointsToDel.add(pIdNext*4+1);
+                    pointsToDel.add(pIdNext*4+2);
+                }
+            }
+        }
+
+        pointsToDel.sort(Comparator.reverseOrder());
+        for (int delId : pointsToDel) {
+            pwX_List.remove(delId);
+            pwY_List.remove(delId);
+        }
+    }
     private void fill_zYionVarMap(double D, double yIonRefMass, int absPos, int gapLen, int refAbsPos, NavigableMap<Double, Double> feasiblePeaks,
                                   GRBModel model, String gapSeq, Map<Integer, Map<Double, GRBVar>> xVarMap, Map<Integer, TreeMap<Double, GRBVar>> z_yIonVarMap) throws GRBException {
         TreeMap<Double, GRBVar> eMassVarMap = new TreeMap<>();
@@ -1362,7 +1630,7 @@ public class InferPTM {
             minPtmMassOnC += allSmallPtmsOnC.get(i);
             maxPtmMassOnC += allBigPtmsOnC.get(i);
         }
-
+//        GRBVar bMassVar = new GRBVar();
         minYmz = Math.max(0   , sumAaMassOnC + Math.max( totalDeltaMass-maxPtmMassOnN, minPtmMassOnC ) );
         maxYmz = Math.min(3000, sumAaMassOnC + Math.min( totalDeltaMass-minPtmMassOnN, maxPtmMassOnC ) );
         // this 1000 is the max mz that I expect it should consider. No need to consider large values because the normally are not fragmented.
