@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="PT9449_simu test" type="Application" factoryName="Application">
+  <configuration default="false" name="PT9449_simu_test" type="Application" factoryName="Application">
     <option name="ALTERNATIVE_JRE_PATH" value="corretto-1.8" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <output_file path="$USER_HOME$/nashome/Dataset/PXD009449/DLsimu/log.txt" is_save="true" />
