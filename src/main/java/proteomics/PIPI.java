@@ -106,7 +106,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
     //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(90395));//129543, 111179, 50630, 35359
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(50630));//129543, 111179, 50630, 35359
 
     public static int neighborNum = 1;
     public static void main(String[] args) {

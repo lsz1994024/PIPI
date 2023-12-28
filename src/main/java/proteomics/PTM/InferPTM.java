@@ -683,13 +683,15 @@ public class InferPTM {
                 char aa = partSeq.charAt(relPos);
                 int absPos = refPos + relPos;
 
-                boolean hasFixMod = aaWithFixModSet.contains(aa);
-                if (hasFixMod) continue;
+                Map<Double, GRBVar> massXVarMap = new HashMap<>();
+                xVarMap.put(absPos, massXVarMap);
+
+//                boolean hasFixMod = aaWithFixModSet.contains(aa);
+//                if (hasFixMod) continue;
                 List<Byte> positionsToTry = absPos_ptmPositions_Map.get(absPos);
 
                 GRBLinExpr sumX_leq_1orY = new GRBLinExpr();
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
-                Map<Double, GRBVar> massXVarMap = new HashMap<>();
                 Set<Double> usedMassForThisAa = new HashSet<>();
                 for (Byte position : positionsToTry) { // in the order of anywhere-pepC-protC
                     List<VarPtm> varPtmList = allVarPtmMap.get(position);
@@ -720,14 +722,15 @@ public class InferPTM {
                         }
                     }
                 }
-                xVarMap.put(absPos, massXVarMap);
 
-                if (absPosYIdMap.containsKey(absPos)) {
-                    int yId = absPosYIdMap.get(absPos);
-                    sumX_leq_1orY.addTerm(-1, yVarMap.get(yId));
-                    model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 0, "sumX_leq_Y" + absPos);
-                } else {
-                    model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
+                if (sumX_leq_1orY.size() != 0) {
+                    if (absPosYIdMap.containsKey(absPos)) {
+                        int yId = absPosYIdMap.get(absPos);
+                        sumX_leq_1orY.addTerm(-1, yVarMap.get(yId));
+                        model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 0, "sumX_leq_Y" + absPos);
+                    } else {
+                        model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
+                    }
                 }
             }
             // all poses x Var finished
@@ -1537,14 +1540,12 @@ public class InferPTM {
             for (int relPos = 0; relPos < gapLen; relPos++) {
                 char aa = gapSeq.charAt(relPos);
                 int absPos = refAbsPos + relPos;
-//                GRBVar nVar = model.addVar(0, 1, -0.1, GRB.CONTINUOUS, "nVar_"+absPos);
-//                GRBLinExpr nSumX = new GRBLinExpr();
-//                nSumX.addTerm(1, nVar);
-                boolean hasFixMod = aaWithFixModSet.contains(aa);
-                if (hasFixMod) continue;
+//                boolean hasFixMod = aaWithFixModSet.contains(aa);
+//                if (hasFixMod) continue;
 
-                GRBLinExpr sumX_leq_1 = new GRBLinExpr();
                 Map<Double, GRBVar> massXVarMap = new HashMap<>();
+                xVarMap.put(absPos, massXVarMap);
+                GRBLinExpr sumX_leq_1 = new GRBLinExpr();
                 TreeMap<Double, VarPtm> massVarPtmMap = absPos_MassVarPtm_Map.get(absPos);
                 if (massVarPtmMap == null) continue;
                 for (double ptmMass : massVarPtmMap.keySet()) {
@@ -1552,14 +1553,13 @@ public class InferPTM {
 //                    if(Math.abs(ptmMass-68)>1 && Math.abs(ptmMass-16)>1)continue;
                     GRBVar xVar = model.addVar(0, 1, -0.1, GRB.BINARY, "x_" + absPos + "_" + ptmMass);
                     massXVarMap.put(ptmMass, xVar);
-//                    nSumX.addTerm(-1, xVar);
                     sumX_leq_1.addTerm(1, xVar);
                     deltaMass.addTerm(ptmMass, xVar); // + m_i * x_i
                     totalNumsInGap.addTerm(1, xVar); // + 1 * x_i
                 }
-                xVarMap.put(absPos, massXVarMap);
-                model.addConstr(sumX_leq_1, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
-//                model.addConstr(nSumX, GRB.EQUAL, 0, "nSumX_"+absPos);
+                if (sumX_leq_1.size() != 0) {
+                    model.addConstr(sumX_leq_1, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
+                }
             }// all poses x Var finished
 
             //// add constraints
@@ -2534,14 +2534,15 @@ public class InferPTM {
                 char aa = partSeq.charAt(relPos);
                 int absPos = refPos + relPos - partSeqLen;
 
-                boolean hasFixMod = aaWithFixModSet.contains(aa);
-                if (hasFixMod && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
-                List<Byte> positionsToTry = absPos_ptmPositions_Map.get(absPos);
+//                boolean hasFixMod = aaWithFixModSet.contains(aa);
+//                if (hasFixMod && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
 
                 GRBLinExpr sumX_leq_1orY = new GRBLinExpr();
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
                 Map<Double, GRBVar> massXVarMap = new HashMap<>();
+                xVarMap.put(absPos, massXVarMap);
                 Set<Double> usedMassForThisAa = new HashSet<>();
+                List<Byte> positionsToTry = absPos_ptmPositions_Map.get(absPos);
                 for (Byte position : positionsToTry) { // in the order of anywhere-pepC-protC
                     List<VarPtm> varPtmList = allVarPtmMap.get(position);
                     if (varPtmList == null) continue;
@@ -2572,14 +2573,14 @@ public class InferPTM {
                         }
                     }
                 }
-                xVarMap.put(absPos, massXVarMap);
-
-                if (absPosYIdMap.containsKey(absPos)) {
-                    int yId = absPosYIdMap.get(absPos);
-                    sumX_leq_1orY.addTerm(-1, yVarMap.get(yId));
-                    model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 0, "sumX_leq_Y" + absPos);
-                } else {
-                    model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
+                if (sumX_leq_1orY.size() != 0) {
+                    if (absPosYIdMap.containsKey(absPos)) {
+                        int yId = absPosYIdMap.get(absPos);
+                        sumX_leq_1orY.addTerm(-1, yVarMap.get(yId));
+                        model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 0, "sumX_leq_Y" + absPos);
+                    } else {
+                        model.addConstr(sumX_leq_1orY, GRB.LESS_EQUAL, 1, "sumX_leq_1" + absPos);
+                    }
                 }
             }
             // all poses x Var finished
@@ -3779,9 +3780,10 @@ public class InferPTM {
         for (int relPos = 0; relPos < partSeqLen; ++relPos) {
             aa = partSeq.charAt(relPos);
             absPos = relPos + startRefPos;
+            List<Byte> positionsToTry = new ArrayList<>(3);
+            absPos_ptmPositions_Map.put(absPos, positionsToTry);
             if (aaWithFixModSet.contains(aa)) continue;
 
-            List<Byte> positionsToTry = new ArrayList<>(3);
             positionsToTry.add(ANYWHERE);
             if (yIdMaxAbsPosMap.containsValue(absPos)) {
                 positionsToTry.add(PEPC);
@@ -3794,7 +3796,6 @@ public class InferPTM {
             if (couldBeProtC && relPos == partSeqLen-1) {
                 positionsToTry.add(PROTC);
             }
-            absPos_ptmPositions_Map.put(absPos, positionsToTry);
 
             if (aaAllVarPtmMap.containsKey(aa)) {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
@@ -3836,7 +3837,6 @@ public class InferPTM {
             aa = partSeq.charAt(relPos);
             absPos = relPos + startRefPos;
             if (aaWithFixModSet.contains(aa)) continue;
-
             if (aaAllVarPtmMap.containsKey(aa)) {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
                 Map<String, VarPtm> dstMap = new HashMap<>(128);
@@ -3905,9 +3905,10 @@ public class InferPTM {
         for (int relPos = 0; relPos < partSeqLen; ++relPos) {
             aa = partSeq.charAt(relPos);
             absPos = relPos + endRefPos - partSeqLen;
+            List<Byte> positionsToTry = new ArrayList<>(3);
+            absPos_ptmPositions_Map.put(absPos, positionsToTry);
             if (aaWithFixModSet.contains(aa) && absPos != 0) continue;  // if that pos has fix mod but is not N term, dont let it
 
-            List<Byte> positionsToTry = new ArrayList<>(3);
             positionsToTry.add(ANYWHERE);
             if (yIdMinAbsPosMap.containsValue(absPos)) {
                 positionsToTry.add(PEPN);
@@ -3921,7 +3922,6 @@ public class InferPTM {
                 positionsToTry.add(PROTN);
             }
 
-            absPos_ptmPositions_Map.put(absPos, positionsToTry);
             if (aaAllVarPtmMap.containsKey(aa)) {
                 Map<Byte, List<VarPtm>> allVarPtmMap = aaAllVarPtmMap.get(aa);
                 Map<String, VarPtm> dstMap = new HashMap<>();

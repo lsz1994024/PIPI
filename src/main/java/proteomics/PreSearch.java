@@ -618,7 +618,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 
                         boolean foundRange = false;
                         for (OccGroup occG : occGroupList) {
-                            if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos - occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
+                            if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos + occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
                                 oldOccGToDel.add(occG);
                                 OccGroup newOccG = occG.clone();
                                 newOccG.addTag(resRevTag.clone(), lPos); // maybe in this func  just use merge tag
