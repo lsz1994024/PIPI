@@ -456,6 +456,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         public int spanLen;
         public String protId;
         public double totalScore;
+        private int hashcode;
         public OccGroup(ExpTag initialTag, String protId, int tagPosInProt) {
             this.tagPosList.add(new Pair<>(initialTag, tagPosInProt));
             this.spanLen = initialTag.size();
@@ -463,6 +464,17 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             this.rPos = tagPosInProt + this.spanLen;
             this.protId = protId;
             this.totalScore = initialTag.getTotalIntensity();
+
+            StringBuilder sb = new StringBuilder();
+            sb.append(protId);
+            sb.append(lPos);
+            sb.append(rPos);
+            sb.append(totalScore);
+            for (int i = 0; i < this.tagPosList.size(); ++i) {
+                sb.append(tagPosList.get(i).getFirst().getFreeAaString());
+                sb.append(tagPosList.get(i).getFirst().getHeadLocation());
+            }
+            hashcode = sb.toString().hashCode();
         }
 
         public OccGroup() {} // for clone
@@ -488,6 +500,17 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             this.lPos = this.tagPosList.get(0).getSecond();
             this.rPos = this.tagPosList.get(this.tagPosList.size()-1).getSecond() + this.tagPosList.get(this.tagPosList.size()-1).getFirst().size();
             this.spanLen = this.rPos - this.lPos;
+
+            StringBuilder sb = new StringBuilder();
+            sb.append(protId);
+            sb.append(lPos);
+            sb.append(rPos);
+            sb.append(totalScore);
+            for (int i = 0; i < this.tagPosList.size(); ++i) {
+                sb.append(tagPosList.get(i).getFirst().getFreeAaString());
+                sb.append(tagPosList.get(i).getFirst().getHeadLocation());
+            }
+            hashcode = sb.toString().hashCode(); //update hashcode
         }
 
         public OccGroup clone() {
@@ -498,27 +521,22 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             newOccG.rPos = this.rPos;
             newOccG.protId = this.protId;
             newOccG.totalScore = this.totalScore;
+            newOccG.hashcode = this.hashcode;
             return newOccG;
         }
 
+        @Override
+        public int hashCode() {
+            return hashcode;
+        }
+        @Override
         public boolean equals(Object other) {
+            if (this == other)
+                return true;
+            if (other == null || getClass() != other.getClass())
+                return false;
             OccGroup tmp = (OccGroup) other;
-            if (! this.protId.contentEquals(tmp.protId)) return false;
-            if ( this.lPos != tmp.lPos) return false;
-            if ( this.rPos != tmp.rPos) return false;
-            if ( this.totalScore != tmp.totalScore) return false;
-
-            if (this.tagPosList.size() != tmp.tagPosList.size()) return false;
-            for (int i = 0; i < this.tagPosList.size(); ++i) {
-                if (! this.tagPosList.get(i).getFirst().getFreeAaString().contentEquals(tmp.tagPosList.get(i).getFirst().getFreeAaString())) {
-                    return false;
-                }
-                if (this.tagPosList.get(i).getFirst().getHeadLocation() != tmp.tagPosList.get(i).getFirst().getHeadLocation()) {
-                    return false;
-                }
-            }
-
-            return true;
+            return hashCode() == tmp.hashCode();
         }
 
     }
@@ -562,12 +580,13 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
 
                         for (OccGroup occG : occGroupList) {
                             if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos + occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
-                                oldOccGToDel.add(occG);
                                 OccGroup newOccG = occG.clone();
-                                newOccG.addTag(resTag.clone(), lPos); // maybe in this func  just use merge tag
-                                newOccGToAdd.add(newOccG);
+                                newOccG.addTag(resTag.clone(), lPos);
+                                if ( ! newOccG.equals(occG)) { //successfully added
+                                    oldOccGToDel.add(occG);
+                                    newOccGToAdd.add(newOccG);
+                                }
                                 foundRange = true;
-//                                break;
                             }
                         }
                         if ( ! foundRange) {  //new occurrence that does not belong to any pos range
