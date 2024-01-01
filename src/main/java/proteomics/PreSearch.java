@@ -179,6 +179,17 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
         for (OccGroup occG : occGroupList) {
             if (occG.totalScore < 0.7*topOccScore) break;
             occG.tagPosList.sort(Comparator.comparing(o->o.getSecond()));
+            for (Pair<ExpTag, Integer> tagPosPair : occG.tagPosList) {
+                ExpTag tmpTag = tagPosPair.getFirst();
+                if (Math.abs(tmpTag.getHeadLocation()-MassTool.PROTON) < ms2Tolerance) {
+                    tmpTag.isNorC = N_TAG;
+                } else if (Math.abs(tmpTag.getTailLocation()-precursorMass+ massTool.H2O-MassTool.PROTON) < ms2Tolerance) {
+                    tmpTag.isNorC = C_TAG;
+                }else {
+                    tmpTag.isNorC = NON_NC_TAG;
+                }
+            }
+
 //            occG.tagPosList.remove(2);// debug
 //            occG.tagPosList.remove(1);// debug
             String protId = occG.protId;
@@ -558,10 +569,10 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             fmRes = buildIndex.fmIndexNormal.fmSearchFuzzy(tagChar);
             if (fmRes != null) {
                 matchedPos = fmRes.matchedPos;
-                int oriIsNorC = tagInfo.isNorC;
+//                int oriIsNorC = tagInfo.isNorC;
                 if (matchedPos != 0) {
                     shouldTryForwardSearch = true;
-                    if (oriIsNorC == N_TAG) tagInfo.isNorC = NON_NC_TAG;
+//                    if (oriIsNorC == N_TAG) tagInfo.isNorC = NON_NC_TAG;
                 }
                 tagLen = tagInfo.size();
                 if (matchedPos == 0 || tagLen-matchedPos >= minTagLen) {
@@ -612,15 +623,15 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 fmRes = buildIndex.fmIndexReverse.fmSearchFuzzy(tagChar);
                 if (fmRes != null) {
                     matchedPos = fmRes.matchedPos;
-                    int oriIsNorC = tagInfo.isNorC;
-                    if (matchedPos != 0) {
-                        if (oriIsNorC == C_TAG) {
-                            tagInfo.isNorC = NON_NC_TAG;
-                        }
-                        if (oriIsNorC == N_TAG) {
-                            tagInfo.isNorC = N_TAG;
-                        }
-                    }
+//                    int oriIsNorC = tagInfo.isNorC;
+//                    if (matchedPos != 0) {
+//                        if (oriIsNorC == C_TAG) {
+//                            tagInfo.isNorC = NON_NC_TAG;
+//                        }
+//                        if (oriIsNorC == N_TAG) {
+//                            tagInfo.isNorC = N_TAG;
+//                        }
+//                    }
                     if (matchedPos > 0 && tagInfo.size() - matchedPos < minTagLen) continue;
 
                     ExpTag resRevTag = matchedPos == 0 ? tagInfo : tagInfo.subTag(0, tagLen - matchedPos);
@@ -638,10 +649,12 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                         boolean foundRange = false;
                         for (OccGroup occG : occGroupList) {
                             if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos + occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
-                                oldOccGToDel.add(occG);
                                 OccGroup newOccG = occG.clone();
                                 newOccG.addTag(resRevTag.clone(), lPos); // maybe in this func  just use merge tag
-                                newOccGToAdd.add(newOccG);
+                                if (! newOccG.equals(occG)) {
+                                    oldOccGToDel.add(occG);
+                                    newOccGToAdd.add(newOccG);
+                                }
                                 foundRange = true;
 //                                break;
                             }
@@ -658,6 +671,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 }
             }
         }
+
     }
     private boolean isHomo(Peptide p1, Peptide p2, Map<String, PeptideInfo> peptideInfoMap) {
         Set<String> temp1 = peptideInfoMap.get(p1.getFreeSeq()).protIdSet;
@@ -825,7 +839,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             }
             boolean solved;
             if (gId == 0) {
-                if (rTag.isNorC == N_TAG) {
+                if (Math.abs(rTag.getHeadLocation()-MassTool.PROTON) < ms2Tolerance) {//rTag.isNorC == N_TAG
                     solved = true;
                 } else {
                     TreeSet<Peptide> nModPepsSet = new TreeSet<>(Comparator.reverseOrder());
@@ -834,7 +848,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                 }
                 if (solved) segResList.add(getPepFromTag(rTag));
             } else if (gId == tagNum) {// solve a C gap
-                if (lTag.isNorC == C_TAG) {
+                if (Math.abs(lTag.getTailLocation()-precursorMass+ massTool.H2O-MassTool.PROTON) < ms2Tolerance) {// lTag.isNorC == C_TAG
                     solved = true;
                 } else {
                     TreeSet<Peptide> cModPepsSet = new TreeSet<>(Comparator.reverseOrder());
