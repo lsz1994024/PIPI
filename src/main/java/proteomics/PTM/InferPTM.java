@@ -1798,7 +1798,7 @@ public class InferPTM {
         int nPeaks = feasiblePeaks.size();
         List<Dash> dashList = new ArrayList<>(nPeaks);
         for (double mz : feasiblePeaks.keySet()) {
-            dashList.add(new Dash(mz-2*ms2Tol, mz+2*ms2Tol, feasiblePeaks.get(mz)));
+            dashList.add(new Dash(mz-1.1*ms2Tol, mz+1.1*ms2Tol, feasiblePeaks.get(mz)));
         }
 
         Set<Integer> uselessDid = new HashSet<>();

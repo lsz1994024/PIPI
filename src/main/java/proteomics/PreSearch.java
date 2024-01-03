@@ -596,8 +596,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                                 if ( ! newOccG.equals(occG)) { //successfully added
                                     oldOccGToDel.add(occG);
                                     newOccGToAdd.add(newOccG);
+                                    foundRange = true;
                                 }
-                                foundRange = true;
                             }
                         }
                         if ( ! foundRange) {  //new occurrence that does not belong to any pos range
@@ -654,8 +654,8 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
                                 if (! newOccG.equals(occG)) {
                                     oldOccGToDel.add(occG);
                                     newOccGToAdd.add(newOccG);
+                                    foundRange = true;
                                 }
-                                foundRange = true;
 //                                break;
                             }
                         }
