@@ -106,7 +106,7 @@ public class PIPI {
 
     public static final int[] debugScanNumArray = new int[]{};
     //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(131940));//129543, 111179, 50630, 35359
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(95));//178,179,180,181,183,184,192
 
     public static int neighborNum = 1;
     public static void main(String[] args) {
@@ -538,7 +538,7 @@ public class PIPI {
             }
             if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
                 if (!shouldRun) {
-//                    continue;// skip scans not in the debug list
+                    continue;// skip scans not in the debug list
                 }
             }
             int fileId = fileNameIdMap.get( scanNameStr[0] );

@@ -196,7 +196,7 @@ public final class PreSearch implements Callable<PreSearch.Entry> {
             count++;
             double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagPosList, ms1TolAbs, resPeptTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
         }
-        if (lszDebugScanNum.contains(scanNum)){
+        if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
         }
         if (resPeptTreeSet.isEmpty()) {

@@ -233,7 +233,7 @@ public class InferPTM {
                     int yId = posYIdMap.get(absPos);
                     if (yVarMap.containsKey(yId)) {
                     } else {
-                        GRBVar yVar = model.addVar(0, 1, 0, GRB.BINARY, "y"+yId);
+                        GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y"+yId);
                         yVarMap.put(yId, yVar);
                     }
                     if ( ! hasFixMod) {
@@ -417,7 +417,7 @@ public class InferPTM {
                     int yId = posYIdMap.get(absPos);
                     if (yVarMap.containsKey(yId)) {
                     } else {
-                        GRBVar yVar = model.addVar(0, 1, 0, GRB.BINARY, "y"+yId);
+                        GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y"+yId);
                         yVarMap.put(yId, yVar);
                     }
                     if ( ! hasFixMod) {
@@ -665,7 +665,7 @@ public class InferPTM {
             Map<Integer, GRBVar> yVarMap = new HashMap<>(yIdAllPosesMap.size()); // <yId, var>
             for (int yId : absPosYIdMap.values()) {
 
-                GRBVar yVar = model.addVar(0, 1, -0.0, GRB.BINARY, "y" + yId);
+                GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y" + yId);
                 yVarMap.put(yId, yVar);
                 //constraints
                 double aaMass = 0;
@@ -771,8 +771,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs, "constrTotalMassLE");
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 1.2*ms1TolAbs, "constrTotalMassLE");
+            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 1.2*ms1TolAbs, "constrTotalMassGE");
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
             // peaks
@@ -1006,7 +1006,7 @@ public class InferPTM {
             Map<Integer, GRBVar> yVarMap = new HashMap<>(yIdAllPosesMap.size()); // <yId, var>
             for (int yId : absPosYIdMap.values()) {
 
-                GRBVar yVar = model.addVar(0, 1, -0.0, GRB.BINARY, "y" + yId);
+                GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y" + yId);
                 yVarMap.put(yId, yVar);
                 //constraints
                 double aaMass = 0;
@@ -2234,8 +2234,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 2*ms1TolAbs, "constrTotalMassLE");
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 2*ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 1.2*ms1TolAbs, "constrTotalMassLE");
+            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 1.2*ms1TolAbs, "constrTotalMassGE");
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPep"); // this value should not exceed the number of aa in the partSeq
 
             // peaks
@@ -2517,7 +2517,7 @@ public class InferPTM {
             // x y variables
             Map<Integer, GRBVar> yVarMap = new HashMap<>( yIdAllPosesMap.size() ); // <yId, var>
             for (int yId : yIdAllPosesMap.keySet()) {
-                GRBVar yVar = model.addVar(0, 1, -0.0, GRB.BINARY, "y"+yId);
+                GRBVar yVar = model.addVar(0, 1, -0.1, GRB.BINARY, "y"+yId);
                 yVarMap.put(yId, yVar);
                 //constraints
                 double aaMass = 0;
@@ -2621,8 +2621,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 2*ms1TolAbs, "constrTotalMassLE");
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 2*ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 1.2*ms1TolAbs, "constrTotalMassLE");
+            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 1.2*ms1TolAbs, "constrTotalMassGE");
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeqLen, MaxPtmNumInPart), "totalNumsOnPep"); // this value should not exceed the number of aa in the partSeq
 
             // peaks
@@ -2768,7 +2768,14 @@ public class InferPTM {
                     return;
             }
             int solCount = model.get(GRB.IntAttr.SolCount);
-            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
+            double optObj = model.get(GRB.DoubleAttr.ObjVal);
+            double objValThres;
+            if (optObj > 0) {
+                objValThres = 0.8*optObj;
+            } else {
+                objValThres = optObj-0.2;
+            }
+//            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
                 double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
@@ -2823,8 +2830,12 @@ public class InferPTM {
                 }
                 if (!posMassMap.isEmpty()) tmpPeptide.setVarPTM(posMassMap);
                 tmpPeptide.setScore(poolObjVal);
-
                 nModPepsSet.add(tmpPeptide);
+                if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0){
+//                    objValThres = -10;
+                    double[][] ions = tmpPeptide.getIonMatrixNow();
+                    int a = 1;
+                }
             }
             model.dispose();
         } catch (GRBException e) {
@@ -3457,8 +3468,8 @@ public class InferPTM {
                 }
                 double mass = Double.valueOf(modElem.element("delta").attributeValue("mono_mass"));
                 if (mass < minPtmMass || mass > maxPtmMass) continue;
-                if (Math.abs(mass - 56.0626) <0.01) {
-                    int a = 1;
+                if (Math.abs(mass - 79.957) < 0.005) {
+                    continue;
                 }
                 for (Element spec : modElem.elements("specificity")) {
                     String classification = spec.attributeValue("classification");
