@@ -47,12 +47,10 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
     private final double precursorMass;
     private final SpecProcessor specProcessor;
     private final int scanNum;
-    private String truth;
-
     private final double ms2Tolerance;
 
     public GetLongTag(int scanNum, BuildIndex buildIndex, MassTool massTool, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock
-            , String scanName, int precursorCharge, double precursorMass, SpecProcessor specProcessor, String truth, double ms2Tolerance) {
+            , String scanName, int precursorCharge, double precursorMass, SpecProcessor specProcessor, double ms2Tolerance) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
@@ -65,7 +63,6 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         this.precursorMass = precursorMass;
         this.specProcessor = specProcessor;
         this.scanNum = scanNum;
-        this.truth = truth;
         this.ms2Tolerance = ms2Tolerance;
     }
 
@@ -257,27 +254,8 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
                     break; // if it is processing original tags, dont break
                 }
                 if (tagStr.length() > 6) tagThisRound.add(expTag);
-
-//                if (tagQueue.isEmpty()) {
-//                    List<ExpTag> tempList = new LinkedList<>();
-//                    for (ExpTag tag : tagThisRound) {
-//                        ExpTag tagL = tag.subTag(0, tag.size() - 1);
-//                        if (!usedLongTags.contains(tagL.getFreeAaString())) {
-//                            tempList.add(tagL);
-//                        }
-//                        ExpTag tagR = tag.subTag(1, tag.size());
-//                        if (!usedLongTags.contains(tagR)) {
-//                            tempList.add(tagR);
-//                        }
-//                    }
-//                    tempList.sort(Comparator.comparingDouble(ExpTag::getTotalIntensity));
-//                    for (int j = tempList.size() - 1; j >= 0; j--) {
-//                        tagQueue.offer(tempList.get(j));
-//                    }
-//                }
             }
 
-//            System.out.println();
             entry.prot_TagResList_Map = prot_TagResList_Map;
             entry.scanName = this.scanName;
             return entry;

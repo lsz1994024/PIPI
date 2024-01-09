@@ -21,95 +21,22 @@ import ProteomicsLibrary.Types.SparseVector;
 import java.util.*;
 
 public class SpecProcessor {
-
     private static final double defaultIntensity = 1; // DO NOT change. Otherwise, change the whole project accordingly.
     private static final int xcorrOffset = 75;
     private static final double removePrecursorPeakTolerance = 1.5; // this equals the isolation window.
-    private static final int maxPlNum = 300;
     private final MassTool massTool;
 
     public SpecProcessor(MassTool massTool) {
         this.massTool = massTool;
     }
 
-    public TreeMap<Double, Double> preSpectrumTopNStyleCommon (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, int topN) {
-
-        TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
-        List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
-        Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getValue));
-        plList = plList.subList(Math.max(plList.size()-maxPlNum, 0), plList.size());
-        Collections.sort(plList, Comparator.comparingDouble(Map.Entry<Double, Double>::getKey));
-
-        //my deiso
-        Map<Integer, TreeSet<Integer>> isoAbility = new HashMap<>();
-        for(int i = 0; i < plList.size(); i++) {
-            isoAbility.put(i, (TreeSet<Integer>) (new TreeSet<>(Arrays.asList(5,4,3,2,1))).descendingSet());
-        }
-        TreeMap<Double, Double> newPlMap = new TreeMap<>();
-
-        for(int i = 0; i < plList.size()-1; i++) {
-            double curMz = plList.get(i).getKey();
-            double curIntes = plList.get(i).getValue();
-
-            boolean foundWithAnyCharge = false;
-
-            if (i == 140){
-                int a = 1;
-            }
-            Set<Integer> nextIdUsed = new HashSet<>();
-
-            for (int charge : isoAbility.get(i)) {
-                double mzDiff = MassTool.PROTON/charge;
-                boolean foundWithThisCharge = false;
-
-                isoIdLoop:
-                for (int isoId = 1; isoId <= 5; isoId++) {
-                    double thisMzDiff = isoId*mzDiff;
-                    for (int j = i + 1; j < plList.size(); j++) {
-                        if (nextIdUsed.contains(j)) continue;
-
-                        double nextMz = plList.get(j).getKey();
-                        double nextIntes = plList.get(j).getValue();
-                        if (nextMz < curMz + thisMzDiff - 0.015 || curIntes < 0.1*nextIntes) continue;
-                        if (nextMz > curMz + thisMzDiff + 0.015) break isoIdLoop; // at most 5 iso peaks in a cluster
-
-                        if (nextMz > curMz + thisMzDiff - 0.015 && nextMz < curMz + thisMzDiff + 0.015) {
-                            nextIdUsed.add(j);
-                            foundWithThisCharge = true;
-                            isoAbility.get(j).remove(charge);
-                            break;
-                        } else {
-                            break isoIdLoop;
-                        }
-                    }
-                }
-
-                if (foundWithThisCharge) {
-                    foundWithAnyCharge = true;
-                    newPlMap.put(curMz*charge-massTool.PROTON*(charge-1), curIntes);
-                }
-            }
-
-            if (!foundWithAnyCharge && isoAbility.get(i).size() == 5) {
-                newPlMap.put(curMz, curIntes);
-            }
-
-        }
-
-        if (newPlMap.subMap(0d, precursorMass).isEmpty()) {
-            return new TreeMap<>();
-        } else {
-            return topNStyleNormalization(sqrtPL(new TreeMap<>(newPlMap.subMap(0d, precursorMass))), topN);
-        }
-    }
-
     public TreeMap<Double, Double> preSpectrumTopNStyleWithChargeLimit (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, int topN, double ms2Tolerance) {
 
         TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
         List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
-        Collections.sort(plList, Comparator.comparing(o -> o.getValue(), Comparator.reverseOrder()));
+        Collections.sort(plList, Map.Entry.comparingByValue(Comparator.reverseOrder()));
         plList = plList.subList(0, Math.min(plList.size(), 600));
-        Collections.sort(plList, Comparator.comparing(o -> o.getKey()));
+        Collections.sort(plList, Map.Entry.comparingByKey());
 
         TreeMap<Double, Double> newPlMap = new TreeMap<>();
 
@@ -120,33 +47,6 @@ public class SpecProcessor {
             return new TreeMap<>();
         } else {
             return topNStyleNormalization(sqrtPL(new TreeMap<>(newPlMap.subMap(0d, precursorMass))), topN); //todo this deletes the precursorMass peak, ie the b-end ion and y-end ion
-        }
-    }
-
-    public TreeMap<Double, Double> preSpectrumTopNStyle (Map<Double, Double> inputPL, double precursorMass, int topN) {
-        TreeMap<Double, Double> outputPL = new TreeMap<>(inputPL);
-        if (outputPL.subMap(0d, precursorMass).isEmpty()) {
-            return new TreeMap<>();
-        } else {
-            return topNStyleNormalization(sqrtPL(new TreeMap<>(outputPL.subMap(0d, precursorMass))), topN);
-        }
-    }
-
-    public SparseVector preSpectrumCometStyle (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, boolean flankingPeak) {
-        TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
-        if (outputPL.subMap(0d, precursorMass).isEmpty()) {
-            return new SparseVector();
-        } else {
-            return prepareXCorr(cometStyleNormalization(sqrtPL(new TreeMap<>(outputPL.subMap(0d, precursorMass)))), flankingPeak);
-        }
-    }
-
-    public SparseVector preSpectrumCometStyle (Map<Double, Double> inputPL, double precursorMass, boolean flankingPeak) {
-        TreeMap<Double, Double> outputPL = new TreeMap<>(inputPL);
-        if (outputPL.subMap(0d, precursorMass).isEmpty()) {
-            return new SparseVector();
-        } else {
-            return prepareXCorr(cometStyleNormalization(sqrtPL(new TreeMap<>(outputPL.subMap(0d, precursorMass)))), flankingPeak);
         }
     }
 
@@ -249,56 +149,6 @@ public class SpecProcessor {
         }
     }
 
-    private double[] cometStyleNormalization(TreeMap<Double, Double> plMap) {
-        // digitize peak list
-        double[] plArray = new double[massTool.mzToBin(plMap.lastKey()) + 1];
-        for (double mz : plMap.keySet()) {
-            if (Math.abs(plMap.get(mz)) > 1e-6) {
-                int idx = massTool.mzToBin(mz);
-                plArray[idx] = Math.max(plMap.get(mz), plArray[idx]);
-            }
-        }
-
-        // find the max intensity
-        double maxIntensity = 0;
-        for (double intensity : plArray) {
-            if (intensity > maxIntensity) {
-                maxIntensity = intensity;
-            }
-        }
-
-        // normalize the peaks
-        double[] normalizedPlArray = new double[plArray.length];
-        int windowSize = (plArray.length / 10) + 1;
-        for (int i = 0; i < 10; ++i) {
-            // find the max intensity in each window
-            double maxWindowIntensity = 0;
-            for (int j = 0; j < windowSize; ++j) {
-                int idx = i * windowSize + j;
-                if (idx < plArray.length) {
-                    if (plArray[idx] > maxWindowIntensity) {
-                        maxWindowIntensity = plArray[idx];
-                    }
-                }
-            }
-
-            if (maxWindowIntensity > 0) {
-                double temp1 = 50 / maxWindowIntensity;
-                double temp2 = 0.05 * maxIntensity; // caution: Xolik does not have this
-                for (int j = 0; j < windowSize; ++j) {
-                    int idx = i * windowSize + j;
-                    if (idx < plArray.length) {
-                        if (plArray[idx] > temp2) {
-                            normalizedPlArray[idx] = plArray[idx] * temp1;
-                        }
-                    }
-                }
-            }
-        }
-
-        return normalizedPlArray;
-    }
-
     private static TreeMap<Double, Double> removeCertainPeaks(Map<Double, Double> peakMap, double precursorMass, int precursorCharge, double minClear, double maxClear) {
         TreeMap<Double, Double> mzIntensityMap = new TreeMap<>();
         double precursorMz = precursorMass / precursorCharge + MassTool.PROTON;
@@ -322,74 +172,5 @@ public class SpecProcessor {
             }
         }
         return sqrtPlMap;
-    }
-
-    private static TreeMap<Double, Double> deNoise(TreeMap<Double, Double> plMap) {
-        // denoise
-        TreeMap<Double, Double> denoisedPlMap = new TreeMap<>();
-        double minMz = plMap.firstKey();
-        double maxMz = plMap.lastKey();
-        double windowSize = (plMap.lastKey() - plMap.firstKey()) * 0.1 + 1;
-        for (int i = 0; i < 10; ++i) {
-            double leftMz = Math.min(minMz + i * windowSize, maxMz);
-            double rightMz = Math.min(leftMz + windowSize, maxMz);
-            NavigableMap<Double, Double> subPlMap;
-            if (rightMz < maxMz) {
-                subPlMap = plMap.subMap(leftMz, true, rightMz, false);
-            } else {
-                subPlMap = plMap.subMap(leftMz, true, rightMz, true);
-            }
-
-            if (subPlMap.size() > 9) {
-                double noiseIntensity = estimateNoiseIntensity(subPlMap);
-                for (double mz : subPlMap.keySet()) {
-                    if (subPlMap.get(mz) > noiseIntensity) {
-                        denoisedPlMap.put(mz, subPlMap.get(mz));
-                    }
-                }
-            } else {
-                for (double mz : subPlMap.keySet()) {
-                    denoisedPlMap.put(mz, subPlMap.get(mz));
-                }
-            }
-        }
-
-        return denoisedPlMap;
-    }
-
-    private static double estimateNoiseIntensity(Map<Double, Double> pl) {
-        Set<Double> intensitySet = new HashSet<>();
-        for (double intensity : pl.values()) {
-            intensitySet.add(intensity);
-        }
-        Double[] uniqueIntensityVector = intensitySet.toArray(new Double[0]);
-        Arrays.sort(uniqueIntensityVector);
-        double[] cum = new double[uniqueIntensityVector.length];
-        for (int i = 0; i < uniqueIntensityVector.length; ++i) {
-            for (double intensity : pl.values()) {
-                if (intensity <= uniqueIntensityVector[i]) {
-                    ++cum[i];
-                }
-            }
-        }
-        double[][] diff = new double[2][uniqueIntensityVector.length - 1];
-        for (int i = 0; i < uniqueIntensityVector.length - 1; ++i) {
-            diff[0][i] = cum[i + 1] - cum[i];
-            diff[1][i] = uniqueIntensityVector[i + 1] - uniqueIntensityVector[i];
-        }
-        double[] diff2 = new double[uniqueIntensityVector.length - 1];
-        for (int i = 0; i < uniqueIntensityVector.length - 1; ++i) {
-            diff2[i] = diff[0][i] / (diff[1][i] + 1e-6);
-        }
-        double maxValue = 0;
-        int maxIdx = 0;
-        for (int i = 0; i < uniqueIntensityVector.length - 1; ++i) {
-            if (diff2[i] > maxValue) {
-                maxValue = diff2[i];
-                maxIdx = i;
-            }
-        }
-
-        return uniqueIntensityVector[maxIdx];
     }
 }

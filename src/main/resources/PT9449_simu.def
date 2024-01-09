@@ -1,8 +1,7 @@
-# 1.4.7
+# 3
 # First line is the parameter file version. Don't change it.
-thread_num = 80 # Thread number. Set to 0 to using all the CPU resources in the computer.
-percolator_path = /usr/bin/percolator # Please input absolute path of Percolator binary file.
-
+PIPI_thread_num = 44 # Thread number for PIPI. Set to 0 to using half of CPU resources in the computer and leave the other half to GUROBI_thread_num.
+GUROBI_thread_num = 32 # Thread number for gurobi solver. Overriddden if PIPI_thread_num is 0
 # Database
 db = /home/slaiad/Code/PIPI/src/main/resources/sequences.fasta # Protein database. ncbi-soybean-target
 #db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target

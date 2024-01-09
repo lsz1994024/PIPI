@@ -112,11 +112,6 @@ public class DbTool {
             }
         }
         dbReader.close();
-        // Last protein
-//        protSeqMap.put(id, sequence.toString());
-//        if (!sequence.toString().contains("O") && !sequence.toString().contains("U")) {
-//             protSeqMap.put(id, sequence.toString());
-//        }
 
         //the last prot
         protSeqMap.put(id, sequence.toString());

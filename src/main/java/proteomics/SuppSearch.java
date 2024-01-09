@@ -36,7 +36,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static proteomics.PIPI.lszDebugScanNum;
 
-public class PtmSearch implements Callable<PtmSearch.Entry> {
+public class SuppSearch implements Callable<SuppSearch.Entry> {
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
@@ -107,7 +107,7 @@ public class PtmSearch implements Callable<PtmSearch.Entry> {
         return n_SameMass == p1.posVarPtmResMap.size();
     }
 
-    public PtmSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
+    public SuppSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
             , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
             , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, Binomial binomial, Map<String, TreeMap<Integer, VarPtm>> ptmSeq_posVarPtmMap_Map, Map<String, PeptideInfo> peptideInfoMap)  {
         this.buildIndex = buildIndex;
