@@ -232,7 +232,6 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
                             pepIdsToRemove.add(j);
                         }
                     }
-//                        break
                 }
             }
         }
@@ -242,7 +241,6 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
             newPepList.add(pepList.get(id));
         }
         if (newPepList.isEmpty()) {
-            System.out.println(scanNum + ", empty after ishomo");
             return null;
         }
 
@@ -289,25 +287,13 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
             pepSetString += peptide.getVarPtmContainingSeqNow() + "," + peptide.getScore() + "," + String.join("_", peptideInfo.protIdSet) +",";
         }    // pepSetString saves ptmContaining seq
 
-        boolean shouldPtm = Math.abs(precursorMass-massTool.calResidueMass(topPep.getFreeSeq()) - massTool.H2O) > 0.01;
-        boolean hasPTM = topPep.hasVarPTM();
-        int ptmNum = 0;
-        boolean isSettled = true;
-        double totalPtmMass = 0;
-        if (hasPTM) {
-            ptmNum = topPep.getVarPTMs().size();
-            for (double mass : topPep.getVarPTMs().values()){
-                totalPtmMass += mass;
-            }
-        }
-        isSettled = Math.abs(totalPtmMass-(precursorMass-massTool.calResidueMass(topPep.getFreeSeq()) - massTool.H2O)) <= 0.01;
         entry = new Entry(
-                scanNum, scanName, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0
+                scanNum, scanName
                 , precursorCharge, precursorMass, buildIndex.getLabelling(), topPep.getPtmContainingSeq(buildIndex.returnFixModMap())
                 , topPep.getTheoMass(), topPep.isDecoy() ? 1 : 0, topPep.getScore(), deltaLCn, deltaCn
                 , topPep.getMatchedPeakNum(), topPep.getIonFrac(), topPep.getMatchedHighestIntensityFrac()
                 , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore(), ""
-                , pepSetString.substring(0, pepSetString.length()-1), whereIsTopCand
+                , pepSetString.substring(0, pepSetString.length()-1)
                 );
 
         if (lszDebugScanNum.contains(scanNum)){
@@ -337,20 +323,11 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         final String aScore;
         final String candidates;
         final String peptideSet;
-        final int whereIsTopCand;
-        final int hasPTM;
-        final int ptmNum;
-        final int isSettled;
-        final int shouldPtm;
-        Entry(int scanNum, String scanName, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass
+        Entry(int scanNum, String scanName, int precursorCharge, double precursorMass
                 ,String labelling, String peptide, double theoMass, int isDecoy, double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac
-                , double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet, int whereIsTopCand ) {
+                , double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet ) {
             this.scanNum = scanNum;
             this.scanName = scanName;
-            this.shouldPtm = shouldPtm;
-            this.hasPTM = hasPTM;
-            this.ptmNum = ptmNum;
-            this.isSettled = isSetteld;
             this.precursorCharge = precursorCharge;
             this.precursorMass = precursorMass;
             this.labelling = labelling;
@@ -368,7 +345,6 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
             this.aScore = aScore;
             this.candidates = candidates;
             this.peptideSet = peptideSet;
-            this.whereIsTopCand = whereIsTopCand;
         }
     }
 }

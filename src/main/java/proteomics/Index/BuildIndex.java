@@ -126,7 +126,6 @@ public class BuildIndex {
         fmIndexFull = new FMIndex(text);
         System.out.println("Finish build FM index");
 
-
     }
 
     public static char[] loadFile(String file, boolean appendTerminalCharacter) throws IOException{

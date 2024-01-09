@@ -242,19 +242,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             pepSetString += peptide.getVarPtmContainingSeqNow() + "," + peptide.getScore() + "," + String.join("_", peptideInfo.protIdSet) +",";
         }
 
-        boolean shouldPtm = Math.abs(precursorMass-massTool.calResidueMass(topPep.getFreeSeq()) - massTool.H2O) > 0.01;
-        boolean hasPTM = topPep.hasVarPTM();
-        int ptmNum = 0;
-        boolean isSettled = true;
-        double totalPtmMass = 0;
-        if (hasPTM) {
-            ptmNum = topPep.getVarPTMs().size();
-            for (double mass : topPep.getVarPTMs().values()){
-                totalPtmMass += mass;
-            }
-        }
-        isSettled = Math.abs(totalPtmMass-(precursorMass-massTool.calResidueMass(topPep.getFreeSeq()) - massTool.H2O)) <= 0.01;
-
         double deltaLCn = 1; // L means the last?
         if (peptideArray.length > candisNum - 1) {
             deltaLCn = (peptideArray[0].getScore() - peptideArray[candisNum - 1].getScore()) / peptideArray[0].getScore();
@@ -270,11 +257,10 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         }
         String otherPtmPatterns = "-";
         entry = new MainSearch.Entry(
-                scanNum, scanName, shouldPtm ? 1 : 0, hasPTM ? 1 : 0, ptmNum, isSettled ? 1 : 0
-                , precursorCharge, precursorMass, buildIndex.getLabelling(), topPep.getPtmContainingSeq(buildIndex.returnFixModMap())
+                scanNum, scanName, precursorCharge, precursorMass, buildIndex.getLabelling(), topPep.getPtmContainingSeq(buildIndex.returnFixModMap())
                 , topPep.getTheoMass(), topPep.isDecoy() ? 1 : 0, topPep.getScore(), deltaLCn, deltaCn
                 , topPep.getMatchedPeakNum(), topPep.getIonFrac(), topPep.getMatchedHighestIntensityFrac()
-                , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore(), ""
+                , topPep.getExplainedAaFrac(), otherPtmPatterns, topPep.getaScore()
                 , pepSetString.substring(0, pepSetString.length()-1)
         );
         entry.topPeptide = topPep;
@@ -1161,24 +1147,14 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         final double explainedAaFrac;
         final String otherPtmPatterns; // It has 4 decimal because it is write the the result file for checking. It is not used in scoring or other purpose.
         final String aScore;
-        final String candidates;
         final String peptideSet;
-        final int hasPTM;
-        final int ptmNum;
-        final int isSettled;
-        final int shouldPtm;
-
         List<VarPtm> varPtmList = new ArrayList<>();
-        Entry(int scanNum, String scanName, int shouldPtm, int hasPTM, int ptmNum, int isSetteld, int precursorCharge, double precursorMass
+        Entry(int scanNum, String scanName, int precursorCharge, double precursorMass
                 ,String labelling, String peptide, double theoMass, int isDecoy
                 , double score, double deltaLCn, double deltaCn, int matchedPeakNum, double ionFrac, double matchedHighestIntensityFrac
-                , double explainedAaFrac, String otherPtmPatterns, String aScore, String candidates, String peptideSet) {
+                , double explainedAaFrac, String otherPtmPatterns, String aScore, String peptideSet) {
             this.scanNum = scanNum;
             this.scanName = scanName;
-            this.shouldPtm = shouldPtm;
-            this.hasPTM = hasPTM;
-            this.ptmNum = ptmNum;
-            this.isSettled = isSetteld;
             this.precursorCharge = precursorCharge;
             this.precursorMass = precursorMass;
             this.labelling = labelling;
@@ -1194,7 +1170,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             this.explainedAaFrac = explainedAaFrac;
             this.otherPtmPatterns = otherPtmPatterns;
             this.aScore = aScore;
-            this.candidates = candidates;
             this.peptideSet = peptideSet;
         }
     }

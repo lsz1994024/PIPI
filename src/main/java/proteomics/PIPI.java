@@ -215,6 +215,7 @@ public class PIPI {
 
         Map<String, String> mgfTitleMap = new HashMap<>();
         Map<String, Integer> isotopeCorrectionNumMap = new HashMap<>();
+        Map<String, Integer> precursorScanNoMap = new HashMap<>();
         Map<String, Double> ms1PearsonCorrelationCoefficientMap = new HashMap<>();
 
         //////////==================================================
@@ -236,6 +237,7 @@ public class PIPI {
             double precursorMass = sqlResSetGetLongTag.getDouble("precursorMass");
             mgfTitleMap.put(scanName, sqlResSetGetLongTag.getString("mgfTitle"));
             isotopeCorrectionNumMap.put(scanName, sqlResSetGetLongTag.getInt("isotopeCorrectionNum"));
+            precursorScanNoMap.put(scanName, sqlResSetGetLongTag.getInt("precursorScanNo"));
             ms1PearsonCorrelationCoefficientMap.put(scanName, sqlResSetGetLongTag.getDouble("ms1PearsonCorrelationCoefficient"));
             if (isDebugMode){
                 boolean shouldRun = false;
@@ -462,10 +464,6 @@ public class PIPI {
         writer.close();
 
         logger.info("Main searching...");
-//        int threadNum = Integer.valueOf(parameterMap.get("thread_num"));
-//        if (threadNum == 0) {
-//            threadNum = 3 + Runtime.getRuntime().availableProcessors();
-//        }
 
         p_thread_num = Integer.valueOf(parameterMap.get("PIPI_thread_num"));
         if (Integer.valueOf(parameterMap.get("PIPI_thread_num")) == 0) {
@@ -514,7 +512,7 @@ public class PIPI {
         Map<String, Peptide> scanName_TopPeptide_Map = new HashMap<>();
         Map<String, String> scanName_PepString_Map = new HashMap<>();
         Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
-        PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient,  precursorScanNo, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, peptideSet) VALUES (?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConSpecCoder.setAutoCommit(false);
         Map<VarPtm, Integer> varPtmCountMap = new HashMap<>();
         while (countBone < totalCountBone) {
@@ -539,26 +537,21 @@ public class PIPI {
                         sqlPreparedStatement.setString(5, mgfTitleMap.get(entry.scanName));
                         sqlPreparedStatement.setInt(6, isotopeCorrectionNumMap.get(entry.scanName));
                         sqlPreparedStatement.setDouble(7, ms1PearsonCorrelationCoefficientMap.get(entry.scanName));
-                        sqlPreparedStatement.setString(8, entry.labelling);
-                        sqlPreparedStatement.setString(9, entry.peptide);
-                        sqlPreparedStatement.setDouble(10, entry.theoMass);
-                        sqlPreparedStatement.setInt(11, entry.isDecoy);
-                        sqlPreparedStatement.setDouble(12, entry.score);
-                        sqlPreparedStatement.setDouble(13, entry.deltaLCn);
-                        sqlPreparedStatement.setDouble(14, entry.deltaCn);
-                        sqlPreparedStatement.setInt(15, entry.matchedPeakNum);
-                        sqlPreparedStatement.setDouble(16, entry.ionFrac);
-                        sqlPreparedStatement.setDouble(17, entry.matchedHighestIntensityFrac);
-                        sqlPreparedStatement.setDouble(18, entry.explainedAaFrac);
-                        sqlPreparedStatement.setString(19, entry.otherPtmPatterns);
-                        sqlPreparedStatement.setString(20, entry.aScore);
-                        sqlPreparedStatement.setString(21, entry.candidates);
+                        sqlPreparedStatement.setInt(8, precursorScanNoMap.get(entry.scanName));
+                        sqlPreparedStatement.setString(9, entry.labelling);
+                        sqlPreparedStatement.setString(10, entry.peptide);
+                        sqlPreparedStatement.setDouble(11, entry.theoMass);
+                        sqlPreparedStatement.setInt(12, entry.isDecoy);
+                        sqlPreparedStatement.setDouble(13, entry.score);
+                        sqlPreparedStatement.setDouble(14, entry.deltaLCn);
+                        sqlPreparedStatement.setDouble(15, entry.deltaCn);
+                        sqlPreparedStatement.setInt(16, entry.matchedPeakNum);
+                        sqlPreparedStatement.setDouble(17, entry.ionFrac);
+                        sqlPreparedStatement.setDouble(18, entry.matchedHighestIntensityFrac);
+                        sqlPreparedStatement.setDouble(19, entry.explainedAaFrac);
+                        sqlPreparedStatement.setString(20, entry.otherPtmPatterns);
+                        sqlPreparedStatement.setString(21, entry.aScore);
                         sqlPreparedStatement.setString(22, entry.peptideSet);
-                        sqlPreparedStatement.setInt(23, -1);//whereIsTopCand dummy to be deleted
-                        sqlPreparedStatement.setInt(24, entry.shouldPtm);
-                        sqlPreparedStatement.setInt(25, entry.hasPTM);
-                        sqlPreparedStatement.setInt(26, entry.ptmNum);
-                        sqlPreparedStatement.setInt(27, entry.isSettled);
 
                         sqlPreparedStatement.executeUpdate();
                         int fileId = fileNameIdMap.get( entry.scanName.split("\\.")[0] );
@@ -672,7 +665,7 @@ public class PIPI {
         int totalCountSupp = taskListSupp.size();
         int countSupp = 0;
         Connection sqlConSupp = DriverManager.getConnection(sqlPath);
-        PreparedStatement sqlPreparedStatementPTM = sqlConSupp.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, candidates, peptideSet, whereIsTopCand, shouldPtm, hasPTM, ptmNum, isSettled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPreparedStatementPTM = sqlConSupp.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient,  precursorScanNo, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, peptideSet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConSupp.setAutoCommit(false);
         while (countSupp < totalCountSupp) {
             List<Future<SuppSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountSupp - countSupp);
@@ -693,20 +686,20 @@ public class PIPI {
                         sqlPreparedStatementPTM.setString(5, mgfTitleMap.get(entry.scanName));
                         sqlPreparedStatementPTM.setInt(6, isotopeCorrectionNumMap.get(entry.scanName));
                         sqlPreparedStatementPTM.setDouble(7, ms1PearsonCorrelationCoefficientMap.get(entry.scanName));
-                        sqlPreparedStatementPTM.setString(8, entry.labelling);
-                        sqlPreparedStatementPTM.setString(9, entry.peptide);
-                        sqlPreparedStatementPTM.setDouble(10, entry.theoMass);
-                        sqlPreparedStatementPTM.setInt(11, entry.isDecoy);
-                        sqlPreparedStatementPTM.setDouble(12, entry.score);
-                        sqlPreparedStatementPTM.setDouble(13, entry.deltaLCn);
-                        sqlPreparedStatementPTM.setDouble(14, entry.deltaCn);
-                        sqlPreparedStatementPTM.setInt(15, entry.matchedPeakNum);
-                        sqlPreparedStatementPTM.setDouble(16, entry.ionFrac);
-                        sqlPreparedStatementPTM.setDouble(17, entry.matchedHighestIntensityFrac);
-                        sqlPreparedStatementPTM.setDouble(18, entry.explainedAaFrac);
-                        sqlPreparedStatementPTM.setString(19, entry.otherPtmPatterns);
-                        sqlPreparedStatementPTM.setString(20, entry.aScore);
-                        sqlPreparedStatementPTM.setString(21, entry.candidates);
+                        sqlPreparedStatementPTM.setInt(8, precursorScanNoMap.get(entry.scanName));
+                        sqlPreparedStatementPTM.setString(9, entry.labelling);
+                        sqlPreparedStatementPTM.setString(10, entry.peptide);
+                        sqlPreparedStatementPTM.setDouble(11, entry.theoMass);
+                        sqlPreparedStatementPTM.setInt(12, entry.isDecoy);
+                        sqlPreparedStatementPTM.setDouble(13, entry.score);
+                        sqlPreparedStatementPTM.setDouble(14, entry.deltaLCn);
+                        sqlPreparedStatementPTM.setDouble(15, entry.deltaCn);
+                        sqlPreparedStatementPTM.setInt(16, entry.matchedPeakNum);
+                        sqlPreparedStatementPTM.setDouble(17, entry.ionFrac);
+                        sqlPreparedStatementPTM.setDouble(18, entry.matchedHighestIntensityFrac);
+                        sqlPreparedStatementPTM.setDouble(19, entry.explainedAaFrac);
+                        sqlPreparedStatementPTM.setString(20, entry.otherPtmPatterns);
+                        sqlPreparedStatementPTM.setString(21, entry.aScore);
                         String peptideSetStr = null;
                         if (  scanName_PepString_Map.containsKey(entry.scanName) ){
                             peptideSetStr = entry.peptideSet + "," + scanName_PepString_Map.get(entry.scanName);
@@ -714,11 +707,6 @@ public class PIPI {
                             peptideSetStr = entry.peptideSet;
                         }
                         sqlPreparedStatementPTM.setString(22, peptideSetStr); //if a better complementary pep comes, need to insert it in the front
-                        sqlPreparedStatementPTM.setInt(23, entry.whereIsTopCand);
-                        sqlPreparedStatementPTM.setInt(24, entry.shouldPtm);
-                        sqlPreparedStatementPTM.setInt(25, entry.hasPTM);
-                        sqlPreparedStatementPTM.setInt(26, entry.ptmNum);
-                        sqlPreparedStatementPTM.setInt(27, entry.isSettled);
 
                         sqlPreparedStatementPTM.executeUpdate();
                         ++resultCountSupp;
@@ -762,7 +750,7 @@ public class PIPI {
             lockSupp.unlock();
         }
 
-        pfm(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName, varPtmCountMap);
+        postProcessing(outputDir, allPeptideInfoMap, sqlPath, buildIndex.protSeqMap, massTool, hostName, varPtmCountMap);
         logger.info("Saving results...");
     }
 
@@ -878,7 +866,7 @@ public class PIPI {
             return 0;
         }
     }
-    private void pfm(String outputDir, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap, MassTool massTool, String hostName, Map<VarPtm, Integer> varPtmCountMap) throws IOException, SQLException {
+    private void postProcessing(String outputDir, Map<String, PeptideInfo> allPeptideInfoMap, String sqlPath, Map<String, String> protSeqMap, MassTool massTool, String hostName, Map<VarPtm, Integer> varPtmCountMap) throws IOException, SQLException {
         //preprocess varPtmCountMap
         Map<String, Double> varPtmRefScoreMap = new HashMap<>();
         for (VarPtm varPtm : varPtmCountMap.keySet()) {
@@ -1064,9 +1052,6 @@ public class PIPI {
 //            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
 //        }
         for (ScanRes scanRes : scanResList) {
-            if (lszDebugScanNum.contains(scanRes.scanNum)) {
-                int a = 1;
-            }
             try {
                 Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
             } catch (Exception e){

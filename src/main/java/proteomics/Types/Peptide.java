@@ -34,8 +34,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
     public boolean isDecoy;
     private final String normalizedPeptideString;
     private final MassTool massTool;
-    public double absDeltaMass = 0d;
-    public Peptide bestPep = null;
     private int hashCode;
 
     // these fields need to be changed every time PTM changed.
@@ -306,31 +304,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return ptmContainingSeq;
     }
 
-//    public String getPtmContainingSeq(Map<Character, Double> fixModMap) {
-//        if (posVarPtmResMap != null) {
-//            StringBuilder sb = new StringBuilder(freeSeq);
-//            for (int pos : posVarPtmResMap.descendingKeySet()) {
-//                if (pos == 0 && (posVarPtmResMap.get(pos).position == 0 || posVarPtmResMap.get(pos).position == 2)) {
-//                    sb.replace(pos, pos+1, String.format(Locale.US, "(n%.3f)%c", posVarPtmResMap.get(pos).mass, freeSeq.charAt(pos)));
-//                } else if (pos == freeSeq.length()-1 && (posVarPtmResMap.get(pos).position == 1 || posVarPtmResMap.get(pos).position == 3)) {
-//                    sb.replace(pos, pos+1, String.format(Locale.US, "%c(c%.3f)", freeSeq.charAt(pos), posVarPtmResMap.get(pos).mass));
-//                } else {
-//                    sb.replace(pos, pos+1, String.format(Locale.US, "%c(%.3f)", freeSeq.charAt(pos), posVarPtmResMap.get(pos).mass));
-//                }
-//            }
-//            ptmContainingSeq = sb.toString();
-//        } else {
-//            ptmContainingSeq = freeSeq;
-//        }
-//
-//        // this below for-loop should be commented when developping to hide C(57.021) for better looking
-////        for (char aa : fixModMap.keySet()) {
-////            if (Math.abs(fixModMap.get(aa)) > 0.01) {
-////                ptmContainingSeq = ptmContainingSeq.replaceAll(String.valueOf(aa), String.format(Locale.US, "%c(%.3f)", aa, fixModMap.get(aa)));
-////            }
-////        }
-//        return ptmContainingSeq;
-//    }
 
     public void setScore(double score) {
         this.score = score;
@@ -384,53 +357,6 @@ public class Peptide implements Comparable<Peptide>, Cloneable{
         return aScore;
     }
 
-    public double getQValue() {
-        return qValue;
-    }
-
-//    public int compareTo(Peptide peptide) {
-//        if (score > peptide.getScore()) {
-//            return 1;
-//        } else if (score < peptide.getScore()) {
-//            return -1;
-//        } else {
-//            if (matchedPeakNum > peptide.getMatchedPeakNum()) {
-//                return 1;
-//            } else if (matchedPeakNum < peptide.getMatchedPeakNum()) {
-//                return -1;
-//            } else {
-//                if (explainedAaFrac > peptide.getExplainedAaFrac()) {
-//                    return 1;
-//                } else if (explainedAaFrac < peptide.getExplainedAaFrac()) {
-//                    return -1;
-//                } else {
-//                    if (getVarPTMNum() < peptide.getVarPTMNum()) {
-//                        return 1;
-//                    } else if (getVarPTMNum() > peptide.getVarPTMNum()) {
-//                        return -1;
-//                    } else if (tagVecScore > peptide.getTagVecScore()) {
-//                        return 1;
-//                    } else if (tagVecScore < peptide.getTagVecScore()) {
-//                        return -1;
-//                    } else {
-//                        if (!isDecoy && peptide.isDecoy()) {
-//                            return 1;
-//                        } else if (isDecoy && !peptide.isDecoy()) {
-//                            return -1;
-//                        } else{
-//                            if (absDeltaMass < peptide.absDeltaMass){
-//                                return 1;
-//                            } else if (absDeltaMass > peptide.absDeltaMass){
-//                                return -1;
-//                            } else {
-//                                return 0;
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     public int compareTo(Peptide peptide) {
 //        try {

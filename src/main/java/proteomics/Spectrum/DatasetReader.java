@@ -46,7 +46,7 @@ public class DatasetReader {
         Statement sqlStatement = sqlConnection.createStatement();
         sqlStatement.executeUpdate("PRAGMA journal_mode=WAL");
         sqlStatement.executeUpdate("DROP TABLE IF EXISTS spectraTable");
-        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanName TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, candidates TEXT, peptideSet TEXT, whereIsTopCand INTEGER, shouldPtm INTEGER, hasPTM INTEGER, ptmNum INTEGER, isSettled INTEGER, precursorScanNo INTEGER)");
+        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanName TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, precursorScanNo INTEGER, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, peptideSet TEXT)");
         sqlStatement.close();
 
         PreparedStatement sqlPrepareStatement = sqlConnection.prepareStatement("INSERT INTO spectraTable (scanNum, scanName, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, precursorScanNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -91,12 +91,7 @@ public class DatasetReader {
                         if (spectrum.getPeakList().size() < 5) {
                             continue;
                         }
-//                        if ( ! PIPI.lszDebugScanNum.contains(scanNum)) {
-//                            continue;
-//                        }
-
                         if (spectrum.getPrecursorCharge() == null) {
-//                            logger.warn("Scan {} does not contain charge information.", scanNum);
                             continue;
                         } else {
                             precursorCharge = spectrum.getPrecursorCharge();
@@ -104,11 +99,6 @@ public class DatasetReader {
                         }
                     } else {
                         scanNum = Integer.valueOf(spectrum.getId());
-
-//                        if ( ! PIPI.lszDebugScanNum.contains(scanNum)) {
-//                            continue;
-//                        }
-
                         TreeMap<Double, Double> parentPeakList = new TreeMap<>(spectraParser.getSpectrumById(parentId).getPeakList());
                         if (spectrum.getPrecursorCharge() == null) {
                             // We have to infer the precursor charge.
