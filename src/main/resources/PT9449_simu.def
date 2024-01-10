@@ -83,5 +83,5 @@ Trypsin/P      1                  	 KR            	 -
 # LysN         	 0                  	 K             	 -
 # AspN         	 0                  	 D            	 -
 
-# Do not change the following
-output_percolator_input = 1
+# Advanced parameters
+min_prot_coverage = 0.2

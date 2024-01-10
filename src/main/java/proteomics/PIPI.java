@@ -83,7 +83,7 @@ public class PIPI {
     public static final boolean nTermSpecific = true; //normal //todo
     public static final boolean cTermSpecific = true; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
+//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
     static final int  maxNumVarPtmConsidered = 18;
 //    /debuging parameters
 
@@ -147,7 +147,7 @@ public class PIPI {
         double maxClear = Double.valueOf(parameterMap.get("max_clear_mz"));
         double g_thread_num = Integer.valueOf(parameterMap.get("GUROBI_thread_num"));
         boolean addContaminants = Boolean.valueOf(parameterMap.get("add_contaminant"));
-
+        double proteinCovThres = Double.valueOf(parameterMap.get("min_prot_coverage"));
         String[] tempArray = parameterMap.get("ms_level").split(",");
         Set<Integer> msLevelSet = new HashSet<>(tempArray.length + 1, 1);
         for (String temp : tempArray) {
@@ -349,7 +349,7 @@ public class PIPI {
 //        int a = 0;
 //        for (Pair<String, Double> protScore : protScoreLongList) {
 //            a++;
-//            if (a % 100 ==0) {
+//            if (a <100) {
 //                System.out.println(a + ": "+ protScore.getFirst() + "," + protScore.getSecond());
 //            }
 //        }
