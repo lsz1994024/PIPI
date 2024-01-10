@@ -59,7 +59,6 @@ public class BuildIndex {
         double ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
         double oneMinusBinOffset = 1 - Double.valueOf(parameterMap.get("mz_bin_offset"));
         this.labelling = parameterMap.get("15N").trim().contentEquals("1") ? "N15" : "N14";
-
         fixModMap.put('G', Double.valueOf(parameterMap.get("G")));
         fixModMap.put('A', Double.valueOf(parameterMap.get("A")));
         fixModMap.put('S', Double.valueOf(parameterMap.get("S")));

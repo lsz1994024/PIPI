@@ -172,7 +172,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         double topOccScore = occGroupList.get(0).totalScore;
         outLoop:
         for (OccGroup occG : occGroupList) {
-            if (occG.totalScore < 0.7*topOccScore) break;
+            if (occG.totalScore < 0.7*topOccScore ) break;
             occG.tagPosList.sort(Comparator.comparing(o->o.getSecond()));
             for (Pair<ExpTag, Integer> tagPosPair : occG.tagPosList) {
                 ExpTag tmpTag = tagPosPair.getFirst();

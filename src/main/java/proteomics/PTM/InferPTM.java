@@ -66,6 +66,7 @@ public class InferPTM {
     private final Set<Character> aaCharSet = new HashSet<>(Arrays.asList('A','C','D','E','F','G','H','I','K','L','M','N','O','P','Q','R','S','T','U','V','W','Y'));
 
     private Set<Character> aaWithFixModSet = new HashSet<>();
+    private final int g_thread_num;
     public InferPTM(MassTool massTool, Map<Character, Double> fixModMap, Map<String, String> parameterMap) throws Exception{
         this.massTool = massTool;
         elementTable = massTool.getElementTable();
@@ -78,7 +79,7 @@ public class InferPTM {
         }
 //        this.minPtmMass = Math.min(Double.valueOf(parameterMap.get("min_ptm_mass")), -600);// todo, this is correct way to handle user specified big mass PTM
         this.minPtmMass = Double.valueOf(parameterMap.get("min_ptm_mass"));
-
+        this.g_thread_num = Integer.valueOf(parameterMap.get("GUROBI_thread_num"));
         this.maxPtmMass = Double.valueOf(parameterMap.get("max_ptm_mass"));
         this.ms2Tol = Double.valueOf(parameterMap.get("ms2_tolerance"));
 
@@ -417,7 +418,7 @@ public class InferPTM {
             //obj function
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
-            model.set(GRB.IntParam.Threads, 32); // second
+            model.set(GRB.IntParam.Threads, g_thread_num); // second
 
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
@@ -646,7 +647,7 @@ public class InferPTM {
             //obj function
             model.set(GRB.DoubleParam.TimeLimit, 5); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
-            model.set(GRB.IntParam.Threads, 32); // second
+            model.set(GRB.IntParam.Threads, g_thread_num); // second
 //            model.set(GRB.IntParam.AggFill, 1000); // second
 
 //            model.set(GRB.IntParam.MIPFocus, 3); // second
@@ -1174,7 +1175,7 @@ public class InferPTM {
             //obj function
             model.set(GRB.DoubleParam.TimeLimit, 5); // timeLimit
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
-            model.set(GRB.IntParam.Threads, 32); // second
+            model.set(GRB.IntParam.Threads, g_thread_num); // second
 
 //            model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slower

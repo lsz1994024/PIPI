@@ -345,6 +345,14 @@ public class PIPI {
             protScoreLongList.add(new Pair<>(prot, protCoverageMap.get(prot)));
         }
         Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
+
+//        int a = 0;
+//        for (Pair<String, Double> protScore : protScoreLongList) {
+//            a++;
+//            if (a % 100 ==0) {
+//                System.out.println(a + ": "+ protScore.getFirst() + "," + protScore.getSecond());
+//            }
+//        }
         Set<String> reducedProtIdSet = new HashSet<>();
 
         for (Pair<String, Double> pair : protScoreLongList){
