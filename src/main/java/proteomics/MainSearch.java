@@ -111,18 +111,12 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         } else {
             expProcessedPL = specProcessor.digitizePL(finalPlMap);
         }
-
 //        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
         List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
 
 
         List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTagsPrefix(allLongTagList, minTagLenToExtract);
-
         allLongTagList = cleanedAllLongTagList;
-        double s = massTool.getScoreWithPtmSeq("SEDTISK(14.016)M(15.995)NDFM(15.995)R", expProcessedPL);
-        if (lszDebugScanNum.contains(this.scanNum)) {
-            int a = 1;
-        }
         if (allLongTagList.isEmpty())  return null;
 
         double totalMass = precursorMass + 2 * MassTool.PROTON;

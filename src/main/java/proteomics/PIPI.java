@@ -661,10 +661,8 @@ public class PIPI {
             double precursorMass = precursorMassMap.get(thisScanName);
             submitTimeSupp++;
             taskListSupp.add(threadPoolSupp.submit(new SuppSearch(thisScanNum, buildIndex, massTool, ms1Tol
-                    , leftInverseMs1Tolerance, rightInverseMs1Tolerance, ms1ToleranceUnit, ms2Tol
-                    , inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass(), Math.min(precursorCharge > 1 ? precursorCharge - 1 : 1, 3)
-                    , spectraParserArray[thisFileId], minClear, maxClear, lockSupp, thisScanName, precursorCharge
-                    , precursorMass, inferPTM, specProcessor, binomial, ptmSeq_posVarPtmMap_Map, local_PepSeq_PeptideInfo_Map)));
+                    , ms2Tol, spectraParserArray[thisFileId], minClear, maxClear, lockSupp, thisScanName, precursorCharge
+                    , precursorMass, specProcessor, binomial, ptmSeq_posVarPtmMap_Map, local_PepSeq_PeptideInfo_Map)));
         }
         logger.info(submitTimeSupp + " MS2 submitted to Supplementary Search" + submitTimeSupp);
         // check progress every minute, record results,and delete finished tasks.

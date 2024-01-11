@@ -11,11 +11,8 @@ public class Graph {
 
     private Set<Pair<Integer, Integer>> g = null;
     private int length;
-    // visit数组，用于在dfs中记录访问过的顶点信息。
     private Map<Integer, Boolean> visit = new HashMap<>();
-    //存储每条可能的路径
     private ArrayList<Integer> path = new ArrayList<>();
-    // 用于存储所有路径的集合
     private ArrayList<ArrayList<Integer>> allPaths = new ArrayList<>();
     //起点和终点
     private int start;

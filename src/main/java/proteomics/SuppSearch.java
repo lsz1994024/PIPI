@@ -16,9 +16,6 @@
 
 package proteomics;
 
-//import gurobi.GRB;
-//import gurobi.GRBEnv;
-//import gurobi.GRBModel;
 import proteomics.Index.BuildIndex;
 import proteomics.PTM.InferPTM;
 import ProteomicsLibrary.Binomial;
@@ -41,14 +38,7 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
     private final BuildIndex buildIndex;
     private final MassTool massTool;
     private final double ms1Tolerance;
-    private final double leftInverseMs1Tolerance;
-    private final double rightInverseMs1Tolerance;
-    private final int ms1ToleranceUnit;
     private final double ms2Tolerance;
-    private final double minPtmMass;
-    private final double maxPtmMass;
-    private final int localMaxMs2Charge;
-    private final Map<String, PepInfo> peptide0Map;
     private final JMzReader spectraParser;
     private final double minClear;
     private final double maxClear;
@@ -56,7 +46,6 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
     private final String scanName;
     private final int precursorCharge;
     private final double precursorMass;
-    private final InferPTM inferPTM;
     private final SpecProcessor preSpectrum;
     private final Binomial binomial;
     private final int scanNum;
@@ -107,19 +96,12 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         return n_SameMass == p1.posVarPtmResMap.size();
     }
 
-    public SuppSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double leftInverseMs1Tolerance, double rightInverseMs1Tolerance, int ms1ToleranceUnit, double ms2Tolerance
-            , double minPtmMass, double maxPtmMass, int localMaxMs2Charge, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
-            , double precursorMass, InferPTM inferPTM, SpecProcessor preSpectrum, Binomial binomial, Map<String, TreeMap<Integer, VarPtm>> ptmSeq_posVarPtmMap_Map, Map<String, PeptideInfo> peptideInfoMap)  {
+    public SuppSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double ms2Tolerance, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
+            , double precursorMass,  SpecProcessor preSpectrum, Binomial binomial, Map<String, TreeMap<Integer, VarPtm>> ptmSeq_posVarPtmMap_Map, Map<String, PeptideInfo> peptideInfoMap)  {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.ms1Tolerance = ms1Tolerance;
-        this.leftInverseMs1Tolerance = leftInverseMs1Tolerance;
-        this.rightInverseMs1Tolerance = rightInverseMs1Tolerance;
-        this.ms1ToleranceUnit = ms1ToleranceUnit;
         this.ms2Tolerance = ms2Tolerance;
-        this.minPtmMass = minPtmMass;
-        this.maxPtmMass = maxPtmMass;
-        this.localMaxMs2Charge = localMaxMs2Charge;
         this.spectraParser = spectraParser;
         this.minClear = minClear;
         this.maxClear = maxClear;
@@ -127,10 +109,8 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         this.scanName = scanName;
         this.precursorCharge = precursorCharge;
         this.precursorMass = precursorMass;
-        this.inferPTM = inferPTM;
         this.preSpectrum = preSpectrum;
         this.binomial = binomial;
-        peptide0Map = buildIndex.getPepInfoMap();
         this.scanNum = scanNum;
         this.ptmSeq_posVarPtmMap_Map = ptmSeq_posVarPtmMap_Map;
         this.peptideInfoMap = peptideInfoMap;
@@ -153,11 +133,10 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         if (plMap.isEmpty()) {
             return null;
         }
-
-        if (lszDebugScanNum.contains(scanNum)) {
-            int a = 1;
-        }
-        double ms1TolAbs = Double.parseDouble(InferPTM.df3.format(precursorMass*ms1Tolerance/1000000));
+//
+//        if (lszDebugScanNum.contains(scanNum)) {
+//            int a = 1;
+//        }
 
         // Coding
         SparseVector expProcessedPL;
@@ -171,11 +150,9 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         // infer PTM using the new approach// my first modification
         TreeSet<Peptide> peptideSet = new TreeSet<>(Collections.reverseOrder());
         Map<String, TreeSet<Peptide>> modSequences = new TreeMap<>();
-        int whereIsTopCand = 0; // 0 for still top, -1 for no PTM pattern, -2 for PTM free but score < 0, other number is the final ranking
 
         for (String pepPtmSeq : ptmSeq_posVarPtmMap_Map.keySet()) {
             String pepFreeSeq = pepPtmSeq.replaceAll("[(\\[][^A-Znc()\\[\\]]+[)\\]]", "");
-            PeptideInfo peptideInfo = peptideInfoMap.get(pepFreeSeq);
             TreeMap<Integer, VarPtm> refVarPtmMap = ptmSeq_posVarPtmMap_Map.get(pepPtmSeq);
 
             PosMassMap fullPosMassMap = new PosMassMap();

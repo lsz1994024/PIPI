@@ -24,7 +24,7 @@ import proteomics.FM.UnicodeReader;
 import proteomics.PTM.InferPTM;
 import proteomics.Segment.InferSegment;
 import ProteomicsLibrary.*;
-import proteomics.Types.PepInfo;
+//import proteomics.Types.PepInfo;
 //import org.apache.commons.langs.ArrayUtils;
 
 
@@ -35,7 +35,7 @@ public class BuildIndex {
     public double maxPeptideMass = 0;
     public InferSegment inferSegment;
     public TreeMap<Double, Set<String>> massPeptideMap = new TreeMap<>();
-    public Map<String, PepInfo> pepInfoMap;
+//    public Map<String, PepInfo> pepInfoMap;
     private final String labelling;
     public final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
@@ -187,9 +187,9 @@ public class BuildIndex {
         return massPeptideMap;
     }
 
-    public Map<String, PepInfo> getPepInfoMap() {
-        return pepInfoMap;
-    }
+//    public Map<String, PepInfo> getPepInfoMap() {
+//        return pepInfoMap;
+//    }
 
     public String getLabelling() {
         return labelling;

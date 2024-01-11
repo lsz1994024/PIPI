@@ -16,10 +16,7 @@
 
 package proteomics.PTM;
 
-import ProteomicsLibrary.*;
 import ProteomicsLibrary.MassTool;
-import ProteomicsLibrary.Types.*;
-import com.google.common.collect.Sets;
 import gurobi.*;
 import org.apache.commons.math3.util.Pair;
 import proteomics.Types.*;
@@ -27,10 +24,7 @@ import proteomics.Types.*;
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import org.dom4j.Document;
 import org.dom4j.Element;
