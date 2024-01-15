@@ -364,6 +364,9 @@ public class PIPI {
 //        reducedProtIdSet = protLengthMap.keySet();  //dont reduce
 
         logger.debug("Protein size: "+protLengthMap.size()+" reduced to " + reducedProtIdSet.size());
+//        for (String protId : reducedProtIdSet) {
+//            System.out.println(protId);
+//        }
         //  END Score for Proteins
 
         //////////==================================================
@@ -441,13 +444,20 @@ public class PIPI {
         }
 
         // reduce proteins from buildIndex if it is not contained in reducedProtIdSet
+//        Set<String> decoyProtIdToRemove = new HashSet<>();
         Iterator<String> iter = buildIndex.protSeqMap.keySet().iterator();
         while (iter.hasNext()) {
-            if (!reducedProtIdSet.contains(iter.next())) {
+//            String protId = iter.next();
+            String pureId = iter.next().replace("DECOY_","");
+            if (!reducedProtIdSet.contains(pureId)) {
+//                decoyProtIdToRemove.add("DECOY_"+protId);
                 iter.remove();
             }
         }
-
+        logger.debug("protTD size "+ buildIndex.protSeqMap.size());
+//        for (String protId : buildIndex.protSeqMap.keySet()) {
+//            System.out.println(protId);
+//        }
         logger.info("Generating reduced FM index...");
         buildBiDirectionFMIndex(buildIndex);
         buildIndex.minPeptideMass = 0;
@@ -479,7 +489,7 @@ public class PIPI {
             g_thread_num = p_thread_num;
         }
         if (isDebugMode) p_thread_num = 1;
-
+        logger.debug("availabel processors for Main search"+ Runtime.getRuntime().availableProcessors());
         logger.debug("thread num for Main search"+ p_thread_num);
         ExecutorService threadPoolBone = Executors.newFixedThreadPool(p_thread_num);
         ArrayList<Future<MainSearch.Entry>> taskListBone = new ArrayList<>(validScanSet.size() + 10);

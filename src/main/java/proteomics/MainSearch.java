@@ -93,6 +93,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         try {
             lock.lock();
             rawPLMap = spectraParser.getSpectrumById(scanName.split("\\.")[1]).getPeakList();
+//            spectraParser.
         } finally {
             lock.unlock();
         }
@@ -158,15 +159,15 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
 //        mergeTags(occGroupList);
 
         int count = 0;
-        double topScore = 0;
+//        double topScore = 0;
         if (occGroupList.isEmpty()) {
-            System.out.println(scanNum + ", occGroupList.isEmpty()," + occGroupList.size());
+//            System.out.println(scanNum + ", occGroupList.isEmpty()," + occGroupList.size());
             return null;
         }
         double topOccScore = occGroupList.get(0).totalScore;
-        outLoop:
+//        outLoop:
         for (OccGroup occG : occGroupList) {
-            if (occG.totalScore < 0.7*topOccScore ) break;
+            if (occG.totalScore < 0.7*topOccScore || count > 20) break;
             occG.tagPosList.sort(Comparator.comparing(o->o.getSecond()));
             for (Pair<ExpTag, Integer> tagPosPair : occG.tagPosList) {
                 ExpTag tmpTag = tagPosPair.getFirst();
