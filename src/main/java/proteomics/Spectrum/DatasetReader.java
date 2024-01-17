@@ -38,7 +38,7 @@ public class DatasetReader {
     private final IsotopeDistribution isotopeDistribution;
     private int usefulSpectraNum = 0;
 
-    public DatasetReader(JMzReader[] spectraParserArray, double ms1Tolerance, int ms1ToleranceUnit, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath, Map<Integer, String> fileIdNameMap) throws Exception {
+    public DatasetReader(JMzReader[] spectraParserArray, double ms1Tolerance, MassTool massTool, String ext, Set<Integer> msLevelSet, String sqlPath, Map<Integer, String> fileIdNameMap) throws Exception {
         isotopeDistribution = new IsotopeDistribution(massTool.getElementTable(), 0, massTool.getLabelling());
 
         // prepare SQL database
@@ -46,7 +46,7 @@ public class DatasetReader {
         Statement sqlStatement = sqlConnection.createStatement();
         sqlStatement.executeUpdate("PRAGMA journal_mode=WAL");
         sqlStatement.executeUpdate("DROP TABLE IF EXISTS spectraTable");
-        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanName TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, precursorScanNo INTEGER, labelling TEXT, peptide TEXT, theoMass REAL, isDecoy INTEGER, score REAL, deltaLCn REAL, deltaCn REAL, matchedPeakNum INTEGER, ionFrac REAL, matchedHighestIntensityFrac REAL, explainedAaFrac REAL, otherPtmPatterns TEXT, aScore TEXT, peptideSet TEXT)");
+        sqlStatement.executeUpdate("CREATE TABLE spectraTable (scanNum INTEGER NOT NULL, scanName TEXT PRIMARY KEY, precursorCharge INTEGER NOT NULL, precursorMass REAL NOT NULL, mgfTitle TEXT NOT NULL, isotopeCorrectionNum INTEGER NOT NULL, ms1PearsonCorrelationCoefficient REAL NOT NULL, precursorScanNo INTEGER, labelling TEXT, peptide TEXT, theoMass REAL, score REAL, peptideSet TEXT)");
         sqlStatement.close();
 
         PreparedStatement sqlPrepareStatement = sqlConnection.prepareStatement("INSERT INTO spectraTable (scanNum, scanName, precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient, precursorScanNo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -103,7 +103,7 @@ public class DatasetReader {
                         if (spectrum.getPrecursorCharge() == null) {
                             // We have to infer the precursor charge.
                             for (int charge = 2; charge <= 4; ++charge) {
-                                IsotopeDistribution.Entry entry = isotopeDistribution.getIsotopeCorrectionNum(precursorMz, ms1Tolerance, ms1ToleranceUnit, charge, parentPeakList);
+                                IsotopeDistribution.Entry entry = isotopeDistribution.getIsotopeCorrectionNum(precursorMz, ms1Tolerance, charge, parentPeakList);
                                 if (entry.pearsonCorrelationCoefficient > pearsonCorrelationCoefficient) {
                                     pearsonCorrelationCoefficient = entry.pearsonCorrelationCoefficient;
                                     isotopeCorrectionNum = entry.isotopeCorrectionNum;
@@ -119,7 +119,7 @@ public class DatasetReader {
                         } else {
                             // We do not try to correct the precursor charge if there is one.
                             precursorCharge = spectrum.getPrecursorCharge();
-                            IsotopeDistribution.Entry entry = isotopeDistribution.getIsotopeCorrectionNum(precursorMz, ms1Tolerance, ms1ToleranceUnit, precursorCharge, parentPeakList);
+                            IsotopeDistribution.Entry entry = isotopeDistribution.getIsotopeCorrectionNum(precursorMz, ms1Tolerance, precursorCharge, parentPeakList);
                             if (entry.pearsonCorrelationCoefficient >= 0.7) { // If the Pearson correlation coefficient is smaller than 0.7, there is not enough evidence to change the original precursor mz.
                                 isotopeCorrectionNum = entry.isotopeCorrectionNum;
                                 pearsonCorrelationCoefficient = entry.pearsonCorrelationCoefficient;

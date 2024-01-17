@@ -35,12 +35,9 @@ import static proteomics.PIPI.lszDebugScanNum;
 import static proteomics.PIPI.minTagLenToReduceProtDb;
 
 public class GetLongTag implements Callable<GetLongTag.Entry> {
-    private static final int candisNum = 20;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
     private final JMzReader spectraParser;
-    private final double minClear;
-    private final double maxClear;
     private final ReentrantLock lock;
     private final String scanName;
     private final int precursorCharge;
@@ -49,14 +46,12 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
     private final int scanNum;
     private final double ms2Tolerance;
 
-    public GetLongTag(int scanNum, BuildIndex buildIndex, MassTool massTool, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock
+    public GetLongTag(int scanNum, BuildIndex buildIndex, MassTool massTool, JMzReader spectraParser, ReentrantLock lock
             , String scanName, int precursorCharge, double precursorMass, SpecProcessor specProcessor, double ms2Tolerance) {
 
         this.buildIndex = buildIndex;
         this.massTool = massTool;
         this.spectraParser = spectraParser;
-        this.minClear = minClear;
-        this.maxClear = maxClear;
         this.lock = lock;
         this.scanName = scanName;
         this.precursorCharge = precursorCharge;
@@ -75,7 +70,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         } finally {
             lock.unlock();
         }
-        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
+        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, DatasetReader.topN);
 
         if (plMap.isEmpty()) {
             return null;
@@ -88,7 +83,7 @@ public class GetLongTag implements Callable<GetLongTag.Entry> {
         if (lszDebugScanNum.contains(this.scanNum)) {
             int a = 1;
         }
-        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToReduceProtDb, 99);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, minTagLenToReduceProtDb);
 
         if (!allLongTagList.isEmpty()) {
             Entry entry = new Entry();

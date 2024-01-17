@@ -48,58 +48,40 @@ public class PIPI {
     public static final boolean isDebugMode = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0;
 
     //// normal
-//    public static final boolean isPtmSimuTest = false; //normal //todo
 //    static final int minTagLenToExtract = 4;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
 //    static final boolean nTermSpecific = false; //normal //todo
 //    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
 //    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
 //    static final int  maxNumVarPtmConsidered = 5;
 
     // dimethyl
-//    public static final boolean isPtmSimuTest = false; //normal //todo
 //    static final int minTagLenToExtract = 4;  //normal //todo
-//    static final int maxTagLenToExtract = 99;  //normal //todo
 //    static final boolean nTermSpecific = false; //normal //todo
 //    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
 //    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
 //    static final int  maxNumVarPtmConsidered = 2;
 
     ///synthetic
-//    public static final boolean isPtmSimuTest = false; //normal //todo
 //    static final int minTagLenToExtract = 3;  //normal //todo
-//    static final int maxTagLenToExtract = 9;  //normal //todo
 //    static final boolean nTermSpecific = true; //normal //todo
 //    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
 //    static final double proteinCovThres = 0.1;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
 //    static final int  maxNumVarPtmConsidered = 1;
 
     //    / DL simu
-//    public static final boolean isPtmSimuTest = false; //normal //todo
     static final int minTagLenToExtract = 3;  //normal //todo
-    static final int maxTagLenToExtract = 99;  //normal //todo
-    //    static final boolean nTermSpecific = true; //normal //todo
-//    static final boolean cTermSpecific = true; //normal //todo
-    public static final boolean nTermSpecific = true; //normal //todo
-    public static final boolean cTermSpecific = true; //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
     static final int  maxNumVarPtmConsidered = 18;
 //    /debuging parameters
-
-    //    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(6400,6401,6402,6403,6405,6406,6409,6411));//129543, 111179, 109395
     public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(95));//178,179,180,181,183,184,192
 
     public static void main(String[] args) {
         long startTime = System.nanoTime();
-        if (args.length != 3) {
+        if (args.length != 1) {
             help();
         }
         // Set parameters
         String parameterPath = args[0].trim();
-        String spectraPath = args[1].trim();
-        String outputDir = args[2].trim();
-
         logger.info("Running PIPI version {}.", versionStr);
 
         String dbName = null;
@@ -111,9 +93,8 @@ public class PIPI {
             logger.warn("Cannot get the computer's name.");
         }
         try {
-            logger.info("Spectra: {}, parameter: {}.", spectraPath, parameterPath);
             dbName = String.format(Locale.US, "PIPI.temp.db");
-            new PIPI(parameterPath, spectraPath, dbName, hostName, outputDir);
+            new PIPI(parameterPath, dbName, hostName);
         } catch (Exception ex) {
             ex.printStackTrace();
             logger.error(ex.toString());
@@ -130,7 +111,7 @@ public class PIPI {
         logger.info("Done!");
     }
 
-    private PIPI(String parameterPath, String spectraPath, String dbName, String hostName, String outputDir) throws Exception {
+    private PIPI(String parameterPath, String dbName, String hostName) throws Exception {
 //        if (isDebugMode) {
             ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
             root.setLevel(ch.qos.logback.classic.Level.DEBUG);
@@ -140,19 +121,19 @@ public class PIPI {
         Map<String, String> parameterMap = parameter.returnParameterMap();
         double ms2Tol = Double.valueOf(parameterMap.get("ms2_tolerance"));
         double ms1Tol = Double.valueOf(parameterMap.get("ms1_tolerance"));
-        double leftInverseMs1Tolerance = 1 / (1 + ms1Tol * 1e-6);
-        double rightInverseMs1Tolerance = 1 / (1 - ms1Tol * 1e-6);
-        int ms1ToleranceUnit = Integer.valueOf(parameterMap.get("ms1_tolerance_unit"));
-        double minClear = Double.valueOf(parameterMap.get("min_clear_mz"));
-        double maxClear = Double.valueOf(parameterMap.get("max_clear_mz"));
-        double g_thread_num = Integer.valueOf(parameterMap.get("GUROBI_thread_num"));
+//        double leftInverseMs1Tolerance = 1 / (1 + ms1Tol * 1e-6);
+//        double rightInverseMs1Tolerance = 1 / (1 - ms1Tol * 1e-6);
         boolean addContaminants = Boolean.valueOf(parameterMap.get("add_contaminant"));
         double proteinCovThres = Double.valueOf(parameterMap.get("min_prot_coverage"));
-        String[] tempArray = parameterMap.get("ms_level").split(",");
-        Set<Integer> msLevelSet = new HashSet<>(tempArray.length + 1, 1);
-        for (String temp : tempArray) {
-            msLevelSet.add(Integer.valueOf(temp));
-        }
+        String spectraPath = parameterMap.get("spectra_path");
+        String outputDir = parameterMap.get("output_dir");
+
+
+
+        logger.info("Spectra: {}, parameter: {}.", parameterPath);
+
+        Set<Integer> msLevelSet = new HashSet<>();
+        msLevelSet.add(2);
 
         logger.info("Loading parameters and build fmIndex...");
         BuildIndex buildIndex = new BuildIndex(parameterMap);
@@ -185,7 +166,7 @@ public class PIPI {
             spectraParserArray[0] = spectraParser;
             fileIdNameMap.put(0, spectraPath.substring(spectraPath.lastIndexOf("/")+1).split("\\.")[0].replaceAll("\\.","_"));
             fileNameIdMap.put(spectraPath.substring(spectraPath.lastIndexOf("/")+1).split("\\.")[0].replaceAll("\\.","_"), 0);
-            datasetReader = new DatasetReader(spectraParserArray, ms1Tol, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
+            datasetReader = new DatasetReader(spectraParserArray, ms1Tol, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         } else {
             String[] fileList = spectraFile.list(new FilenameFilter() {
                 @Override
@@ -200,7 +181,7 @@ public class PIPI {
                 fileNameIdMap.put(fileList[i].split("\\.")[0].replaceAll("\\.","_"), i);
             }
             String ext = fileList[0].substring(fileList[0].lastIndexOf(".")+1);
-            datasetReader = new DatasetReader(spectraParserArray, ms1Tol, ms1ToleranceUnit, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
+            datasetReader = new DatasetReader(spectraParserArray, ms1Tol, massTool, ext, msLevelSet, sqlPath, fileIdNameMap);
         }
 
         SpecProcessor specProcessor = new SpecProcessor(massTool);
@@ -253,7 +234,7 @@ public class PIPI {
             precursorMassMap.put(scanName, precursorMass);
             submitNum++;
             validScanSet.add(scanName);
-            taskListGetLongTag.add(threadPoolGetLongTag.submit(new GetLongTag(scanNum, buildIndex, massTool, spectraParserArray[fileId], minClear, maxClear, lockGetLongTag, scanName, precursorCharge
+            taskListGetLongTag.add(threadPoolGetLongTag.submit(new GetLongTag(scanNum, buildIndex, massTool, spectraParserArray[fileId], lockGetLongTag, scanName, precursorCharge
                     , precursorMass, specProcessor, ms2Tol)));
         }
         logger.debug("totalSubmit in GetLongTag, "+ submitNum);
@@ -346,13 +327,6 @@ public class PIPI {
         }
         Collections.sort(protScoreLongList, Comparator.comparing(o -> o.getSecond(), Comparator.reverseOrder()));
 
-//        int a = 0;
-//        for (Pair<String, Double> protScore : protScoreLongList) {
-//            a++;
-//            if (a <100) {
-//                System.out.println(a + ": "+ protScore.getFirst() + "," + protScore.getSecond());
-//            }
-//        }
         Set<String> reducedProtIdSet = new HashSet<>();
 
         for (Pair<String, Double> pair : protScoreLongList){
@@ -372,7 +346,7 @@ public class PIPI {
         //////////==================================================
         //   Get Tags and Get Peptide Candidates
         logger.info("Building decoy...");
-        String dbPath = parameterMap.get("db");
+        String dbPath = parameterMap.get("database");
         String decoyFullDBPath = dbPath + ".decoy.fasta";
         File decoyFullFile = new File(decoyFullDBPath);
         if (decoyFullFile.exists()) {
@@ -486,7 +460,6 @@ public class PIPI {
         p_thread_num = Integer.valueOf(parameterMap.get("PIPI_thread_num"));
         if (Integer.valueOf(parameterMap.get("PIPI_thread_num")) == 0) {
             p_thread_num = (int) (Runtime.getRuntime().availableProcessors()/2);
-            g_thread_num = p_thread_num;
         }
         if (isDebugMode) p_thread_num = 1;
         logger.debug("availabel processors for Main search"+ Runtime.getRuntime().availableProcessors());
@@ -513,7 +486,7 @@ public class PIPI {
             submitNumBone++;
             int fileId = fileNameIdMap.get( scanNameStr[0] );
             taskListBone.add(threadPoolBone.submit(new MainSearch(scanNum, buildIndex, massTool, ms2Tol, ms1Tol, inferPTM.getMinPtmMass(), inferPTM.getMaxPtmMass()
-                    , spectraParserArray[fileId], minClear, maxClear, lockBone, scanName, precursorCharge, precursorMass, specProcessor )));
+                    , spectraParserArray[fileId], lockBone, scanName, precursorCharge, precursorMass, specProcessor )));
         }
         logger.info(submitNumBone+ " MS2 submitted to Main Search.");
 
@@ -530,7 +503,7 @@ public class PIPI {
         Map<String, Peptide> scanName_TopPeptide_Map = new HashMap<>();
         Map<String, String> scanName_PepString_Map = new HashMap<>();
         Connection sqlConSpecCoder = DriverManager.getConnection(sqlPath);
-        PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient,  precursorScanNo, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, peptideSet) VALUES (?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPreparedStatement = sqlConSpecCoder.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient,  precursorScanNo, labelling, peptide, theoMass, score,peptideSet) VALUES (?, ?, ?,?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConSpecCoder.setAutoCommit(false);
         Map<VarPtm, Integer> varPtmCountMap = new HashMap<>();
         while (countBone < totalCountBone) {
@@ -559,17 +532,8 @@ public class PIPI {
                         sqlPreparedStatement.setString(9, entry.labelling);
                         sqlPreparedStatement.setString(10, entry.peptide);
                         sqlPreparedStatement.setDouble(11, entry.theoMass);
-                        sqlPreparedStatement.setInt(12, entry.isDecoy);
-                        sqlPreparedStatement.setDouble(13, entry.score);
-                        sqlPreparedStatement.setDouble(14, entry.deltaLCn);
-                        sqlPreparedStatement.setDouble(15, entry.deltaCn);
-                        sqlPreparedStatement.setInt(16, entry.matchedPeakNum);
-                        sqlPreparedStatement.setDouble(17, entry.ionFrac);
-                        sqlPreparedStatement.setDouble(18, entry.matchedHighestIntensityFrac);
-                        sqlPreparedStatement.setDouble(19, entry.explainedAaFrac);
-                        sqlPreparedStatement.setString(20, entry.otherPtmPatterns);
-                        sqlPreparedStatement.setString(21, entry.aScore);
-                        sqlPreparedStatement.setString(22, entry.peptideSet);
+                        sqlPreparedStatement.setDouble(12, entry.score);
+                        sqlPreparedStatement.setString(13, entry.peptideSet);
 
                         sqlPreparedStatement.executeUpdate();
                         int fileId = fileNameIdMap.get( entry.scanName.split("\\.")[0] );
@@ -670,8 +634,8 @@ public class PIPI {
             int precursorCharge = precursorChargeMap.get(thisScanName);
             double precursorMass = precursorMassMap.get(thisScanName);
             submitTimeSupp++;
-            taskListSupp.add(threadPoolSupp.submit(new SuppSearch(thisScanNum, buildIndex, massTool, ms1Tol
-                    , ms2Tol, spectraParserArray[thisFileId], minClear, maxClear, lockSupp, thisScanName, precursorCharge
+            taskListSupp.add(threadPoolSupp.submit(new SuppSearch(thisScanNum, buildIndex, massTool
+                    , ms2Tol, spectraParserArray[thisFileId], lockSupp, thisScanName, precursorCharge
                     , precursorMass, specProcessor, binomial, ptmSeq_posVarPtmMap_Map, local_PepSeq_PeptideInfo_Map)));
         }
         logger.info(submitTimeSupp + " MS2 submitted to Supplementary Search" + submitTimeSupp);
@@ -681,7 +645,7 @@ public class PIPI {
         int totalCountSupp = taskListSupp.size();
         int countSupp = 0;
         Connection sqlConSupp = DriverManager.getConnection(sqlPath);
-        PreparedStatement sqlPreparedStatementPTM = sqlConSupp.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient,  precursorScanNo, labelling, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, otherPtmPatterns, aScore, peptideSet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        PreparedStatement sqlPreparedStatementPTM = sqlConSupp.prepareStatement("REPLACE INTO spectraTable (scanNum, scanName,  precursorCharge, precursorMass, mgfTitle, isotopeCorrectionNum, ms1PearsonCorrelationCoefficient,  precursorScanNo, labelling, peptide, theoMass, score, peptideSet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         sqlConSupp.setAutoCommit(false);
         while (countSupp < totalCountSupp) {
             List<Future<SuppSearch.Entry>> toBeDeleteTaskList = new ArrayList<>(totalCountSupp - countSupp);
@@ -706,23 +670,14 @@ public class PIPI {
                         sqlPreparedStatementPTM.setString(9, entry.labelling);
                         sqlPreparedStatementPTM.setString(10, entry.peptide);
                         sqlPreparedStatementPTM.setDouble(11, entry.theoMass);
-                        sqlPreparedStatementPTM.setInt(12, entry.isDecoy);
-                        sqlPreparedStatementPTM.setDouble(13, entry.score);
-                        sqlPreparedStatementPTM.setDouble(14, entry.deltaLCn);
-                        sqlPreparedStatementPTM.setDouble(15, entry.deltaCn);
-                        sqlPreparedStatementPTM.setInt(16, entry.matchedPeakNum);
-                        sqlPreparedStatementPTM.setDouble(17, entry.ionFrac);
-                        sqlPreparedStatementPTM.setDouble(18, entry.matchedHighestIntensityFrac);
-                        sqlPreparedStatementPTM.setDouble(19, entry.explainedAaFrac);
-                        sqlPreparedStatementPTM.setString(20, entry.otherPtmPatterns);
-                        sqlPreparedStatementPTM.setString(21, entry.aScore);
+                        sqlPreparedStatementPTM.setDouble(12, entry.score);
                         String peptideSetStr = null;
                         if (  scanName_PepString_Map.containsKey(entry.scanName) ){
                             peptideSetStr = entry.peptideSet + "," + scanName_PepString_Map.get(entry.scanName);
                         } else {
                             peptideSetStr = entry.peptideSet;
                         }
-                        sqlPreparedStatementPTM.setString(22, peptideSetStr); //if a better complementary pep comes, need to insert it in the front
+                        sqlPreparedStatementPTM.setString(13, peptideSetStr); //if a better complementary pep comes, need to insert it in the front
 
                         sqlPreparedStatementPTM.executeUpdate();
                         ++resultCountSupp;
@@ -912,7 +867,7 @@ public class PIPI {
         //collect data
         Connection sqlConnection = DriverManager.getConnection(sqlPath);
         Statement sqlStatement = sqlConnection.createStatement();
-        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, scanName, precursorCharge, precursorMass, peptide, theoMass, isDecoy, score, deltaLCn, deltaCn, matchedPeakNum, ionFrac, matchedHighestIntensityFrac, explainedAaFrac, peptideSet FROM spectraTable");
+        ResultSet sqlResultSet = sqlStatement.executeQuery("SELECT scanNum, scanName, precursorCharge, precursorMass, peptide, theoMass, score, peptideSet FROM spectraTable");
         Map<String, Map<String, Double>> protPepScoreMap = new HashMap<>();
 
         List<ScanRes> scanResList = new ArrayList<>();

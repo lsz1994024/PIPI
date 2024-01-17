@@ -30,9 +30,9 @@ public class SpecProcessor {
         this.massTool = massTool;
     }
 
-    public TreeMap<Double, Double> preSpectrumTopNStyleWithChargeLimit (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, double minClear, double maxClear, int topN, double ms2Tolerance) {
+    public TreeMap<Double, Double> preSpectrumTopNStyleWithChargeLimit (Map<Double, Double> inputPL, double precursorMass, int precursorCharge, int topN) {
 
-        TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge, minClear, maxClear);
+        TreeMap<Double, Double> outputPL = removeCertainPeaks(inputPL, precursorMass, precursorCharge);
         List<Map.Entry<Double, Double>> plList = new ArrayList<>(outputPL.entrySet());
         Collections.sort(plList, Map.Entry.comparingByValue(Comparator.reverseOrder()));
         plList = plList.subList(0, Math.min(plList.size(), 600));
@@ -149,11 +149,11 @@ public class SpecProcessor {
         }
     }
 
-    private static TreeMap<Double, Double> removeCertainPeaks(Map<Double, Double> peakMap, double precursorMass, int precursorCharge, double minClear, double maxClear) {
+    private static TreeMap<Double, Double> removeCertainPeaks(Map<Double, Double> peakMap, double precursorMass, int precursorCharge) {
         TreeMap<Double, Double> mzIntensityMap = new TreeMap<>();
         double precursorMz = precursorMass / precursorCharge + MassTool.PROTON;
         for (double mz : peakMap.keySet()) {
-            if (((mz < minClear) || (mz > maxClear)) && (mz > 50)) {
+            if (((mz < 112.5) || (mz > 121.5)) && (mz > 50)) {
                 if ((peakMap.get(mz) > 1e-6) && (Math.abs(peakMap.get(mz) - precursorMz) > removePrecursorPeakTolerance)) {
                     mzIntensityMap.put(mz, peakMap.get(mz));
                 }

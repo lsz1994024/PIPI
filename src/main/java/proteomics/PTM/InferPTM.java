@@ -46,7 +46,6 @@ public class InferPTM {
     public static final byte PROTN = 0;
     public final static DecimalFormat df3 = new DecimalFormat("0.000");
     private final MassTool massTool;
-    private final Map<String, Double> elementTable;
     private final Map<Character, Double> massTable;
     private final Map<Character, Double> fixModMap;
     private Set<VarPtm> varPtmSet = new HashSet<>();
@@ -61,9 +60,13 @@ public class InferPTM {
 
     private Set<Character> aaWithFixModSet = new HashSet<>();
     private final int g_thread_num;
+    private final double timeLimit;
+    private final boolean nTermSpecific;
+    private final boolean cTermSpecific;
     public InferPTM(MassTool massTool, Map<Character, Double> fixModMap, Map<String, String> parameterMap) throws Exception{
+        nTermSpecific = Integer.valueOf(parameterMap.get("n_specific")) == 1 ? true : false;
+        cTermSpecific = Integer.valueOf(parameterMap.get("c_specific")) == 1 ? true : false;
         this.massTool = massTool;
-        elementTable = massTool.getElementTable();
         massTable = massTool.getMassTable();
         this.fixModMap = fixModMap;
         for (Character c : fixModMap.keySet()){
@@ -76,6 +79,7 @@ public class InferPTM {
         this.g_thread_num = Integer.valueOf(parameterMap.get("GUROBI_thread_num"));
         this.maxPtmMass = Double.valueOf(parameterMap.get("max_ptm_mass"));
         this.ms2Tol = Double.valueOf(parameterMap.get("ms2_tolerance"));
+        this.timeLimit = Double.valueOf(parameterMap.get("GUROBI_time_limit"));
 
         char[] aaArray = new char[]{'G', 'A', 'S', 'P', 'V', 'T', 'C', 'L', 'N', 'D', 'Q', 'K', 'E', 'M', 'H', 'F', 'R', 'Y', 'W'};
         int n_varPtm = 0;
@@ -410,7 +414,7 @@ public class InferPTM {
 
             model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
             //obj function
-            model.set(GRB.DoubleParam.TimeLimit, 5); // second
+            model.set(GRB.DoubleParam.TimeLimit, timeLimit); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
 
@@ -639,7 +643,7 @@ public class InferPTM {
 
             model.set(GRB.IntAttr.ModelSense, GRB.MAXIMIZE);
             //obj function
-            model.set(GRB.DoubleParam.TimeLimit, 5); // second
+            model.set(GRB.DoubleParam.TimeLimit, timeLimit); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
 //            model.set(GRB.IntParam.AggFill, 1000); // second
@@ -1167,7 +1171,7 @@ public class InferPTM {
             }
 
             //obj function
-            model.set(GRB.DoubleParam.TimeLimit, 5); // timeLimit
+            model.set(GRB.DoubleParam.TimeLimit, timeLimit); // timeLimit
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
 

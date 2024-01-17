@@ -35,7 +35,6 @@ public class BuildIndex {
     public double maxPeptideMass = 0;
     public InferSegment inferSegment;
     public TreeMap<Double, Set<String>> massPeptideMap = new TreeMap<>();
-//    public Map<String, PepInfo> pepInfoMap;
     private final String labelling;
     public final DbTool dbTool; // this one doesn't contain contaminant proteins.
     private InferPTM inferPTM;
@@ -48,15 +47,16 @@ public class BuildIndex {
     public Map<Integer, String> posProtMapNormal = new HashMap<>();
     public FMIndex fmIndexReverse;
     public int textNormalLen;
-//    public int[] dotPosArrReverse;
-//    public Map<Integer, String> posProtMapReverse = new HashMap<>();
+    public final boolean nTermSpecific;
+    public final boolean cTermSpecific;
     public Map<String, String> protSeqMap;
-//    public Map<String, Set<Pair<String,Integer>>> tagProtPosMap = new HashMap<>();
     public BuildIndex(Map<String, String> parameterMap) throws Exception {
         boolean addContaminant = parameterMap.get("add_contaminant").contentEquals("1");
-        String dbPath = parameterMap.get("db");
+        String dbPath = parameterMap.get("database");
         int missedCleavage = Integer.valueOf(parameterMap.get("missed_cleavage"));
         double ms2Tolerance = Double.valueOf(parameterMap.get("ms2_tolerance"));
+        nTermSpecific = Integer.valueOf(parameterMap.get("n_specific")) == 1 ? true : false;
+        cTermSpecific = Integer.valueOf(parameterMap.get("c_specific")) == 1 ? true : false;
         double oneMinusBinOffset = 1 - Double.valueOf(parameterMap.get("mz_bin_offset"));
         this.labelling = parameterMap.get("15N").trim().contentEquals("1") ? "N15" : "N14";
         fixModMap.put('G', Double.valueOf(parameterMap.get("G")));

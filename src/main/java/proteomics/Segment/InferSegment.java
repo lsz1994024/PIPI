@@ -280,7 +280,8 @@ public class InferSegment {
         return cleanTagList;
     }
 
-    public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, double cTermMz, int scanNum, int minTagLenToExtractLocal, int maxTagLenToExtractLocal) throws Exception {
+    public List<ExpTag> getLongTag(TreeMap<Double, Double> plMap, int minTagLenToExtractLocal)  {
+        int maxTagLenToExtractLocal = 99;
         Double[] mzArray = plMap.keySet().toArray(new Double[0]);
         Double[] intensityArray = plMap.values().toArray(new Double[0]);
         List<ExpTag> outputList = new LinkedList<>();
@@ -290,8 +291,6 @@ public class InferSegment {
         Set<Integer> startNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Set<Integer> endNodeSet = IntStream.range(0, mzArray.length).boxed().collect(Collectors.toSet());
         Map<Pair<Integer, Integer>, ExpAa> edgeInfoMap = new HashMap<>();
-        int numEdges = 0;
-        double minEdgeWeight = 0.0;
         for (int i = 0; i < mzArray.length - 1; ++i) {
             double mz1 = mzArray[i];
             int isNorC = NON_NC_TAG;

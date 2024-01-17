@@ -37,11 +37,8 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
     private static final int candisNum = 20;
     private final BuildIndex buildIndex;
     private final MassTool massTool;
-    private final double ms1Tolerance;
     private final double ms2Tolerance;
     private final JMzReader spectraParser;
-    private final double minClear;
-    private final double maxClear;
     private final ReentrantLock lock;
     private final String scanName;
     private final int precursorCharge;
@@ -96,15 +93,12 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         return n_SameMass == p1.posVarPtmResMap.size();
     }
 
-    public SuppSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms1Tolerance, double ms2Tolerance, JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge
+    public SuppSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms2Tolerance, JMzReader spectraParser, ReentrantLock lock, String scanName, int precursorCharge
             , double precursorMass,  SpecProcessor preSpectrum, Binomial binomial, Map<String, TreeMap<Integer, VarPtm>> ptmSeq_posVarPtmMap_Map, Map<String, PeptideInfo> peptideInfoMap)  {
         this.buildIndex = buildIndex;
         this.massTool = massTool;
-        this.ms1Tolerance = ms1Tolerance;
         this.ms2Tolerance = ms2Tolerance;
         this.spectraParser = spectraParser;
-        this.minClear = minClear;
-        this.maxClear = maxClear;
         this.lock = lock;
         this.scanName = scanName;
         this.precursorCharge = precursorCharge;
@@ -128,7 +122,7 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         }
 
         // preprocess peak list
-        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN,ms2Tolerance);
+        TreeMap<Double, Double> plMap = preSpectrum.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, DatasetReader.topN);
 
         if (plMap.isEmpty()) {
             return null;

@@ -1,30 +1,32 @@
 # 3
 # First line is the parameter file version. Don't change it.
-PIPI_thread_num = 44 # Thread number for PIPI. Set to 0 to using half of CPU resources in the computer and leave the other half to GUROBI_thread_num.
-GUROBI_thread_num = 2 # Thread number for gurobi solver. Overriddden if PIPI_thread_num is 0
+PIPI_thread_num = 44 # Thread number for PIPI3. Set to 0 default value = half of the number of available logic processors
+GUROBI_thread_num = 2 # Thread number for gurobi solver. recommended 2
+GUROBI_time_limit = 5 # milli second
 # Database
-db = /home/slaiad/Code/PIPI/src/main/resources/sequences.fasta # Protein database. ncbi-soybean-target
-#db = /home/slaiad/Code/PIPI/src/main/resources/ncbi-soybean-target.fasta # Protein database. ncbi-soybean-target
+database = /home/slaiad/nashome/Dataset/Simu/snr_3_2/simudatabase.fasta # Protein database. ncbi-soybean-target
+
+# MS spectra file. If set as a file folder, all spectra files in it will be searched as one data set
+spectra_path = /home/slaiad/nashome/Dataset/Simu/snr_3_2/Simu_002_to_012_3200.mgf
 # Output directory
-# output_dir = /home/slaiad/nashome/ResNas/Dimethyl_1Rep_Res/G1/
+output_dir = /home/slaiad/nashome/Dataset/Simu/snr_3_2/
 
 database_type = Others # Different types have different fasta header patterns. Available values: UniProt, SwissProt, TAIR, ITAG, RefSeq, Others
 add_decoy = 1          # 0 = don't generate and search decoy sequences automatically; 1 = generate and search decoy sequences
 add_contaminant = 0     # 0 = don't add contaminant proteins automatically; 1 = add contaminant proteins
 missed_cleavage = 2     # Maximum number of allowed missed cleavage.l
-min_peptide_length = 6  # Minimum length of a peptide chain.
-max_peptide_length = 35 # Maximum length of a peptide chain.
+min_peptide_length = 8  # Minimum length of a peptide chain.
+max_peptide_length = 25 # Maximum length of a peptide chain.
 
 # Spectrum
-ms_level = 2 # The searched MS level.
+n_specific = 1 # 0 for not specific, 1 for specific
+c_specific = 1 # 0 for not specific, 1 for specific
 
 # Tolerance
 ms1_tolerance_unit = 1 # 0: Da; 1: ppm
 ms1_tolerance = 10
 ms2_tolerance = 0.01 # Unit is Da. e.g. high-resolution MS/MS: 0.01; low-resolution MS/MS: 0.5
 mz_bin_offset = 0 # Offset in digitization the spectrum. e.g. high-resolution MS/MS: 0; low-resolution MS/MS: 0.4
-min_clear_mz = 112.5 # Clear out all peaks in the specified m/z range, mainly for iTRAQ/TMT data.
-max_clear_mz = 121.5
 
 # Modification related
 min_ptm_mass = -250 # Min allowed PTM mass.
@@ -33,17 +35,11 @@ max_ptm_mass = 250 # Max allowed PTM mass.
 # Isotopic labelling strategy
 15N = 0 # 1: 15N. 0: 14N.
 
-# Considered modifications in generating tags.
 # Specify additional mass and amino acid. DO NOT change the last character.
 # Maximum number is 10.
 # Empty entries must start with 0.0.
 # Please only specify enriched PTM and chemical labelling PTM.
 mod01 = 15.994915,M,4,Oxidation
-
-# Considered N/C-terminal modifications in generating tags.
-# Empty ones must with value 0.0.
-# The maximum number for each terminal is 9.
-# Please only specify enriched PTM and chemical labelling PTM.
 
 # Fix modification
 G = 0

@@ -51,8 +51,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
     private final double minPtmMass;
     private final double maxPtmMass;
     private final JMzReader spectraParser;
-    private final double minClear;
-    private final double maxClear;
     private final ReentrantLock lock;
     private final String scanName;
     private final int precursorCharge;
@@ -65,7 +63,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
     //    private final int minPepLen;
 //    private final int maxPepLen;
     public MainSearch(int scanNum, BuildIndex buildIndex, MassTool massTool, double ms2Tolerance, double ms1Tolerance, double minPtmMass, double maxPtmMass
-            , JMzReader spectraParser, double minClear, double maxClear, ReentrantLock lock, String scanName, int precursorCharge, double precursorMass
+            , JMzReader spectraParser, ReentrantLock lock, String scanName, int precursorCharge, double precursorMass
             , SpecProcessor specProcessor) {
 
         this.buildIndex = buildIndex;
@@ -75,8 +73,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         this.maxPtmMass = maxPtmMass;
 //        this.localMaxMs2Charge = localMaxMs2Charge;
         this.spectraParser = spectraParser;
-        this.minClear = minClear;
-        this.maxClear = maxClear;
         this.lock = lock;
         this.scanName = scanName;
         this.precursorCharge = precursorCharge;
@@ -100,7 +96,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
 
         double ms1TolAbs = Double.parseDouble(InferPTM.df3.format(precursorMass*ms1Tolerance/1000000));
 
-        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, minClear, maxClear, DatasetReader.topN, ms2Tolerance);
+        TreeMap<Double, Double> plMap = specProcessor.preSpectrumTopNStyleWithChargeLimit(rawPLMap, precursorMass, precursorCharge, DatasetReader.topN);
 
         if (plMap.isEmpty()) return null;
         // Coding
@@ -113,7 +109,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             expProcessedPL = specProcessor.digitizePL(finalPlMap);
         }
 //        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
-        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
+        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap,  minTagLenToExtract);
 
 
         List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTagsPrefix(allLongTagList, minTagLenToExtract);
@@ -828,7 +824,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         Map<Integer, Integer> yIdMaxAbsPosMap = new HashMap<>();
         int optStartPos = 1;
         int optEndPosP1 = 0;
-        if (cTermSpecific) {
+        if (buildIndex.cTermSpecific) {
             if ( ! krPoses.isEmpty()) {
                 optEndPosP1 = krPoses.get(krPoses.size()-1) + 1;  //max kr
                 optStartPos = krPoses.get(0) + 1;  // good trick//min kr
@@ -865,10 +861,10 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             }
         }
 
-        byte isProtNorC_Term = NON_TERM_PROT;
-        if (optStartPos == 1 && protSeq.charAt(0) == 'M') {
-            isProtNorC_Term = N_TERM_PROT;
-        }
+//        byte isProtNorC_Term = NON_TERM_PROT;
+//        if (optStartPos == 1 && protSeq.charAt(0) == 'M') {
+//            isProtNorC_Term = N_TERM_PROT;
+//        }
         if (optStartPos <= optEndPosP1) {
             int cPartStartPos = tagPosInProt + tagLen;
             String cPartSeq = protSeq.substring(cPartStartPos, optEndPosP1);
@@ -881,9 +877,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             if (cPartSeqLen == 1) {
                 findPtmOnOneAa(cModPepsSet, flexiableMass, absPos_MassVarPtm_Map, cPartSeq, cPartStartPos);
             } else {
-//                inferPTM.findBestPtmMIPExtC(scanNum, env, flexiableMass, cPartStartPos,
-//                        cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, optStartPos, optEndPosP1 == protLen
-//                        , yIdMaxAbsPosMap, unUsedPlMap, cModPepsSet, absPos_ptmPositions_Map);
                 inferPTM.findBestPtmMIPExtCPWL(scanNum, env, flexiableMass, cPartStartPos,
                         cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, optStartPos, optEndPosP1 == protLen
                         , yIdMaxAbsPosMap, unUsedPlMap, cModPepsSet, absPos_ptmPositions_Map);
@@ -893,7 +886,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             }
         }
 
-        // a manual way to find possibly missing 1-ptm solutions.
         if (cModPepsSet.isEmpty()) return false;
 
         return true;
@@ -946,7 +938,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             int optStartPos = -2;
             Map<Integer, Integer> posYIdMap = new HashMap<>();
             Map<Integer, Integer> yIdMinAbsPosMap = new HashMap<>();
-            if (nTermSpecific) {
+            if (buildIndex.nTermSpecific) {
                 if (!krPoses.isEmpty()) {
                     optEndPosP1 = Collections.max(krPoses) + 1;
                     optStartPos = Collections.min(krPoses) + 1;

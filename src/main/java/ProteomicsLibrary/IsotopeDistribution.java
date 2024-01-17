@@ -713,14 +713,10 @@ public class IsotopeDistribution {
         return result;
     }
 
-    public Entry getIsotopeCorrectionNum(double precursorMz, double ms1Tolerance, int ms1ToleranceUnit, int charge, TreeMap<Double, Double> parentPeakList) throws Exception {
+    public Entry getIsotopeCorrectionNum(double precursorMz, double ms1Tolerance, int charge, TreeMap<Double, Double> parentPeakList) throws Exception {
         Entry entry = new Entry(0, 0);
-        double leftTol = ms1Tolerance * 2;
-        double rightTol = ms1Tolerance * 2;
-        if (ms1ToleranceUnit == 1) {
-            leftTol = (precursorMz - precursorMz / (1 + ms1Tolerance * 1e-6)) * 2;
-            rightTol = (precursorMz / (1 - ms1Tolerance * 1e-6) - precursorMz) * 2;
-        }
+        double leftTol = (precursorMz - precursorMz / (1 + ms1Tolerance * 1e-6)) * 2;
+        double rightTol = (precursorMz / (1 - ms1Tolerance * 1e-6) - precursorMz) * 2;
         for (int isotopeCorrectionNum : isotopeCorrectionArray) {
             double[][] expMatrix = new double[3][2];
             for (int i = 0; i < 3; ++i) {
