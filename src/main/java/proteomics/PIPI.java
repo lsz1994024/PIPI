@@ -1092,7 +1092,7 @@ public class PIPI {
 
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".PFM.csv"));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"PIPI3."+hostName+".csv"));
 //        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipi7.csv"));
 
         writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
