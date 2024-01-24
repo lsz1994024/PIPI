@@ -73,7 +73,7 @@ public class PIPI {
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
     static final int  maxNumVarPtmConsidered = 18;
 //    /debuging parameters
-    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(95));//178,179,180,181,183,184,192
+    public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(82001));//178,179,180,181,183,184,192
 
     public static void main(String[] args) {
         long startTime = System.nanoTime();

@@ -224,7 +224,7 @@ public class SuppSearch implements Callable<SuppSearch.Entry> {
         if (topPep.hasVarPTM()) {
             ptmPatterns = modSequences.get(topPep.getFreeSeq());
         }
-        new CalSubscores(topPep, ms2Tolerance, plMap, precursorCharge, ptmPatterns, binomial);
+//        new CalSubscores(topPep, ms2Tolerance, plMap, precursorCharge, ptmPatterns, binomial);
 
 
         double deltaLCn = 1; // L means the last?

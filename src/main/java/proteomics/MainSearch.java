@@ -111,6 +111,10 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
 //        List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap, precursorMass - massTool.H2O + MassTool.PROTON, scanNum, minTagLenToExtract,maxTagLenToExtract);
         List<ExpTag> allLongTagList = inferSegment.getLongTag(finalPlMap,  minTagLenToExtract);
 
+//        if (lszDebugScanNum.contains(scanNum)) {
+//            int a = 1;
+//            System.out.println("tagNum, "+ allLongTagList.size() +"," +finalPlMap.size());
+//        }
 
         List<ExpTag> cleanedAllLongTagList = inferSegment.cleanAbundantTagsPrefix(allLongTagList, minTagLenToExtract);
         allLongTagList = cleanedAllLongTagList;
@@ -179,7 +183,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
 //            occG.tagPosList.remove(1);// debug
             String protId = occG.protId;
             count++;
-            double maxScore = addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagPosList, ms1TolAbs, resPeptTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
+            addCandisWithMultiMaxPeakMILP(scanNum, protId, occG.tagPosList, ms1TolAbs, resPeptTreeSet, peptideInfoMap, expProcessedPL, plMap, env);
         }
         if (lszDebugScanNum.contains(scanNum)) {
             int a = 1;
@@ -271,8 +275,10 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         return entry;
     }
 
-    private void mergeTagPosList(List<Pair<ExpTag, Integer>> tagRelPosList, String protSeq) {
-        if (tagRelPosList.size() == 1) return;
+    private boolean mergeTagPosList(List<Pair<ExpTag, Integer>> tagRelPosList, String protSeq) {
+//        if (tagRelPosList.size() == 1) return;
+//        Pair<ExpTag, Integer> newTagPosPair = tagRelPosList.get(tagRelPosList.size()-1);
+        boolean successAdded = true;
         tagRelPosList.sort(Comparator.comparing(o->o.getSecond()));
         int lastTagId = 0;
         int contTagId = 1;
@@ -292,7 +298,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 } else {
                     lastFlagMass = lastTag.expAaList.get(contTagPos-lastTagPos-1).getTailLocation();
                 }
-                if (Math.abs(contFlagMass-lastFlagMass) < 0.02) {
+                if (Math.abs(contFlagMass-lastFlagMass) < ms2Tolerance) {
                     lastTag.appendTag(contTagPos-lastTagPos, contTag);
                     tagIdAppended.add(contTagId);
                     contTagId++;
@@ -313,6 +319,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                     } else {
                         contTagId++;
                     }
+                    successAdded = false;
                 }
             } else {
                 int badTadId = -1;
@@ -336,6 +343,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                     } else {
                         contTagId++;
                     }
+                    successAdded = false;
                 }
             }
         }
@@ -344,6 +352,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             tagRelPosList.remove(i);
         }
         Collections.sort(tagRelPosList, Comparator.comparing(o -> o.getSecond()));
+        return successAdded;
     }
 
     private boolean isValidGap(ExpTag lastTag, int lastTagPos, ExpTag contTag, int contTagPos, String protSeq){
@@ -385,7 +394,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         public OccGroup() {} // for clone
 
 
-        public void addTag(ExpTag newTag, int newTagPos) {
+        public boolean addTag(ExpTag newTag, int newTagPos) {
             boolean shouldAdd = true;
             for (Pair<ExpTag, Integer> tagPosPair : this.tagPosList) {
                 if (tagPosPair.getFirst().getFreeAaString().contentEquals(newTag.getFreeAaString())
@@ -395,9 +404,9 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                     break;
                 }
             }
-            if (! shouldAdd) return;
+            if (! shouldAdd) return true;
             this.tagPosList.add(new Pair<>(newTag, newTagPos));
-            mergeTagPosList(this.tagPosList, buildIndex.protSeqMap.get(protId));
+            boolean successAdded = mergeTagPosList(this.tagPosList, buildIndex.protSeqMap.get(protId));
 
             //update variables
             this.totalScore = 0;
@@ -416,11 +425,16 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 sb.append(tagPosList.get(i).getFirst().getHeadLocation());
             }
             hashcode = sb.toString().hashCode(); //update hashcode
+
+            return successAdded;
         }
 
         public OccGroup clone() {
             OccGroup newOccG = new OccGroup();
-            newOccG.tagPosList.addAll(this.tagPosList);
+            for (Pair<ExpTag, Integer> tagPosPair : this.tagPosList) {
+                newOccG.tagPosList.add(new Pair<>(tagPosPair.getFirst().clone(), tagPosPair.getSecond()));
+            }
+//            newOccG.tagPosList.addAll(this.tagPosList);
             newOccG.spanLen = this.spanLen;
             newOccG.lPos = this.lPos;
             newOccG.rPos = this.rPos;
@@ -481,20 +495,20 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                         protId = buildIndex.posProtMapNormal.get(dotIndex);
                         lPos = absTagPos - buildIndex.dotPosArrNormal[dotIndex] - 1;
                         rPos = lPos + tagLen - matchedPos;
-                        boolean foundRange = false;
+                        boolean belongToExistingOcc = false;
 
                         for (OccGroup occG : occGroupList) {
                             if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos + occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
                                 OccGroup newOccG = occG.clone();
-                                newOccG.addTag(resTag.clone(), lPos);
-                                if ( ! newOccG.equals(occG)) { //successfully added
+                                boolean successAdded = newOccG.addTag(resTag.clone(), lPos);
+                                if ( successAdded ) { //successfully added
                                     oldOccGToDel.add(occG);
                                     newOccGToAdd.add(newOccG);
-                                    foundRange = true;
+                                    belongToExistingOcc = true;
                                 }
                             }
                         }
-                        if ( ! foundRange) {  //new occurrence that does not belong to any pos range
+                        if ( ! belongToExistingOcc) {  //new occurrence that does not belong to any pos range
                             OccGroup occG = new OccGroup(resTag.clone(), protId, lPos);
                             newOccGToAdd.add(occG);
                         }
@@ -517,15 +531,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 fmRes = buildIndex.fmIndexReverse.fmSearchFuzzy(tagChar);
                 if (fmRes != null) {
                     matchedPos = fmRes.matchedPos;
-//                    int oriIsNorC = tagInfo.isNorC;
-//                    if (matchedPos != 0) {
-//                        if (oriIsNorC == C_TAG) {
-//                            tagInfo.isNorC = NON_NC_TAG;
-//                        }
-//                        if (oriIsNorC == N_TAG) {
-//                            tagInfo.isNorC = N_TAG;
-//                        }
-//                    }
                     if (matchedPos > 0 && tagInfo.size() - matchedPos < minTagLen) continue;
 
                     ExpTag resRevTag = matchedPos == 0 ? tagInfo : tagInfo.subTag(0, tagLen - matchedPos);
@@ -544,13 +549,12 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                         for (OccGroup occG : occGroupList) {
                             if ( occG.protId.contentEquals(protId) && (lPos <= occG.rPos + occG.spanLen) && (rPos >= occG.lPos - occG.spanLen) ) {
                                 OccGroup newOccG = occG.clone();
-                                newOccG.addTag(resRevTag.clone(), lPos); // maybe in this func  just use merge tag
-                                if (! newOccG.equals(occG)) {
+                                boolean successAdded = newOccG.addTag(resRevTag.clone(), lPos); // maybe in this func  just use merge tag
+                                if (successAdded) {
                                     oldOccGToDel.add(occG);
                                     newOccGToAdd.add(newOccG);
                                     foundRange = true;
                                 }
-//                                break;
                             }
                         }
                         if ( ! foundRange) {  //new occurrence that does not belong to any pos range
@@ -629,19 +633,19 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         if (tagNum == 0) return 0;
 
         double maxScore = 0;
-        TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
-        for (Pair<ExpTag, Integer> tagRelPos : tagRelPosList) {
-            for (ExpAa expAa : tagRelPos.getFirst().expAaList) {
-                if (plMap.containsKey(expAa.getHeadLocation())) {
-                    unUsedPlMap.remove(expAa.getHeadLocation());
-                }
-                if (plMap.containsKey(expAa.getTailLocation())) {
-                    unUsedPlMap.remove(expAa.getTailLocation());
-                }
-            }
-        }
-        SparseVector unUsedExpPeakVec;
-        unUsedExpPeakVec = specProcessor.digitizePL(unUsedPlMap);
+//        TreeMap<Double, Double> unUsedPlMap = new TreeMap<>(plMap);
+//        for (Pair<ExpTag, Integer> tagRelPos : tagRelPosList) {
+//            for (ExpAa expAa : tagRelPos.getFirst().expAaList) {
+//                if (plMap.containsKey(expAa.getHeadLocation())) {
+//                    unUsedPlMap.remove(expAa.getHeadLocation());
+//                }
+//                if (plMap.containsKey(expAa.getTailLocation())) {
+//                    unUsedPlMap.remove(expAa.getTailLocation());
+//                }
+//            }
+//        }
+//        SparseVector unUsedExpPeakVec;
+//        unUsedExpPeakVec = specProcessor.digitizePL(unUsedPlMap);
 
         Pair<ExpTag, Integer> lastTagPosPair = tagRelPosList.get(tagNum-1);
         int remainMC = massTool.missedCleavage -
@@ -685,6 +689,11 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 }
             } else {// solve a middle gap
                 TreeSet<Peptide> midModPepsSet = new TreeSet<>(Comparator.reverseOrder());
+//                try {
+//                    protSeq.substring(tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size(), tagRelPosList.get(gId).getSecond());
+//                } catch (Exception e ) {
+//                    System.out.println(scanNum + ", string index error, " + protId + "," + tagPosId);
+//                }
                 String gapSeq = protSeq.substring(tagRelPosList.get(gId-1).getSecond()+tagRelPosList.get(gId-1).getFirst().size(), tagRelPosList.get(gId).getSecond());
                 double deltaMass = tagRelPosList.get(gId).getFirst().getHeadLocation() - tagRelPosList.get(gId-1).getFirst().getTailLocation() - massTool.calResidueMass(gapSeq);
                 solved = solveGapMid(scanNum, lTag, lTagPos, rTag, rTagPos, gapSeq, deltaMass, ms1TolAbs, expProcessedPL, plMap, env, midModPepsSet);
@@ -699,14 +708,13 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             }
         }
         //merge results
-        try {
-            if ( ! segResList.isEmpty()) {
-                collectResult(segResList, resPepTreeSet, expProcessedPL, plMap,  peptideInfoMap, protId, protSeq, tagRelPosList.get(0).getSecond(), tagRelPosList.get(0).getFirst().isNorC==N_TAG, tagRelPosList.get(tagNum-1).getSecond()+tagRelPosList.get(tagNum-1).getFirst().size(), tagRelPosList.get(tagNum-1).getFirst().isNorC==C_TAG);
-            }
-        } catch (Exception e ) {
-            System.out.println(scanNum +",collectResult");
-//            collectResult(segResList, resPepTreeSet, expProcessedPL, plMap, peptideInfoMap, protId, protSeq, tagRelPosList.get(0).getSecond(), tagRelPosList.get(0).getFirst().isNorC==N_TAG, tagRelPosList.get(tagNum-1).getSecond()+tagRelPosList.get(tagNum-1).getFirst().size(), tagRelPosList.get(tagNum-1).getFirst().isNorC==C_TAG);
+//        try {
+        if ( ! segResList.isEmpty()) {
+            collectResult(segResList, resPepTreeSet, expProcessedPL, plMap,  peptideInfoMap, protId, protSeq, tagRelPosList.get(0).getSecond(), tagRelPosList.get(0).getFirst().isNorC==N_TAG, tagRelPosList.get(tagNum-1).getSecond()+tagRelPosList.get(tagNum-1).getFirst().size(), tagRelPosList.get(tagNum-1).getFirst().isNorC==C_TAG);
         }
+//        } catch (Exception e ) {
+//            System.out.println(scanNum +",collectResult");
+//        }
         return maxScore;
     }
 
@@ -734,7 +742,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 Peptide curPepSeg = segArr[id];
                 pepSeqSB.append(curPepSeg.getFreeSeq());
 
-//                TreeMap<Integer, VarPtm> tmp = new TreeMap<>(curPepSeg.posVarPtmResMap);
                 if (! curPepSeg.posVarPtmResMap.isEmpty()) {
                     for (int j : curPepSeg.posVarPtmResMap.keySet()) {
                         posMassMap.put(j+curRelPos, curPepSeg.posVarPtmResMap.get(j).mass);
@@ -743,9 +750,6 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 }
                 curRelPos += segArr[id].getFreeSeq().length();
             }
-//            if (pepSeqSB.toString().contentEquals("YLYV")) {
-//                int a= 1;
-//            }
             Peptide resPep = new Peptide(pepSeqSB.toString(), false, massTool);
             if (! posMassMap.isEmpty()) {
                 resPep.setVarPTM(posMassMap);
