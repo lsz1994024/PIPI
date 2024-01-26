@@ -72,7 +72,7 @@ public class PIPI {
     static final int minTagLenToExtract = 3;  //normal //todo
     public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
     static final int  maxNumVarPtmConsidered = 18;
-//    /debuging parameters
+    //    /debuging parameters
     public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(82001));//178,179,180,181,183,184,192
 
     public static void main(String[] args) {
@@ -113,8 +113,8 @@ public class PIPI {
 
     private PIPI(String parameterPath, String dbName, String hostName) throws Exception {
 //        if (isDebugMode) {
-            ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
-            root.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+        root.setLevel(ch.qos.logback.classic.Level.DEBUG);
 //        }
         // Get the parameter map
         Parameter parameter = new Parameter(parameterPath);
@@ -876,9 +876,7 @@ public class PIPI {
             String topPeptide = sqlResultSet.getString("peptide"); //this is ptmContaining Seq without n or c
             if (!sqlResultSet.wasNull()) {
                 int charge = sqlResultSet.getInt("precursorCharge");
-//                double theoMass = sqlResultSet.getDouble("theoMass");
                 double expMass = sqlResultSet.getDouble("precursorMass");
-//                double massDiff = getMassDiff(expMass, theoMass, MassTool.C13_DIFF);
                 double score = sqlResultSet.getDouble("score");
                 String peptideSet = sqlResultSet.getString("peptideSet");
                 int scanNum = sqlResultSet.getInt("scanNum");
@@ -894,16 +892,12 @@ public class PIPI {
                     String ptmContainingSeq = candiSetStr[3*i+0];
                     PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(ptmContainingSeq.replaceAll("[^A-Z]+", ""));
                     double thisScore = Double.valueOf(candiSetStr[3*i+1]);
-//                    if (lszDebugScanNum.contains(scanNum) ){
-//                        System.out.println(ptmContainingSeq + ", "+ thisScore);
-//                    }
                     CandiScore candiScore = new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq);
                     candiScore.setVarPtmTotalScore(varPtmRefScoreMap);
                     candiScoreList.add(candiScore); //peptideInfo and their score
                 }
                 Collections.sort(candiScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder()));
                 double topPepScore = candiScoreList.get(0).pepScore;
-//                System.out.println(scanNum + "," + topPepScore + "," + (candiScoreList.get(0).peptideInfo.isDecoy ? 1 : 0)); // print all top candidates scores
                 topScoreList.add(topPepScore);
                 Iterator<CandiScore> iter = candiScoreList.iterator();
                 while (iter.hasNext()) {
@@ -955,7 +949,6 @@ public class PIPI {
         //normalize prot score
         for (String protId : protScoreMap.keySet()){
             protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
-//            System.out.println(protId + "," + protScoreMap.get(protId) + "," + protSeqMap.get(protId).length()); // print all top candidates scores
         }
         //===============================
 
@@ -975,11 +968,11 @@ public class PIPI {
 
         DecimalFormat df= new  DecimalFormat( ".00000" );
 
-        //calculate ori FDR
+        //calculate FDR
         for (ScanRes scanRes : scanResList) {
-            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.pepScore, Comparator.reverseOrder())); // rank candidates using peptide score
+            Collections.sort(scanRes.peptideInfoScoreList,  Comparator.reverseOrder()); // rank candidates in the order of prot-varPtm-peptide score
         }
-        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).pepScore, Comparator.reverseOrder()));
+        Collections.sort(scanResList, Comparator.comparing(o -> o.peptideInfoScoreList.get(0).pepScore*Math.log10(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder()));
         List<Double> fdrList = new ArrayList<>(scanResList.size());
         int numTPlusD = 0;
         int numD = 0;
@@ -988,7 +981,6 @@ public class PIPI {
             numTPlusD++;
             if (candiScore.peptideInfo.isDecoy) numD++;
             fdrList.add(2*(double)numD/numTPlusD);
-//            System.out.println(scanRes.scanNum + "," + candiScore.pepScore + "," +(candiScore.peptideInfo.isDecoy ? 0 : 1));
         }
         int numQ001 = 0;
         double minQ = 1.0;
@@ -1002,84 +994,17 @@ public class PIPI {
 //                break;
             }
         }
-        BufferedWriter oriWriter = new BufferedWriter(new FileWriter(outputDir+"Res."+hostName+".Peptides.csv"));
-        oriWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore,peptide,pepScore,proteins,protscore\n");
-        for (ScanRes scanRes : scanResList) {
-            List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
-            StringBuilder str = new StringBuilder();
-            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(candiScoreList.get(0).peptideInfo.isDecoy ? 0 : 1);
-            for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.peptideInfo.freeSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore);
-            }
-            str.append("\n");
-            oriWriter.write(str.toString());
-        }
-        oriWriter.close();
-        System.out.println("naive TDA original PSM number: " + numQ001);
 
-
-        System.out.println("end ori start new");
-//        for (ScanRes scanRes : scanResList) {
-//            Collections.sort(scanRes.peptideInfoScoreList, Comparator.comparing(o -> o.protScore, Comparator.reverseOrder())); // rank candidates using peptide score
-//        }
-        for (ScanRes scanRes : scanResList) {
-            try {
-                Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
-            } catch (Exception e){
-                System.out.println("lsz error +" +scanRes.scanNum);
-            }
-//            Collections.sort(scanRes.peptideInfoScoreList, Comparator.reverseOrder()); // rank candidates using peptide score
-        }
-
-        Collections.sort(scanResList, Comparator.comparing(o -> (o.peptideInfoScoreList.get(0).pepScore)*(o.peptideInfoScoreList.get(0).protScore+1), Comparator.reverseOrder())); // should still use peptideScore to do FDR
-        //calculate new FDR
-        fdrList = new ArrayList<>(scanResList.size());
-        numTPlusD = 0;
-        numD = 0;
-        for (ScanRes scanRes : scanResList) {
-            CandiScore candiScore = scanRes.peptideInfoScoreList.get(0);
-            numTPlusD++;
-            if (candiScore.peptideInfo.isDecoy) numD++;
-            fdrList.add(2*(double)numD/numTPlusD);
-//            System.out.println(scanRes.scanNum + "," + candiScore.protScore + "," + 2*(double)numD/numTPlusD + "," +(candiScore.peptideInfo.isTarget ? 1 : 0));
-        }
-        numQ001 = 0;
-        minQ = 1.0;
-        found = false;
-        for (int i = fdrList.size()-1; i >= 0; i--) {
-            minQ = Math.min(fdrList.get(i), minQ);
-            scanResList.get(i).qValue = minQ;
-            if (!found && minQ < 0.01) {
-                numQ001 = i;
-                found = true;
-//                break;
-            }
-        }
-        BufferedWriter newWriter = new BufferedWriter(new FileWriter(outputDir+"."+hostName+".Proteins.csv"));
-        newWriter.write("scanNum,qValue,TorD,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore,peptide,pepScore,proteins,protscore,varPtmScore\n");
-
-//        Map<Integer, TempRes> scanNumFinalScoreMap = new HashMap<>();
         List<Pair<Double, String>> finalExcelList = new ArrayList<>(scanResList.size());
         for (ScanRes scanRes : scanResList) {
-            if (lszDebugScanNum.contains(scanRes.scanNum)) {
-                int a = 1;
-            }
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
             CandiScore topCandi = candiScoreList.get(0);
-            StringBuilder str = new StringBuilder();
-            str.append(scanRes.scanNum+",").append(scanRes.qValue+",").append(topCandi.peptideInfo.isDecoy ? 0 : 1);
-            for (CandiScore candiScore : candiScoreList){
-                str.append(","+candiScore.ptmContainingSeq).append(","+candiScore.pepScore).append(","+String.join(";", candiScore.peptideInfo.protIdSet)).append(","+candiScore.protScore).append(","+candiScore.varPtmTotalScore);
-            }
-            str.append("\n");
-            newWriter.write(str.toString());
 
             double theoMass = massTool.calResidueMass(topCandi.ptmContainingSeq) + massTool.H2O;
             double massDiff = getMassDiff(scanRes.expMass, theoMass, MassTool.C13_DIFF);
             double ppm = Math.abs(massDiff * 1e6 / theoMass);
-            //TempRes(double pepScore, double protScore, double qValue, boolean isDecoy, String ptmPepSeq)
-//            scanNumFinalScoreMap.put(scanRes.scanNum, new TempRes(topCandi.pepScore, topCandi.protScore, scanRes.qValue, !topCandi.peptideInfo.isTarget, topCandi.peptideInfo.seq, 0)); //isdecoy
-            double finalScore = topCandi.pepScore*(topCandi.protScore+1);
+//            double finalScore = topCandi.pepScore*(topCandi.protScore+1);
+            double finalScore = topCandi.pepScore*Math.log10(topCandi.protScore+1);
             String finalStr = String.format(Locale.US, "%s,%d,%f,%d,%s,%s,%s,%s,%s,%s,%f,%f,%f,%d\n"
                     , scanRes.scanName, scanRes.scanNum, scanRes.qValue, topCandi.peptideInfo.isDecoy ? 0 : 1, df.format(finalScore), topCandi.ptmContainingSeq, topCandi.peptideInfo.freeSeq,df.format(topCandi.pepScore)
                     , String.join(";",topCandi.peptideInfo.protIdSet), df.format(topCandi.protScore), ppm, theoMass, scanRes.expMass, scanRes.charge
@@ -1087,14 +1012,18 @@ public class PIPI {
 
             finalExcelList.add(new Pair(finalScore, finalStr));
         }
-        newWriter.close();
         System.out.println("naive TDA PFM PSM number: " + numQ001);
 
         // official output with pfm
         Collections.sort(finalExcelList, Comparator.comparing(o -> o.getFirst(), Comparator.reverseOrder()));
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"PIPI3."+hostName+".csv"));
-//        BufferedWriter writer = new BufferedWriter(new FileWriter(outputDir+"pipi7.csv"));
 
+        FileWriter fileWriter;
+        try {
+            fileWriter = new FileWriter(outputDir+"PIPI3."+hostName+".csv");
+        } catch (Exception e){
+            fileWriter = new FileWriter(outputDir+"PIPI3."+hostName+ df.format(Math.random())+".csv");
+        }
+        BufferedWriter writer = new BufferedWriter(fileWriter);
         writer.write("scanName,scanNum,qValue,TorD,finalScore,peptide,freeSeq,pepScore,proteins,protScore,ppm,theoMass,expMass,charge\n");
         for (Pair<Double, String> pair : finalExcelList) {
             writer.write(pair.getSecond());
