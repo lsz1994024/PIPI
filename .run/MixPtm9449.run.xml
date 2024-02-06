@@ -5,7 +5,7 @@
     <output_file path="$USER_HOME$/nashome/Dataset/PXD009449/DLsimu/log.txt" />
     <option name="MAIN_CLASS_NAME" value="proteomics.PIPI" />
     <module name="PIPI" />
-    <option name="PROGRAM_PARAMETERS" value="$USER_HOME$/nashome/Dataset/MixPtm9449/mix01/MixPtm9449.def" />
+    <option name="PROGRAM_PARAMETERS" value="$USER_HOME$/nashome/Dataset/MixPtm9449/all/result/09_K_Malonyl/Ptm9449.def" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

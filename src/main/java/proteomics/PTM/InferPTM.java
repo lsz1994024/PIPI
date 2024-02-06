@@ -51,7 +51,7 @@ public class InferPTM {
     private Set<VarPtm> varPtmSet = new HashSet<>();
     private final double minPtmMass;
     private final double maxPtmMass;
-//    public double minUserPtmMass = 0;
+    //    public double minUserPtmMass = 0;
 //    public double maxUserPtmMass = 530;
     private final double ms2Tol;
     private Map<Character, List<VarPtm>> finalPtmMap = new HashMap<>(22);
@@ -160,10 +160,10 @@ public class InferPTM {
 
 
     public void findBestPtmMIPExtCPWL(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
-                                   double ms1TolAbs, Map<Integer, Integer> absPosYIdMap, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
-                                   int optStartPos,
-                                   boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,
-                                   TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet,Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
+                                      double ms1TolAbs, Map<Integer, Integer> absPosYIdMap, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
+                                      int optStartPos,
+                                      boolean couldBeProtC, Map<Integer, Integer> yIdMaxAbsPosMap,
+                                      TreeMap<Double, Double> plMap, TreeSet<Peptide> cModPepsSet,Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
 
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>(absPosYIdMap.values().size());
@@ -222,10 +222,10 @@ public class InferPTM {
                     for (VarPtm varPtm : varPtmList) {
                         ptmMass = varPtm.mass;
                         if (massTable.get(partSeq.charAt(relPos)) + ptmMass < ms2Tol) continue;
-
+//                        if (Math.abs(ptmMass - 86) >20) continue;
                         if (usedMassForThisAa.contains(ptmMass)) continue;
 
-                        GRBVar xVar = model.addVar(0, 1, -0.1, GRB.BINARY, "x" + absPos + "_" + ptmMass);
+                        GRBVar xVar = model.addVar(0, 1, -0.1, GRB.BINARY, "x" + absPos + "_" + ptmMass); //penalty for syn -1.1
                         massXVarMap.put(ptmMass, xVar);
                         sumX_leq_1orY.addTerm(1, xVar);
                         totalFlexiableMass.addTerm(ptmMass, xVar); // + m_i * x_i
@@ -297,7 +297,7 @@ public class InferPTM {
             model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 1.2*ms1TolAbs, "constrTotalMassGE");
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
-            // peaks
+//            // peaks
             Map<Integer, TreeMap<Double, GRBVar>> z_yIonVarMap = new HashMap<>(partSeqLen);// <tpId, <eMass, zVar>>
             int numOfTps = Math.min(partSeqLen-1, 12);
             for (int tpId = 1; tpId <= numOfTps; tpId++) { // tpId = theoretical peak Id, one less than aa num
@@ -346,7 +346,7 @@ public class InferPTM {
                         minPtmMassHere += smallPtmMassesHere.get(i);
                     }
                     double seqMass_TpId_nextStart = massTool.calResidueMass(partSeq.substring(tpId, absPosOfNextStart-refPos));
-                    minYmz = Math.max(0, seqMass_TpId_nextStart + Math.max( totalDeltaMass - maxPtmMassOnN, minPtmMassHere ) );
+                    minYmz = Math.max(0, MassTool.PROTON+massTool.H2O+seqMass_TpId_nextStart + Math.max( totalDeltaMass - maxPtmMassOnN, minPtmMassHere ) );
                 }
 
                 //for maxYmz
@@ -379,7 +379,7 @@ public class InferPTM {
                     maxPtmMassHere += bigPtmMassesHere.get(i);
                 }
 
-                maxYmz = Math.min(3000, massTool.calResidueMass(partSeq.substring(tpId)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(absPosOfNextStart-refPos))-minPtmMassOnN, maxPtmMassHere) );
+                maxYmz = Math.min(3000, massTool.H2O+MassTool.PROTON+massTool.calResidueMass(partSeq.substring(tpId)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(absPosOfNextStart-refPos))-minPtmMassOnN, maxPtmMassHere) );
                 // this 1000 is the max mz that I expect it should consider. No need to consider large values because the normally are not fragmented.
                 if(minYmz >= maxYmz) {
                     continue;
@@ -400,7 +400,6 @@ public class InferPTM {
                 }
                 model.addConstr(yMassDef, GRB.EQUAL, MassTool.PROTON+massTool.H2O, "yMassDef_"+tpId);
                 NavigableMap<Double, Double> feasiblePeaks = plMap.subMap(minYmz, true, maxYmz,true);
-//                List<Map.Entry<Double, Double>> peakEntries = new ArrayList<>(feasiblePeaks.entrySet());
                 int nPeaks = feasiblePeaks.size();
                 if (nPeaks != 0) {
                     List<Double> pwX_yIonList = new ArrayList<>(4*nPeaks+2);
@@ -450,7 +449,7 @@ public class InferPTM {
             } else {
                 objValThres = optObj-0.2;
             }
-//            double objValThres = model.get(GRB.DoubleAttr.ObjVal) - 0.2*Math.abs(model.get(GRB.DoubleAttr.ObjVal)); // becareful for negative objval
+//            if (isDebugMode) objValThres = -10; // only for debug
             for (int solNum = 0; solNum < solCount; solNum++) {
                 model.set(GRB.IntParam.SolutionNumber, solNum);
                 double poolObjVal = model.get(GRB.DoubleAttr.PoolObjVal);
@@ -508,8 +507,8 @@ public class InferPTM {
     }
 
     public void findBestPtmInGapPWL(int scanNum, GRBEnv env, double totalDeltaMass, int refAbsPos, int rTagPosInProt, String gapSeq,
-                                 double ms1TolAbs, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
-                                 TreeMap<Double, Double> plMap, TreeSet<Peptide> midModPepsSet, double bIonRefMass, double yIonRefMass, double precursorMass) {
+                                    double ms1TolAbs, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
+                                    TreeMap<Double, Double> plMap, TreeSet<Peptide> midModPepsSet, double bIonRefMass, double yIonRefMass, double precursorMass) {
 
         try {
             GRBModel model = new GRBModel(env);
@@ -917,12 +916,12 @@ public class InferPTM {
     }
 
     public void findBestPtmMIPExtNPWL(int scanNum, GRBEnv env, double totalDeltaMass, int refPos, String partSeq,
-                                   double ms1TolAbs, Map<Integer, Integer> absPosYIdMap,
-                                   Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, int optEndPosP1,
-                                   boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap,
-                                   String protSeq, TreeMap<Double, Double> plMap,
-                                   TreeSet<Peptide> nModPepsSet,
-                                   Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
+                                      double ms1TolAbs, Map<Integer, Integer> absPosYIdMap,
+                                      Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, int optEndPosP1,
+                                      boolean couldBeProtN, Map<Integer, Integer> yIdMinAbsPosMap,
+                                      String protSeq, TreeMap<Double, Double> plMap,
+                                      TreeSet<Peptide> nModPepsSet,
+                                      Map<Integer, List<Byte>> absPos_ptmPositions_Map) {
 
         Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
         for (int pos : absPosYIdMap.keySet()) {
@@ -1105,7 +1104,7 @@ public class InferPTM {
                         minPtmMassHere += smallPtmMassesHere.get(i);
                     }
                     double seqMass_nextEnd_TpId = massTool.calResidueMass(partSeq.substring(absPosOfNextEnd+1-refPos+partSeqLen, tpId));
-                    minBmz = Math.max(0, seqMass_nextEnd_TpId + Math.max( totalDeltaMass - maxPtmMassOnC, minPtmMassHere ) );
+                    minBmz = Math.max(0, MassTool.PROTON+seqMass_nextEnd_TpId + Math.max( totalDeltaMass - maxPtmMassOnC, minPtmMassHere ) );
                 }
 
                 //for maxBmz
@@ -1136,7 +1135,7 @@ public class InferPTM {
                 for (int i = 0; i < aaNumN; i++) { ////MaxPtmNumInPart-1 PTM here  to estimate minPtmMassHere
                     maxPtmMassHere += bigPtmMassesHere.get(i);
                 }
-                maxBmz = Math.min(3000, massTool.calResidueMass(partSeq.substring(0, tpId+1)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(0, absPosOfNextEnd+1-refPos+partSeqLen))-minPtmMassOnC, maxPtmMassHere) );
+                maxBmz = Math.min(3000, MassTool.PROTON+massTool.calResidueMass(partSeq.substring(0, tpId+1)) + Math.min(totalDeltaMass-massTool.calResidueMass(partSeq.substring(0, absPosOfNextEnd+1-refPos+partSeqLen))-minPtmMassOnC, maxPtmMassHere) );
                 // this 1000 is the max mz that I expect it should consider. No need to consider large values because the normally are not fragmented.
                 if (minBmz > maxBmz) {
 //                    System.out.println(scanNum + ",minBmz > maxBmz,");
@@ -1318,7 +1317,7 @@ public class InferPTM {
                 }
                 double mass = Double.valueOf(modElem.element("delta").attributeValue("mono_mass"));
                 if (mass < minPtmMass || mass > maxPtmMass) continue;
-                if (Math.abs(mass - 79.957) < 0.005) {
+                if (Math.abs(mass - 79.957) < 0.005 ) {
                     continue;
                 }
                 for (Element spec : modElem.elements("specificity")) {
@@ -1522,6 +1521,101 @@ public class InferPTM {
             }
         } // end for (int i = 0; i < partSeq.length(); ++i) {
     }
+
+//    public void findPosssible1PtmNewC(int scanNum, String partSeq, Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map, int startRefPos
+//            , TreeSet<Peptide> modPepsSet, double deltaMass, Map<Integer, Integer> absPosYIdMap, int optStartPos) {
+//
+//        Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
+//        for (int pos : absPosYIdMap.keySet()) {
+//            int yId = absPosYIdMap.get(pos);
+//            List<Integer> allPoses = yIdAllPosesMap.get(yId);
+//            if ( allPoses != null) {
+//                allPoses.add(pos);
+//            } else {
+//                allPoses = new ArrayList<>();
+//                allPoses.add(pos);
+//                yIdAllPosesMap.put(yId, allPoses);
+//            }
+//        }
+//
+//        int maxRelPosCurYPlus1 = optStartPos-startRefPos;
+//        int absPos;
+//        List<Integer> sortedYIdList = new ArrayList<>(yIdAllPosesMap.keySet());
+//        sortedYIdList.sort(Comparator.reverseOrder());
+//        for (int yId : sortedYIdList) {
+//            for (int tmpAbsPos : yIdAllPosesMap.get(yId)) {
+//                deltaMass -= massTool.getMassTable().get(partSeq.charAt(tmpAbsPos - startRefPos));
+//            }
+////            int maxRelPosCurY = Collections.max(yIdAllPosesMap.get(yId)) - startRefPos;
+//            maxRelPosCurYPlus1 += yIdAllPosesMap.get(yId).size();
+//            for (int relPos = 0; relPos < maxRelPosCurYPlus1; ++relPos) {
+//                absPos = relPos + startRefPos;
+//                TreeMap<Double, VarPtm> massVarPtmMap = pos_MassVarPtm_Map.get(absPos);
+//                if (massVarPtmMap == null) continue;
+//                massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol);
+//                for (double mass : massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol).keySet()) {
+//                    if (massTable.get(partSeq.charAt(relPos)) + mass < ms2Tol) continue;
+//                    VarPtm varPtm = massVarPtmMap.get(mass);
+//
+//                    Peptide tmpPeptide = new Peptide(partSeq.substring(0, maxRelPosCurYPlus1), false, massTool);
+//                    PosMassMap posMassMap = new PosMassMap();
+//                    posMassMap.put(relPos, mass);
+//                    tmpPeptide.posVarPtmResMap.put(relPos, varPtm);
+//                    tmpPeptide.setVarPTM(posMassMap);
+//                    tmpPeptide.setScore(0);
+//                    modPepsSet.add(tmpPeptide);
+//                }
+//            }
+//        }
+//
+//    }
+//
+//    public void findPosssible1PtmNewN(int scanNum, String partSeq, Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map, int optStartPos
+//            , TreeSet<Peptide> modPepsSet, double deltaMass, Map<Integer, Integer> absPosYIdMap) {
+//
+//        Map<Integer, List<Integer>> yIdAllPosesMap = new HashMap<>();
+//        for (int pos : absPosYIdMap.keySet()) {
+//            int yId = absPosYIdMap.get(pos);
+//            List<Integer> allPoses = yIdAllPosesMap.get(yId);
+//            if ( allPoses != null) {
+//                allPoses.add(pos);
+//            } else {
+//                allPoses = new ArrayList<>();
+//                allPoses.add(pos);
+//                yIdAllPosesMap.put(yId, allPoses);
+//            }
+//        }
+//
+//        int fullSeqLen = partSeq.length();
+//        int absPos;
+//        List<Integer> sortedYIdList = new ArrayList<>(yIdAllPosesMap.keySet());
+//        sortedYIdList.sort(Comparator.reverseOrder());
+//        for (int yId : sortedYIdList) {
+//            for (int tmpAbsPos : yIdAllPosesMap.get(yId)) {
+//                deltaMass -= massTool.getMassTable().get(partSeq.charAt(tmpAbsPos - optStartPos));
+//            }
+//            int relStartPos = Collections.min(yIdAllPosesMap.get(yId)) - optStartPos;
+////            fullSeqLen += yIdAllPosesMap.get(yId).size();
+//            for (int relPos = relStartPos; relPos < fullSeqLen; ++relPos) {
+//                absPos = relPos + optStartPos;
+//                TreeMap<Double, VarPtm> massVarPtmMap = pos_MassVarPtm_Map.get(absPos);
+//                if (massVarPtmMap == null) continue;
+//                massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol);
+//                for (double mass : massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol).keySet()) {
+//                    if (massTable.get(partSeq.charAt(relPos)) + mass < ms2Tol) continue;
+//                    VarPtm varPtm = massVarPtmMap.get(mass);
+//
+//                    Peptide tmpPeptide = new Peptide(partSeq.substring(relStartPos), false, massTool);
+//                    PosMassMap posMassMap = new PosMassMap();
+//                    posMassMap.put(relPos, mass);
+//                    tmpPeptide.posVarPtmResMap.put(relPos, varPtm);
+//                    tmpPeptide.setVarPTM(posMassMap);
+//                    tmpPeptide.setScore(0);
+//                    modPepsSet.add(tmpPeptide);
+//                }
+//            }
+//        }
+//    }
 
     public void prepareInfoNTerm(int scanNum, String partSeq,
                                  Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map,
