@@ -1058,6 +1058,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
     private void updatePeptideTreeSet(Peptide newPeptide, TreeSet<Peptide> peptideTreeSet, Map<String, PeptideInfo> peptideInfoMap,
                                       String protId, String protSeq, int pepStartPos, int pepEndPos) {
 
+        String shortProtId = protId.split(" ")[0];
         boolean added = false;
         if (peptideTreeSet.size() < candisNum) {
             peptideTreeSet.add(newPeptide);
@@ -1073,17 +1074,17 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             String freePepSeq = newPeptide.getFreeSeq();
             PeptideInfo peptideInfo = peptideInfoMap.get(freePepSeq);
             if (peptideInfo != null) {
-                if ( ! peptideInfo.protIdSet.contains(protId)) { //if this pep with prot is not recorded, add this prot
+                if ( ! peptideInfo.protIdSet.contains(shortProtId)) { //if this pep with prot is not recorded, add this prot
                     peptideInfo.leftFlank = leftFlank;
                     peptideInfo.rightFlank = rightFlank;
-                    peptideInfo.protIdSet.add(protId);
-                    if (!protId.startsWith("DECOY_")) {
+                    peptideInfo.protIdSet.add(shortProtId);
+                    if (!shortProtId.startsWith("DECOY_")) {
                         peptideInfo.isDecoy = false;
                     }
                 }
             } else {
-                peptideInfo = new PeptideInfo(freePepSeq, protId.startsWith("DECOY_"), leftFlank, rightFlank);
-                peptideInfo.protIdSet.add(protId);
+                peptideInfo = new PeptideInfo(freePepSeq, shortProtId.startsWith("DECOY_"), leftFlank, rightFlank);
+                peptideInfo.protIdSet.add(shortProtId);
                 peptideInfoMap.put(freePepSeq, peptideInfo);
             }
         }

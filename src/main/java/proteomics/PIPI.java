@@ -48,11 +48,9 @@ public class PIPI {
     public static final boolean isDebugMode = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0;
 
     //// normal
-//    static final int minTagLenToExtract = 4;  //normal //todo
-//    static final boolean nTermSpecific = false; //normal //todo
-//    public    static final double MIN_PEAK_SUM_INFER_AA = 0.4;
-//    static final double proteinCovThres = 0.02;//0.02 is good for normal and DL dataset.0.1 is good for synthetic
-//    static final int  maxNumVarPtmConsidered = 5;
+    static final int minTagLenToExtract = 4;  //normal //todo
+    public    static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+    static final int  maxNumVarPtmConsidered = 5;
 
     // dimethyl
 //    static final int minTagLenToExtract = 4;  //normal //todo
@@ -69,9 +67,9 @@ public class PIPI {
 //    static final int  maxNumVarPtmConsidered = 1;
 
     //    / DL simu
-    static final int minTagLenToExtract = 3;  //normal //todo
-    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    static final int  maxNumVarPtmConsidered = 18;
+//    static final int minTagLenToExtract = 3;  //normal //todo
+//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    static final int  maxNumVarPtmConsidered = 18;
     //    /debuging parameters
     public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(82001));//178,179,180,181,183,184,192
 
@@ -329,6 +327,11 @@ public class PIPI {
 
         Set<String> reducedProtIdSet = new HashSet<>();
 
+//        int ii = 0;
+//        for (Pair<String, Double> pair : protScoreLongList.subList(0, 5000)){
+//            System.out.println(ii + "," + pair.getFirst()+ "," + pair.getSecond());
+//            ii++;
+//        }
         for (Pair<String, Double> pair : protScoreLongList){
             if (pair.getSecond() < proteinCovThres) break;
             reducedProtIdSet.add(pair.getFirst());
@@ -891,6 +894,11 @@ public class PIPI {
                     //dont put in the impossible ones
                     String ptmContainingSeq = candiSetStr[3*i+0];
                     PeptideInfo candiPeptideInfo = allPeptideInfoMap.get(ptmContainingSeq.replaceAll("[^A-Z]+", ""));
+//                    try {
+//                        double a1 = Double.valueOf(candiSetStr[3*i+1]);
+//                    } catch ( Exception e){
+//                        System.out.println("lszDebug ," + scanNum + "," + peptideSet + "," + (3*i+1));
+//                    }
                     double thisScore = Double.valueOf(candiSetStr[3*i+1]);
                     CandiScore candiScore = new CandiScore(candiPeptideInfo, thisScore, ptmContainingSeq);
                     candiScore.setVarPtmTotalScore(varPtmRefScoreMap);
@@ -946,9 +954,25 @@ public class PIPI {
                 }
             }
         }
+
+        Map<String, String> shortProtSeqMap = new HashMap<>();
+        for (String protId : protSeqMap.keySet()) {
+            String shortProtId = protId.split(" ")[0];
+            shortProtSeqMap.put(shortProtId, protSeqMap.get(protId));
+        }
         //normalize prot score
         for (String protId : protScoreMap.keySet()){
-            protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(protSeqMap.get(protId).length()));
+//            try {
+//                protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(shortProtSeqMap.get(protId).length()));
+//            } catch (Exception e) {
+//                System.out.println("lsz wrong 1, " + protId);
+//                if (shortProtSeqMap.containsKey(protId) ) {
+//                    System.out.println("lsz wrong 2, " + shortProtSeqMap.get(protId));
+//                } else {
+//                    System.out.println("lsz wrong 3");
+//                }
+//            }
+            protScoreMap.put(protId, protScoreMap.get(protId) / Math.log(shortProtSeqMap.get(protId).length()));
         }
         //===============================
 
