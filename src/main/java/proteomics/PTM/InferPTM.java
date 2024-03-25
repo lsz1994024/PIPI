@@ -293,8 +293,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 1.2*ms1TolAbs, "constrTotalMassLE");
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 1.2*ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + ms2Tol+ ms1TolAbs, "constrTotalMassLE");
+            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - ms2Tol-ms1TolAbs, "constrTotalMassGE");
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the partSeq
 
 //            // peaks
@@ -404,7 +404,7 @@ public class InferPTM {
                 if (nPeaks != 0) {
                     List<Double> pwX_yIonList = new ArrayList<>(4*nPeaks+2);
                     List<Double> pwY_yIonList = new ArrayList<>(4*nPeaks+2);
-                    generatePWLpts(feasiblePeaks, pwX_yIonList, pwY_yIonList, minYmz, maxYmz);
+                    generatePWLpts1(feasiblePeaks, pwX_yIonList, pwY_yIonList, minYmz, maxYmz);
                     double[] pwX_yIon = pwX_yIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     double[] pwY_yIon = pwY_yIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     model.setPWLObj(yMassVar, pwX_yIon, pwY_yIon);
@@ -416,7 +416,8 @@ public class InferPTM {
             model.set(GRB.DoubleParam.TimeLimit, timeLimit); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
-
+//            model.set(GRB.IntParam.PoolSearchMode,2);
+//            model.set(GRB.IntParam.PoolSolutions,5);
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
 //            model.set(GRB.IntParam.PrePasses, 2); // second
@@ -545,8 +546,8 @@ public class InferPTM {
             }// all poses x Var finished
 
             //// add constraints
-            model.addConstr(deltaMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs, "constrTotalMassLE");
-            model.addConstr(deltaMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(deltaMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs+ms2Tol, "constrTotalMassLE");
+            model.addConstr(deltaMass, GRB.GREATER_EQUAL, totalDeltaMass - ms1TolAbs-ms2Tol, "constrTotalMassGE");
             model.addConstr(totalNumsInGap, GRB.LESS_EQUAL, Math.min(gapSeq.length(), MaxPtmNumInPart), "totalNumsOnPepConstr"); // this value should not exceed the number of aa in the gapSeq
 
             // peaks
@@ -582,7 +583,7 @@ public class InferPTM {
                 if (nPeaks != 0) {
                     List<Double> pwX_yIonList = new ArrayList<>(4 * nPeaks + 2);
                     List<Double> pwY_yIonList = new ArrayList<>(4 * nPeaks + 2);
-                    generatePWLpts(feasiblePeaks, pwX_yIonList, pwY_yIonList, minYmz, maxYmz);
+                    generatePWLpts1(feasiblePeaks, pwX_yIonList, pwY_yIonList, minYmz, maxYmz);
                     double[] pwX_yIon = pwX_yIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     double[] pwY_yIon = pwY_yIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     model.setPWLObj(yMassVar, pwX_yIon, pwY_yIon);
@@ -612,7 +613,7 @@ public class InferPTM {
                 if (nPeaks != 0) {
                     List<Double> pwX_bIonList = new ArrayList<>(4 * nPeaks + 2);
                     List<Double> pwY_bIonList = new ArrayList<>(4 * nPeaks + 2);
-                    generatePWLpts(feasiblePeaks, pwX_bIonList, pwY_bIonList, minBmz, maxBmz);
+                    generatePWLpts1(feasiblePeaks, pwX_bIonList, pwY_bIonList, minBmz, maxBmz);
                     double[] pwX_bIon = pwX_bIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     double[] pwY_bIon = pwY_bIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     model.setPWLObj(bMassVar, pwX_bIon, pwY_bIon);
@@ -620,8 +621,8 @@ public class InferPTM {
 //                bMassVarMap.put(tpId, bMassVar);
                 bySumMass.addTerm(1, bMassVar);
 
-                model.addConstr(bySumMass, GRB.LESS_EQUAL, precursorMass+2*MassTool.PROTON + ms1TolAbs, "bySumMassLEQ_"+tpId);
-                model.addConstr(bySumMass, GRB.GREATER_EQUAL, precursorMass+2*MassTool.PROTON - ms1TolAbs, "bySumMassGEQ_"+tpId);
+                model.addConstr(bySumMass, GRB.LESS_EQUAL, precursorMass+2*MassTool.PROTON + ms1TolAbs+ms2Tol, "bySumMassLEQ_"+tpId);
+                model.addConstr(bySumMass, GRB.GREATER_EQUAL, precursorMass+2*MassTool.PROTON - ms1TolAbs-ms2Tol, "bySumMassGEQ_"+tpId);
             }
 
 //            for (int tpId = 1; tpId <= numOfTps-1; tpId++) {
@@ -646,7 +647,8 @@ public class InferPTM {
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
 //            model.set(GRB.IntParam.AggFill, 1000); // second
-
+//            model.set(GRB.IntParam.PoolSearchMode,2);
+//            model.set(GRB.IntParam.PoolSolutions,5);
 //            model.set(GRB.IntParam.MIPFocus, 3); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slowe r
 //            model.set(GRB.IntParam.Presolve, 1); // second
@@ -725,7 +727,69 @@ public class InferPTM {
         }
     }
 
+    private void merge2Dash(Dash lD, Dash rD) {
+        if (lD.h < rD.h) {
+            lD.y = rD.x;
+        } else if (lD.h > rD.h) {
+            rD.x = lD.y;
+        } else {
+            lD.y = rD.y;
+            rD.y = rD.x;
+        }
+    }
+    private void generatePWLpts1(NavigableMap<Double, Double> feasiblePeaks, List<Double> pwX_List, List<Double> pwY_List, double minMz, double maxMz){
+        double lastY = 0;
+        List<List<Dash>> dashGroupList = new ArrayList<>();
+        List<Dash> tmpList = new ArrayList<>();
+        for (double mz : feasiblePeaks.keySet()) {
+            double thisX = mz-1.1*ms2Tol;
+            double thisY = mz+1.1*ms2Tol;
+            if (thisX > lastY && !tmpList.isEmpty()) {
+                List<Dash> okList = new ArrayList<>();
+                okList.addAll(tmpList);
+                dashGroupList.add(okList);
+                tmpList.clear();
+            }
+            tmpList.add(new Dash(thisX, thisY, feasiblePeaks.get(mz)));
+            lastY = thisY;
+        }
+        dashGroupList.add(tmpList);
+        for (List<Dash> dashes : dashGroupList) {
+            int groupSize = dashes.size();
+            Dash lD, rD;
+            if (groupSize >= 3) {
+                for (int lId = 0; lId < groupSize-1; lId++) {
+                    lD = dashes.get(lId);
+                    if (lD.y <= lD.x) continue;
+                    for (int rId = lId+1; rId < groupSize; rId++) {
+                        if (lD.y <= lD.x) break; //if modified ld is bad, stop try ld
+                        rD = dashes.get(rId);
+                        if (rD.y <= rD.x) continue;
+                        if (rD.x > lD.y) break;
+                        merge2Dash(lD, rD);
+                    }
+                }
+            } else if (groupSize == 2) {
+                lD = dashes.get(0);
+                rD = dashes.get(1);
+                merge2Dash(lD, rD);
+            }
+        }
 
+        lastY = Math.max(minMz-400, 0);
+        for (List<Dash> dashes : dashGroupList) {
+            pwX_List.add(lastY); pwY_List.add(0d);
+            pwX_List.add(dashes.get(0).x); pwY_List.add(0d);
+            lastY = dashes.get(dashes.size()-1).y;
+            for (Dash dash : dashes) {
+                if (dash.y <= dash.x ) continue;
+                pwX_List.add(dash.x); pwY_List.add(dash.h);
+                pwX_List.add(dash.y); pwY_List.add(dash.h);
+            }
+        }
+        pwX_List.add(lastY); pwY_List.add(0d);
+        pwX_List.add(Math.min(lastY+400,maxMz+2*ms2Tol)); pwY_List.add(0d);
+    }
     private void generatePWLpts(NavigableMap<Double, Double> feasiblePeaks, List<Double> pwX_List, List<Double> pwY_List, double minMz, double maxMz){
         int nPeaks = feasiblePeaks.size();
         List<Dash> dashList = new ArrayList<>(nPeaks);
@@ -1051,8 +1115,8 @@ public class InferPTM {
             }
 
             //// add constraints
-            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + 1.2*ms1TolAbs, "constrTotalMassLE");
-            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass - 1.2*ms1TolAbs, "constrTotalMassGE");
+            model.addConstr(totalFlexiableMass, GRB.LESS_EQUAL, totalDeltaMass + ms1TolAbs+ms2Tol, "constrTotalMassLE");
+            model.addConstr(totalFlexiableMass, GRB.GREATER_EQUAL, totalDeltaMass -ms1TolAbs-ms2Tol, "constrTotalMassGE");
             model.addConstr(totalNumsOnPep, GRB.LESS_EQUAL, Math.min(partSeqLen, MaxPtmNumInPart), "totalNumsOnPep"); // this value should not exceed the number of aa in the partSeq
 
             // peaks
@@ -1161,7 +1225,7 @@ public class InferPTM {
                 if (nPeaks != 0) {
                     List<Double> pwX_bIonList = new ArrayList<>(4*nPeaks+2);
                     List<Double> pwY_bIonList = new ArrayList<>(4*nPeaks+2);
-                    generatePWLpts(feasiblePeaks, pwX_bIonList, pwY_bIonList, minBmz, maxBmz);
+                    generatePWLpts1(feasiblePeaks, pwX_bIonList, pwY_bIonList, minBmz, maxBmz);
                     double[] pwX_bIon = pwX_bIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     double[] pwY_bIon = pwY_bIonList.stream().mapToDouble(Double::doubleValue).toArray();
                     model.setPWLObj(bMassVar, pwX_bIon, pwY_bIon);
@@ -1180,6 +1244,8 @@ public class InferPTM {
             model.set(GRB.IntParam.PreSparsify, 1); // second
 //            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
 
+//            model.set(GRB.IntParam.PoolSearchMode,2);
+//            model.set(GRB.IntParam.PoolSolutions,5);
 //            model.set(GRB.IntParam.AggFill, 1000); // second
 
 //            model.set(GRB.DoubleParam.TuneTimeLimit, 3600);//43200
@@ -1498,7 +1564,7 @@ public class InferPTM {
         } // end for (int i = 0; i < partSeq.length(); ++i) {
     }
 
-    public void findPosssible1Ptm(int scanNum, String partSeq, Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map, int startRefPos, TreeSet<Peptide> modPepsSet, double deltaMass) {
+    public void findPosssible1Ptm(int scanNum, String partSeq, Map<Integer, TreeMap<Double, VarPtm>> pos_MassVarPtm_Map, int startRefPos, TreeSet<Peptide> modPepsSet, double deltaMass, double ms1TolAbs) {
 
         int partSeqLen = partSeq.length();
         int absPos;
@@ -1506,8 +1572,8 @@ public class InferPTM {
             absPos = relPos + startRefPos;
             TreeMap<Double, VarPtm> massVarPtmMap = pos_MassVarPtm_Map.get(absPos);
             if (massVarPtmMap == null) continue;
-            massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol);
-            for (double mass : massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol).keySet()) {
+//            massVarPtmMap.subMap(deltaMass-ms2Tol, deltaMass+ms2Tol);
+            for (double mass : massVarPtmMap.subMap(deltaMass-ms2Tol-ms1TolAbs, deltaMass+ms2Tol+ms1TolAbs).keySet()) {
                 if (massTable.get(partSeq.charAt(relPos)) + mass < ms2Tol) continue;
                 VarPtm varPtm = massVarPtmMap.get(mass);
 

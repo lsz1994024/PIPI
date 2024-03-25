@@ -173,7 +173,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 ExpTag tmpTag = tagPosPair.getFirst();
                 if (Math.abs(tmpTag.getHeadLocation()-MassTool.PROTON) < ms2Tolerance) {
                     tmpTag.isNorC = N_TAG;
-                } else if (Math.abs(tmpTag.getTailLocation()-precursorMass+ massTool.H2O-MassTool.PROTON) < ms2Tolerance) {
+                } else if (Math.abs(tmpTag.getTailLocation()-precursorMass+ massTool.H2O-MassTool.PROTON) < ms1TolAbs+ms2Tolerance) {
                     tmpTag.isNorC = C_TAG;
                 }else {
                     tmpTag.isNorC = NON_NC_TAG;
@@ -679,7 +679,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 }
                 if (solved) segResList.add(getPepFromTag(rTag));
             } else if (gId == tagNum) {// solve a C gap
-                if (Math.abs(lTag.getTailLocation()-precursorMass+ massTool.H2O-MassTool.PROTON) < ms2Tolerance) {// lTag.isNorC == C_TAG
+                if (Math.abs(lTag.getTailLocation()-precursorMass+ massTool.H2O-MassTool.PROTON) < ms1TolAbs+ms2Tolerance) {// lTag.isNorC == C_TAG
                     solved = true;
                 } else {
                     TreeSet<Peptide> cModPepsSet = new TreeSet<>(Comparator.reverseOrder());
@@ -788,7 +788,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                               SparseVector unUsedExpProcessedPL, TreeMap<Double, Double> unUsedPlMap, GRBEnv env, TreeSet<Peptide> cModPepsSet) {
 
         double tagCMass = tag.getTailLocation() + massTool.H2O - MassTool.PROTON; // +massTool.H2O-MassTool.PROTON  is to mimic the mass of the real neutral precursor mass
-        if (tag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs) return true;// C tag, tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
+        if (tag.isNorC == C_TAG || Math.abs(tagCMass - precursorMass) < ms1TolAbs+ms2Tolerance) return true;// C tag, tagCMass must be exactly settle. Otherwise no valid cPos will be, then no valid n pos.
         // only when oriTag is not C oriTag can it extend to c
         double cCutMass = tag.getTailLocation() - MassTool.PROTON;
         int tagLen = tag.size();
@@ -814,7 +814,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 }
                 if (isKR)  krPoses.add(cPos);
 
-                if (Math.abs(tagCMass - precursorMass) <= ms1TolAbs) {
+                if (Math.abs(tagCMass - precursorMass) <= ms1TolAbs+ms2Tolerance) {
                     String cPartSeq = protSeq.substring(tagPosInProt+tagLen, cPos+1);
                     storeCleanPartPeptides(cPartSeq, cCutMass, C_PART, unUsedExpProcessedPL, unUsedPlMap, cModPepsSet);
                     return true;
@@ -848,6 +848,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                 if (cPoses.isEmpty()) {
                     optEndPosP1 = protLen;
                     optStartPos = protLen;  // good trick
+                    return false;
                 } else if (cPoses.get(cPoses.size()-1) == protLen-1) {
                     optEndPosP1 = protLen;
                     optStartPos = protLen;  // good trick
@@ -879,14 +880,14 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
             inferPTM.prepareInfoCTerm(scanNum, cPartSeq, absPos_MassVarPtm_Map,  yIdMaxAbsPosMap, optEndPosP1 == protLen, optStartPos, cPartStartPos, absPos_ptmPositions_Map);
 
             if (cPartSeqLen == 1) {
-                findPtmOnOneAa(cModPepsSet, flexiableMass, absPos_MassVarPtm_Map, cPartSeq, cPartStartPos);
+                findPtmOnOneAa(cModPepsSet, flexiableMass, absPos_MassVarPtm_Map, cPartSeq, cPartStartPos, ms1TolAbs);
             } else {
                 inferPTM.findBestPtmMIPExtCPWL(scanNum, env, flexiableMass, cPartStartPos,
                         cPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map, optStartPos, optEndPosP1 == protLen
                         , yIdMaxAbsPosMap, unUsedPlMap, cModPepsSet, absPos_ptmPositions_Map);
             }
             if (yIdMaxAbsPosMap.isEmpty()) {
-                inferPTM.findPosssible1Ptm(scanNum, cPartSeq, absPos_MassVarPtm_Map, cPartStartPos, cModPepsSet, flexiableMass);
+                inferPTM.findPosssible1Ptm(scanNum, cPartSeq, absPos_MassVarPtm_Map, cPartStartPos, cModPepsSet, flexiableMass,ms1TolAbs);
             }
         }
 
@@ -963,6 +964,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                     if (nPoses.isEmpty()) {
                         optEndPosP1 = 0;
                         optStartPos = 0;
+                        return false;
                     } else if (Collections.min(nPoses) == 0) { //if krPoses is empty, the only feasible situation is min(nPoses) == 0 where there is no digestion at N term
                         optEndPosP1 = 0;
                         optStartPos = 0;
@@ -991,7 +993,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                         absPos_MassVarPtm_Map, yIdMinAbsPosMap, optStartPos == 0, optEndPosP1, tagPosInProt, protSeq, absPos_ptmPositions_Map);
 
                 if (nPartSeqLen == 1) {
-                    findPtmOnOneAa(nModPepsSet, flexiableMass, absPos_MassVarPtm_Map, nPartSeq, tagPosInProt-1);
+                    findPtmOnOneAa(nModPepsSet, flexiableMass, absPos_MassVarPtm_Map, nPartSeq, tagPosInProt-1, ms1TolAbs);
                 } else {
 //                    inferPTM.findBestPtmMIPExtN(scanNum, env, flexiableMass, tagPosInProt, nPartSeq, ms1TolAbs, posYIdMap, absPos_MassVarPtm_Map
 //                            , optEndPosP1, optStartPos == 0, yIdMinAbsPosMap, protSeq, unUsedPlMap, nModPepsSet, absPos_ptmPositions_Map);
@@ -999,7 +1001,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
                             , optEndPosP1, optStartPos == 0, yIdMinAbsPosMap, protSeq, unUsedPlMap, nModPepsSet, absPos_ptmPositions_Map);
                 }
                 if (yIdMinAbsPosMap.isEmpty()) {
-                    inferPTM.findPosssible1Ptm(scanNum, nPartSeq, absPos_MassVarPtm_Map, optStartPos, nModPepsSet, flexiableMass);
+                    inferPTM.findPosssible1Ptm(scanNum, nPartSeq, absPos_MassVarPtm_Map, optStartPos, nModPepsSet, flexiableMass, ms1TolAbs);
                 }
             }
         }
@@ -1021,7 +1023,7 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map = new HashMap<>(gapLen, 1);
         inferPTM.prepareInfoMid(scanNum, gapSeq, absPos_MassVarPtm_Map, lTagPos+lTag.size());
         if (gapLen == 1) {
-            findPtmOnOneAa(midModPepsSet, deltaMass, absPos_MassVarPtm_Map, gapSeq, lTagPos+lTag.size());
+            findPtmOnOneAa(midModPepsSet, deltaMass, absPos_MassVarPtm_Map, gapSeq, lTagPos+lTag.size(),  ms1TolAbs);
         } else {
             // note: these two refMass is similar to cCutMass nCutMass, but different. CutMass are pure sum of aa res masses, the Proton and H2O mass will be added in subsequent Xcorr step
             double bIonRefMass = lTag.getTailLocation();
@@ -1033,17 +1035,17 @@ public final class MainSearch implements Callable<MainSearch.Entry> {
         }
 
         // a manual way to find possibly missing 1-ptm solutions.
-        inferPTM.findPosssible1Ptm(scanNum, gapSeq, absPos_MassVarPtm_Map, lTagPos+lTag.size(), midModPepsSet, deltaMass);
+        inferPTM.findPosssible1Ptm(scanNum, gapSeq, absPos_MassVarPtm_Map, lTagPos+lTag.size(), midModPepsSet, deltaMass, ms1TolAbs);
 
         if (midModPepsSet.isEmpty()) return false;
         return true;
     }
 
-    private void findPtmOnOneAa(TreeSet<Peptide> midModPepsSet, double deltaMass, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, String gapSeq, int absPos) {
+    private void findPtmOnOneAa(TreeSet<Peptide> midModPepsSet, double deltaMass, Map<Integer, TreeMap<Double, VarPtm>> absPos_MassVarPtm_Map, String gapSeq, int absPos, double ms1TolAbs) {
         TreeMap<Double, VarPtm> massPtmMap = absPos_MassVarPtm_Map.get(absPos);
         if (massPtmMap == null) return;
         for (double ptmMass : massPtmMap.keySet()) {
-            if (Math.abs(ptmMass - deltaMass) < 2*ms2Tolerance) {
+            if (Math.abs(ptmMass - deltaMass) < ms1TolAbs+ms2Tolerance) {
                 Peptide tmpPeptide = new Peptide(gapSeq, false, massTool);
                 PosMassMap posMassMap = new PosMassMap();
                 posMassMap.put(0, ptmMass);

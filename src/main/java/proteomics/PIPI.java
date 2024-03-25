@@ -48,9 +48,9 @@ public class PIPI {
     public static final boolean isDebugMode = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().toString().indexOf("jdwp") >= 0;
 
     //// normal
-    static final int minTagLenToExtract = 4;  //normal //todo
-    public    static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-    static final int  maxNumVarPtmConsidered = 5;
+//    static final int minTagLenToExtract = 4;  //normal //todo
+//    public    static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+//    static final int  maxNumVarPtmConsidered = 5;
 
     // dimethyl
 //    static final int minTagLenToExtract = 4;  //normal //todo
@@ -67,9 +67,9 @@ public class PIPI {
 //    static final int  maxNumVarPtmConsidered = 1;
 
     //    / DL simu
-//    static final int minTagLenToExtract = 3;  //normal //todo
-//    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
-//    static final int  maxNumVarPtmConsidered = 18;
+    static final int minTagLenToExtract = 3;  //normal //todo
+    public static final double MIN_PEAK_SUM_INFER_AA = 0.0;
+    static final int  maxNumVarPtmConsidered = 18;
     //    /debuging parameters
     public static HashSet<Integer> lszDebugScanNum = new HashSet<>(Arrays.asList(82001));//178,179,180,181,183,184,192
 
