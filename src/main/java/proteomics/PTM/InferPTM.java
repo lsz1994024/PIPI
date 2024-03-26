@@ -416,8 +416,8 @@ public class InferPTM {
             model.set(GRB.DoubleParam.TimeLimit, timeLimit); // second
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
-//            model.set(GRB.IntParam.PoolSearchMode,2);
-//            model.set(GRB.IntParam.PoolSolutions,5);
+            model.set(GRB.IntParam.PoolSearchMode,2);
+            model.set(GRB.IntParam.PoolSolutions,5);
             model.set(GRB.DoubleParam.MIPGap, 1e-1); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slower
 //            model.set(GRB.IntParam.PrePasses, 2); // second
@@ -647,8 +647,8 @@ public class InferPTM {
             model.set(GRB.IntParam.ConcurrentMIP, 4); // second
             model.set(GRB.IntParam.Threads, g_thread_num); // second
 //            model.set(GRB.IntParam.AggFill, 1000); // second
-//            model.set(GRB.IntParam.PoolSearchMode,2);
-//            model.set(GRB.IntParam.PoolSolutions,5);
+            model.set(GRB.IntParam.PoolSearchMode,2);
+            model.set(GRB.IntParam.PoolSolutions,5);
 //            model.set(GRB.IntParam.MIPFocus, 3); // second
 //            model.set(GRB.IntParam.CutPasses, 3); // 2: slowe r
 //            model.set(GRB.IntParam.Presolve, 1); // second
@@ -1244,8 +1244,8 @@ public class InferPTM {
             model.set(GRB.IntParam.PreSparsify, 1); // second
 //            model.set(GRB.DoubleParam.Heuristics, 0.5); // second
 
-//            model.set(GRB.IntParam.PoolSearchMode,2);
-//            model.set(GRB.IntParam.PoolSolutions,5);
+            model.set(GRB.IntParam.PoolSearchMode,2);
+            model.set(GRB.IntParam.PoolSolutions,5);
 //            model.set(GRB.IntParam.AggFill, 1000); // second
 
 //            model.set(GRB.DoubleParam.TuneTimeLimit, 3600);//43200
