@@ -1019,6 +1019,53 @@ public class PIPI {
             }
         }
 
+        if (true) { // peptide level FDR
+            List<ScanRes> copy_scanResList = new ArrayList<>(scanResList);
+            Set<String> topPeps = new HashSet<>();
+            List<Integer> indexesToDel = new ArrayList<>();
+
+            for (int i = 0; i < copy_scanResList.size(); i++) {
+                ScanRes thisRes = copy_scanResList.get(i);
+                if (topPeps.contains(thisRes.peptideInfoScoreList.get(0).peptideInfo.freeSeq)) {
+                    indexesToDel.add(i);
+                } else {
+                    topPeps.add(thisRes.peptideInfoScoreList.get(0).peptideInfo.freeSeq);
+                }
+            }
+            indexesToDel.sort(Comparator.reverseOrder());
+            for (int i : indexesToDel) {
+                copy_scanResList.remove(i);
+            }
+
+            int newNumT = 0;
+            int newNumD = 0;
+            List<Double> newFdrList = new ArrayList<>();
+            for (int i = 0; i < copy_scanResList.size(); i++) {
+                ScanRes thisRes = copy_scanResList.get(i);
+                if (thisRes.peptideInfoScoreList.get(0).peptideInfo.isDecoy) {
+                    newNumD ++;
+                } else {
+                    newNumT++;
+                }
+                newFdrList.add(Math.min(1.0, (1.0+newNumD)/newNumT));
+            }
+            List<Double> newQList = new ArrayList<>();
+            for (int i = newFdrList.size()-2; i >= 0; i--) {
+                newFdrList.set(i, Math.min(newFdrList.get(i), newFdrList.get(i+1)));
+            }
+
+            Map<String, Double> pepQMap = new HashMap<>();
+            for (int i = 0; i < copy_scanResList.size(); i++) {
+                ScanRes thisRes = copy_scanResList.get(i);
+                pepQMap.put(thisRes.peptideInfoScoreList.get(0).peptideInfo.freeSeq, newFdrList.get(i));
+            }
+            for (int i = 0; i < scanResList.size(); i++) {
+                ScanRes thisRes = scanResList.get(i);
+                thisRes.qValue = pepQMap.get(thisRes.peptideInfoScoreList.get(0).peptideInfo.freeSeq);
+            }
+        }
+        scanResList.sort(Comparator.comparing(o->o.qValue, Comparator.naturalOrder()));
+
         List<Pair<Double, String>> finalExcelList = new ArrayList<>(scanResList.size());
         for (ScanRes scanRes : scanResList) {
             List<CandiScore> candiScoreList = scanRes.peptideInfoScoreList;
